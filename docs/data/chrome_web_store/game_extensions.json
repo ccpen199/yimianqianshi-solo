@@ -1,0 +1,586 @@
+{
+  "source": "用户提供的 Chrome 应用商店游戏分类页面文本",
+  "collected_at": "2026-04-24",
+  "store": "Chrome 应用商店",
+  "category": "游戏",
+  "filter": "全部",
+  "sort": "相关度最高",
+  "items": [
+    {
+      "index": 1,
+      "name": "Boxel Rebound",
+      "rating": 4.6,
+      "description": "Play over 50 levels of box-jumping madness! Design and share your own levels."
+    },
+    {
+      "index": 2,
+      "name": "Stacker - Falling tetra blocks!",
+      "rating": 3.9,
+      "description": "A fun arcade game that plays in a popup. Stack falling tetra blocks without hitting the ceiling!"
+    },
+    {
+      "index": 3,
+      "name": "Ultimate Car Driving Game",
+      "rating": 4.4,
+      "description": "Enjoy car driving simulator in a big and fascinating city."
+    },
+    {
+      "index": 4,
+      "name": "Boxel 3D",
+      "rating": 4.6,
+      "description": "Boxel 3D is a speedrunning game packed with challenging levels, custom skins, online multiplayer, and a creative level editor."
+    },
+    {
+      "index": 5,
+      "name": "Snake",
+      "rating": 4.3,
+      "description": "The authentic snake game in a popup. Smooth animations and a saved high score!"
+    },
+    {
+      "index": 6,
+      "name": "Beyond 20",
+      "rating": 4.8,
+      "description": "Integrates the D&D Beyond Character Sheets with Roll20 and Foundry VTT."
+    },
+    {
+      "index": 7,
+      "name": "2048",
+      "rating": 3.5,
+      "description": "Play original 2048 puzzle game in popup anytime you want!"
+    },
+    {
+      "index": 8,
+      "name": "Helix Fruit Jump Arcade Game",
+      "rating": 4.1,
+      "description": "In Helix Fruit Jump game, you have to take the ball to the finish line and complete the level."
+    },
+    {
+      "index": 9,
+      "name": "Tiny Tycoon",
+      "rating": 4.7,
+      "description": "Build a tiny tycoon on a tiny planet."
+    },
+    {
+      "index": 10,
+      "name": "Subway Surfers Game",
+      "rating": 4.0,
+      "description": "Subway Surfers Game right on Chrome™ Browser! Fun for all ages, and a mental workout too! Popup Version. Have fun!"
+    },
+    {
+      "index": 11,
+      "name": "Sniper Gun Shooting Game",
+      "rating": 3.1,
+      "description": "With your sniper rifle, you have to eliminate all the enemies without being noticed."
+    },
+    {
+      "index": 12,
+      "name": "Endless Car Chase Game",
+      "rating": 4.3,
+      "description": "Super fast car has to escape the cops and get the highest score without crashing."
+    },
+    {
+      "index": 13,
+      "name": "FoE - Helper",
+      "rating": 3.4,
+      "description": "Small tools and helpers for a better gaming experience in Forge of Empires"
+    },
+    {
+      "index": 14,
+      "name": "Geometry Dash Strategy Game - HTML5 Game",
+      "rating": 3.0,
+      "description": "The square moves by itself in Geometry Dash. To jump when necessary, simply click, and to steer a vehicle, use up/down"
+    },
+    {
+      "index": 15,
+      "name": "Geometry Dash Lite Game",
+      "rating": 3.7,
+      "description": "Play Geometry Dash Lite Game right on Chrome™ Browser! Popup Version, without internet required! Have fun!"
+    },
+    {
+      "index": 16,
+      "name": "Extreme Car Traffic Racing Game",
+      "rating": 4.0,
+      "description": "If you like car racing games, you must make high scores on highway."
+    },
+    {
+      "index": 17,
+      "name": "Flappy Basketball Game",
+      "rating": 3.5,
+      "description": "Do you like playing basketball? All you have to do is toss the ball into the basket and score as high as you can."
+    },
+    {
+      "index": 18,
+      "name": "Sci Fi Racer Game",
+      "rating": 3.6,
+      "description": "With your spacecraft, you must pass through round rings on a track with a sci-fi design and score points."
+    },
+    {
+      "index": 19,
+      "name": "Custom Cursor-Man: Hero's Rise - 空闲游戏",
+      "rating": 4.6,
+      "description": "一个有趣的闲置点击游戏，关于一个愿意成为自定义光标英雄的简单家伙和他有趣的冒险。"
+    },
+    {
+      "index": 20,
+      "name": "侧边游戏 - 在侧边栏玩迷你游戏",
+      "rating": 3.0,
+      "description": "在您的浏览器侧边栏玩超过一百种迷你游戏！"
+    },
+    {
+      "index": 21,
+      "name": "BattleTabs",
+      "rating": 4.7,
+      "description": "Multiplayer Battles in your New Tab"
+    },
+    {
+      "index": 22,
+      "name": "Maze",
+      "rating": 4.2,
+      "description": "A fun maze game that plays in a popup."
+    },
+    {
+      "index": 23,
+      "name": "Head Soccer 2022 Sports Game",
+      "rating": 2.8,
+      "description": "Defeat your opponent before the time runs out in the head ball soccer game by choosing your character."
+    },
+    {
+      "index": 24,
+      "name": "Arcade Car Racing Game",
+      "rating": 3.6,
+      "description": "Choose your car and reach the finish line before your opponents by drift racing."
+    },
+    {
+      "index": 25,
+      "name": "NTL MOD for Slither.io",
+      "rating": 4.2,
+      "description": "Advanced slither.io mod for pro players"
+    },
+    {
+      "index": 26,
+      "name": "Extreme Motorbike Driving Game",
+      "rating": 4.0,
+      "description": "Choose from three different types of motorcycles and enjoy the ride in a big city."
+    },
+    {
+      "index": 27,
+      "name": "Rolling Ball Unblocked",
+      "rating": 3.5,
+      "description": "Rolling Ball 3D: Roll through obstacles, collect diamonds & conquer levels! Fast-paced arcade-style gameplay."
+    },
+    {
+      "index": 28,
+      "name": "Offline Games - No Wifi Games",
+      "rating": 4.4,
+      "description": "Now you can play Offline Games - No Wifi Games right on Chrome™ Browser! Fun for all ages, and a mental workout too!"
+    },
+    {
+      "index": 29,
+      "name": "Cookie Clicker - 点击游戏",
+      "rating": 4.4,
+      "description": "Clicking cookies like a boss - each click makes them feel like the happiest cookie in the universe! 🍪✨"
+    },
+    {
+      "index": 30,
+      "name": "Among Us Game",
+      "rating": 3.9,
+      "description": "Now you can play Among Us Game right on Chrome™ Browser! Offline and Popup Version, without internet required!"
+    },
+    {
+      "index": 31,
+      "name": "Gun Fest Arcade Game",
+      "rating": 2.3,
+      "description": "In this arcade game, collect ammo using math operations as you progress on the road."
+    },
+    {
+      "index": 32,
+      "name": "Strike Football Sports Game",
+      "rating": 3.2,
+      "description": "Make great freekick over the barrage and score goals in this soccer game."
+    },
+    {
+      "index": 33,
+      "name": "Doodle Jump Original",
+      "rating": 4.6,
+      "description": "Now you can play Doodle Jump Original right on Chrome™ Browser! Offline and Popup Version, without internet required!"
+    },
+    {
+      "index": 34,
+      "name": "Pinball Space Adventure Game",
+      "rating": 4.2,
+      "description": "Pinball Space Adventure - Survive as long as possible and score as many points as you can!"
+    },
+    {
+      "index": 35,
+      "name": "Sci Fi Flight Simulator Game",
+      "rating": 4.4,
+      "description": "In this flight simulator game, try to complete the levels by collecting the spheres on the stage."
+    },
+    {
+      "index": 36,
+      "name": "Pixel.me - color by number game",
+      "rating": 4.8,
+      "description": "Color by number to melt your stress away with coloring games. Relaxing game for Chrome. Paint online dozens images."
+    },
+    {
+      "index": 37,
+      "name": "KahootGPT (NEW: Start Free!)",
+      "rating": 4.5,
+      "description": "Not affiliated with Kahoot! or ChatGPT: Use KahootGPT to win all your Kahoot! games"
+    },
+    {
+      "index": 38,
+      "name": "Soccer Online Game Football - HTML5 Game",
+      "rating": 3.7,
+      "description": "Soccer online is the perfect way to get your soccer fix as the world cup season approaches."
+    },
+    {
+      "index": 39,
+      "name": "Stickman Ball Hook Game",
+      "rating": 2.2,
+      "description": "You have to reach the finish line by jumping from one hook to the other hook at the right time with the stickman."
+    },
+    {
+      "index": 40,
+      "name": "Link All",
+      "rating": 4.8,
+      "description": "Link all the nodes. It's harder than it looks."
+    },
+    {
+      "index": 41,
+      "name": "City Bus Driver Car Game",
+      "rating": 2.4,
+      "description": "You have to be a great public bus driver in this bus car game simulator."
+    },
+    {
+      "index": 42,
+      "name": "Geometry Dash Original",
+      "rating": 3.6,
+      "description": "Now you can play Geometry Dash Original right on Chrome™ Browser! Offline and Popup Version, without internet required!"
+    },
+    {
+      "index": 43,
+      "name": "Extreme Drift Car Game",
+      "rating": 3.2,
+      "description": "Choose your suitable vehicle and drift along the road with the car."
+    },
+    {
+      "index": 44,
+      "name": "2048 Cupcakes",
+      "rating": 4.3,
+      "description": "A popup 2048 cupcakes game"
+    },
+    {
+      "index": 45,
+      "name": "Slope Unblocked Game",
+      "rating": 4.3,
+      "description": "Slope is a popular running 3D game. Enjoy endless Slope unblocked and test your reflection skills"
+    },
+    {
+      "index": 46,
+      "name": "AntiGameReborn",
+      "rating": 4.2,
+      "description": "AGR - the other OGame experience for all communities."
+    },
+    {
+      "index": 47,
+      "name": "Lil Rooster Money Clicker - Idle Game",
+      "rating": 4.6,
+      "description": "关于说唱歌手Lil Rooster走向成功的艰难道路的有趣游戏！ 他需要你的帮助来传播他的嘻哈音乐并赚取大笔资金！"
+    },
+    {
+      "index": 48,
+      "name": "Block Blast Game",
+      "rating": 4.0,
+      "description": "Play Block Blast Game right on Chrome™ Browser! Popup Version, without internet required! Have fun!"
+    },
+    {
+      "index": 49,
+      "name": "Motocross Driving Simulator Game",
+      "rating": 3.8,
+      "description": "Get real motocross driving experience and complete all missions."
+    },
+    {
+      "index": 50,
+      "name": "Police Car Simulator Game",
+      "rating": 2.7,
+      "description": "If you like to drive police car, a great cop game is waiting for you."
+    },
+    {
+      "index": 51,
+      "name": "Save Us Game",
+      "rating": 4.7,
+      "description": "Save Us is a puzzle platform game - Try to save all of them to pass the level"
+    },
+    {
+      "index": 52,
+      "name": "Drift Car Multiplayer Racing Game",
+      "rating": 3.0,
+      "description": "Drift car multiplayer is a racing game that can be played single player mode and online."
+    },
+    {
+      "index": 53,
+      "name": "Cars Lightning Speed Unblocked Game",
+      "rating": 4.0,
+      "description": "Lightning Speed, where players race cars and compete in high-speed races. It's a racing game that tests driving skills."
+    },
+    {
+      "index": 54,
+      "name": "Off Road 4x4 Jeep Simulator Game",
+      "rating": 3.7,
+      "description": "Become a great 4x4 car driver in a big town in this offroad car game."
+    },
+    {
+      "index": 55,
+      "name": "Spiderman Masked Missions",
+      "rating": 2.9,
+      "description": "Doing what a spiderman can, Spiderman: Masked Missions is a game made from the Movie Into the Spiderverse."
+    },
+    {
+      "index": 56,
+      "name": "Slope 2 Unblocked",
+      "rating": 4.7,
+      "description": "Slope 2. You play as a ball that must navigate a variety of obstacles in the entertaining and hard 3D game."
+    },
+    {
+      "index": 57,
+      "name": "Geometry Dash Unblocked",
+      "rating": 3.6,
+      "description": "Geometry Dash Unblocked Game Popup Version for free right on Chrome™ Browser. This is one of our best Casual games! Play Offline!"
+    },
+    {
+      "index": 58,
+      "name": "super watermelon",
+      "rating": 4.8,
+      "description": "Welcome to Super Watermelon! In this relaxing and fun game, you will experience an addictive fruit merge adventure."
+    },
+    {
+      "index": 59,
+      "name": "游戏",
+      "rating": 4.5,
+      "description": "离线游戏合集。"
+    },
+    {
+      "index": 60,
+      "name": "Dungeon Dodge Game",
+      "rating": 4.3,
+      "description": "Dungeon Dodge Game - Avoiding the fires and collect the coins!"
+    },
+    {
+      "index": 61,
+      "name": "Stop The Lock Game",
+      "rating": 4.0,
+      "description": "Tap the lock at the right time and unlock all the locks. Challenging levels are waiting for you."
+    },
+    {
+      "index": 62,
+      "name": "Table Tennis",
+      "rating": 4.6,
+      "description": "A classic table tennis game that plays in a popup."
+    },
+    {
+      "index": 63,
+      "name": "Merge Cafe Game",
+      "rating": 4.1,
+      "description": "Merge Cafe Game - Buy tasty cakes, merge them to unlock new recipes and serve them to cute falling customers!"
+    },
+    {
+      "index": 64,
+      "name": "Naruto Ninja Strike - Anime Game",
+      "rating": 4.1,
+      "description": "Do you like watching Naruto anime and playing Atari games? Then this game is for you."
+    },
+    {
+      "index": 65,
+      "name": "Stack Surfer Hyper Casual Game",
+      "rating": 2.0,
+      "description": "Get high scores when you reach the finish line by collecting the piles on the ground with the wheelbarrow."
+    },
+    {
+      "index": 66,
+      "name": "Sonic Origins Pocket Edition",
+      "rating": 3.8,
+      "description": "Do you like classic arcade games? then this sonic game is for you. Start playing!"
+    },
+    {
+      "index": 67,
+      "name": "Cookie Tycoon",
+      "rating": 4.5,
+      "description": "A casual cookie clicker game where you gather cookies by clicking cookies. The more you click, the greater your cookie empire."
+    },
+    {
+      "index": 68,
+      "name": "Knife Hit it Right - HTML5 Game",
+      "rating": 3.3,
+      "description": "Knife Hit it Right is a fun shooter game where we must throw knives carefully at the different targets we come across."
+    },
+    {
+      "index": 69,
+      "name": "Car Parking Master Game",
+      "rating": 3.6,
+      "description": "You have to take the car to the parking area without hitting the pontoons. Challenging levels are waiting for you."
+    },
+    {
+      "index": 70,
+      "name": "Stunt Crasher Car Game",
+      "rating": 3.6,
+      "description": "In this stunt car crush game, constantly improve your car and jump further and further."
+    },
+    {
+      "index": 71,
+      "name": "alike03's Subscription Info on Steam",
+      "rating": 4.7,
+      "description": "See on Steam if the game is currently available on any Subscription package like Xbox Game Pass PC & Console, Ubisoft+ or EA Play"
+    },
+    {
+      "index": 72,
+      "name": "Police Car Escape Simulator Game",
+      "rating": 4.7,
+      "description": "Experience an adrenaline-filled police game with police car escape simulator."
+    },
+    {
+      "index": 73,
+      "name": "Classic Uno Game",
+      "rating": 1.7,
+      "description": "When playing uno against your opponent, you must first run out of cards in your hand."
+    },
+    {
+      "index": 74,
+      "name": "Car Climb Racing Game",
+      "rating": 5.0,
+      "description": "Improve your car and reach the finish line before you run out of gas in mountain climbing."
+    },
+    {
+      "index": 75,
+      "name": "角色扮演网络游戏 - Dedalium",
+      "rating": 4.9,
+      "description": "Dedalium是一个浏览器扩展程序，可将任何网站变为角色扮演游戏。游玩并征服互联网！"
+    },
+    {
+      "index": 76,
+      "name": "Level Maze",
+      "rating": 4.5,
+      "description": "A level up maze game that plays in a popup."
+    },
+    {
+      "index": 77,
+      "name": "Basketball Court Dunk Shoot Game",
+      "rating": 3.0,
+      "description": "Make great shots and become a basketball star in this basketball game."
+    },
+    {
+      "index": 78,
+      "name": "偷窃 Brainrot - 畅玩版游戏",
+      "rating": 2.0,
+      "description": "完成终极模因抢劫！潜行绕过守卫，使用 Skibidi 战术，在这款混乱的游戏中窃取病毒式传播的战利品。"
+    },
+    {
+      "index": 79,
+      "name": "Endless Golf Battle Game",
+      "rating": 4.0,
+      "description": "Before you run out of balls, throw the ball into the pit and move on to the next level."
+    },
+    {
+      "index": 80,
+      "name": "3D Rolling Ball Game",
+      "rating": 3.2,
+      "description": "You have to reach the finish line as soon as possible by passing the ball through the obstacles."
+    },
+    {
+      "index": 81,
+      "name": "2 Player Mini Games",
+      "rating": 4.2,
+      "description": "Play 2 Player Mini Games right now. Discover the Joy of palying this game - Your Ultimate Online Happy Experience! Try it now!"
+    },
+    {
+      "index": 82,
+      "name": "Paper.io 2 Game",
+      "rating": 3.8,
+      "description": "Now you can play Paper.io 2 Game right on Chrome™ Browser! Offline and Popup Version, without internet required!"
+    },
+    {
+      "index": 83,
+      "name": "Space Waves - 畅玩版",
+      "rating": 5.0,
+      "description": "乘风破浪！在这个激烈的节奏平台游戏中躲避尖刺和墙壁。你能通过所有关卡吗？"
+    },
+    {
+      "index": 84,
+      "name": "Ball Hop Game",
+      "rating": 3.3,
+      "description": "Try to get the highest score by jumping on the objects on the track. If you fall, you lose the game."
+    },
+    {
+      "index": 85,
+      "name": "Faceit elo statistics (CS:GO, CS 2)",
+      "rating": 4.7,
+      "description": "Easily view your statistics on faceit for CS:GO and CS 2. Extended player statistics, his maps, matches are available."
+    },
+    {
+      "index": 86,
+      "name": "Tapit - Previously FaceitAdvanced",
+      "rating": 4.8,
+      "description": "Level up your Faceit experience – smarter stats, deeper insights, more control."
+    },
+    {
+      "index": 87,
+      "name": "2048 Game",
+      "rating": 4.8,
+      "description": "Play 2048 game offline in a popup anytime you want!"
+    },
+    {
+      "index": 88,
+      "name": "Snake Classic",
+      "rating": 5.0,
+      "description": "A classic snake game that plays in a popup."
+    },
+    {
+      "index": 89,
+      "name": "Keep Out Unblocked Game",
+      "rating": 4.7,
+      "description": "Keep Out is an HTML5 action game where players navigate dungeons and collect treasures"
+    },
+    {
+      "index": 90,
+      "name": "Faceit EGO Enhancer",
+      "rating": 5.0,
+      "description": "FACEIT EGO ENHANCER — Your Ultimate FACEIT Companion for CS2 Enhance your competitive FACEIT experience with powerful tools that…"
+    },
+    {
+      "index": 91,
+      "name": "Bicycle Rider Simulator Game",
+      "rating": 3.3,
+      "description": "Test your skills in Bicycle Rider Simulator full of exciting missions."
+    },
+    {
+      "index": 92,
+      "name": "Dreadhead Parkour",
+      "rating": 4.6,
+      "description": "Play Dreadhead Parkour right on Chrome™ Browser! Offline Version!"
+    },
+    {
+      "index": 93,
+      "name": "Agar.io Unblocked",
+      "rating": 1.9,
+      "description": "Agar.io Unblocked"
+    },
+    {
+      "index": 94,
+      "name": "Drift Cars Zombie Smasher Game",
+      "rating": 4.5,
+      "description": "Join the gripping battle against the zombie invasion with Drift Cars Zombie Smasher."
+    },
+    {
+      "index": 95,
+      "name": "Extreme Bus Driver Car Game",
+      "rating": 5.0,
+      "description": "Experience the thrill of transporting passengers in city with extreme bus driver."
+    },
+    {
+      "index": 96,
+      "name": "Dream Head Soccer Game",
+      "rating": 3.3,
+      "description": "In this football game, you have to choose your team and beat the opponent before the time runs out."
+    }
+  ]
+}

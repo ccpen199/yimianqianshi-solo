@@ -1,0 +1,32 @@
+{
+  "order": "xm-12254",
+  "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/50a7c2753ff610af2476c89e4fd89950/state.vscdb",
+  "sessionId": "69f797c985d83e4a45efc3e6",
+  "rows": [
+    {
+      "sessionId": ".3792634309254663:d5366c6df85b28573ba89ea3ffb098b8_69f797c985d83e4a45efc3e6.69f797f285d83e4a45efc416.69f797f1e0b93f56f490dcea:Trae CN.T(2026/5/3 21:46:10)",
+      "rawSessionId": "69f797c985d83e4a45efc3e6",
+      "conversation": "运行时间太长。继续完成任务。",
+      "logTrace": "",
+      "dissatisfactionReason": "产物不满意: 用户抱怨运行时间太长，表达了对任务执行效率的不满",
+      "annotationHash": "89da7332021f06d14a98b3427404a97d4b765e68",
+      "annotationVersion": "20260505_v2",
+      "annotationUpdatedAt": "2026-05-05T12:41:50",
+      "annotationSource": "modelscope",
+      "logTraceId": ".3792634309254663:d5366c6df85b28573ba89ea3ffb098b8_69f797c985d83e4a45efc3e6.69f797f285d83e4a45efc416.69f797f1e0b93f56f490dcea:Trae CN.T(2026/5/3 21:46:10)",
+      "sessionComposite": ".3792634309254663:d5366c6df85b28573ba89ea3ffb098b8_69f797c985d83e4a45efc3e6.69f797f285d83e4a45efc416.69f797f1e0b93f56f490dcea:Trae CN.T(2026/5/3 21:46:10)",
+      "logTraceSource": "not-found-real-file",
+      "logTraceSourceDetail": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/50a7c2753ff610af2476c89e4fd89950/state.vscdb",
+      "logTraceReconstructed": false,
+      "officialCopiedLogTrace": false,
+      "logTraceMissing": [
+        "official_copied_text_not_found_in_local_storage"
+      ],
+      "logTraceReconstructionVersion": "20260509_v9_real_only"
+    }
+  ],
+  "cached": true,
+  "refreshedAt": "2026-05-04T13:40:28",
+  "logTraceMode": "real-official-copy-only",
+  "logTraceVersion": "20260509_v9_1_real_only"
+}

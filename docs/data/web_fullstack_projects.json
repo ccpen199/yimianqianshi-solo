@@ -1,0 +1,298 @@
+[
+  {
+    "id": 1,
+    "业务方向": "AI 助手与搜索",
+    "典型产品/项目": "ChatGPT / Claude / Gemini / Perplexity",
+    "项目类型": "AI/ML应用",
+    "方向": "行业知识助手、研究 Copilot、企业问答",
+    "来源生态": "AI Web"
+  },
+  {
+    "id": 2,
+    "业务方向": "AI 工作流",
+    "典型产品/项目": "Zapier AI / Make / n8n Cloud",
+    "项目类型": "全栈Web应用",
+    "方向": "客服自动化、销售自动化、运营自动化",
+    "来源生态": "AI Web"
+  },
+  {
+    "id": 3,
+    "业务方向": "AI 视频与内容",
+    "典型产品/项目": "Runway / Synthesia / Descript / HeyGen",
+    "项目类型": "AI/ML应用",
+    "方向": "短视频生成、课程视频、营销视频",
+    "来源生态": "AI Web"
+  },
+  {
+    "id": 4,
+    "业务方向": "AI 写作与营销",
+    "典型产品/项目": "Jasper / Copy.ai / Grammarly / QuillBot",
+    "项目类型": "AI/ML应用",
+    "方向": "广告文案、邮件营销、品牌内容生成",
+    "来源生态": "AI Web"
+  },
+  {
+    "id": 5,
+    "业务方向": "AI Agent / RAG",
+    "典型产品/项目": "LangChain / LlamaIndex / Dify / AutoGen / CrewAI",
+    "项目类型": "AI/ML应用",
+    "方向": "行业 Agent、RAG 平台、私有化 AI 助手",
+    "来源生态": "GitHub"
+  },
+  {
+    "id": 6,
+    "业务方向": "本地模型推理",
+    "典型产品/项目": "Ollama / llama.cpp / vLLM / LocalAI",
+    "项目类型": "AI/ML应用",
+    "方向": "本地 AI 助手、模型管理、推理网关",
+    "来源生态": "GitHub"
+  },
+  {
+    "id": 7,
+    "业务方向": "向量数据库",
+    "典型产品/项目": "Milvus / Weaviate / Qdrant / Chroma / pgvector",
+    "项目类型": "AI/ML应用",
+    "方向": "企业知识库、语义搜索、文档问答",
+    "来源生态": "GitHub"
+  },
+  {
+    "id": 8,
+    "业务方向": "低代码与内部工具",
+    "典型产品/项目": "Appsmith / ToolJet / NocoBase / Budibase",
+    "项目类型": "全栈Web应用",
+    "方向": "运营后台、CRM、审批流、管理系统",
+    "来源生态": "GitHub"
+  },
+  {
+    "id": 9,
+    "业务方向": "教育与导航",
+    "典型产品/项目": "freeCodeCamp / developer-roadmap / awesome-selfhosted",
+    "项目类型": "全栈Web应用",
+    "方向": "学习平台、知识导航、课程产品",
+    "来源生态": "GitHub"
+  },
+  {
+    "id": 10,
+    "业务方向": "营销转化",
+    "典型产品/项目": "Klaviyo / Privy / Omnisend / SMSBump",
+    "项目类型": "全栈Web应用",
+    "方向": "邮件短信营销、弃购召回、自动化营销",
+    "来源生态": "Shopify App Store"
+  },
+  {
+    "id": 11,
+    "业务方向": "评价与社证",
+    "典型产品/项目": "Judge.me / Loox / Yotpo / Trustpilot",
+    "项目类型": "全栈Web应用",
+    "方向": "商品评价、UGC 展示、转化率提升",
+    "来源生态": "Shopify App Store"
+  },
+  {
+    "id": 12,
+    "业务方向": "Upsell 与 Bundles",
+    "典型产品/项目": "ReConvert / Bold Upsell / Frequently Bought Together",
+    "项目类型": "全栈Web应用",
+    "方向": "加购推荐、组合销售、客单价提升",
+    "来源生态": "Shopify App Store"
+  },
+  {
+    "id": 13,
+    "业务方向": "物流与履约",
+    "典型产品/项目": "ShipStation / AfterShip / Easyship / Shippo",
+    "项目类型": "全栈Web应用",
+    "方向": "订单追踪、跨境物流、运费计算",
+    "来源生态": "Shopify App Store"
+  },
+  {
+    "id": 14,
+    "业务方向": "店铺设计",
+    "典型产品/项目": "PageFly / GemPages / Shogun / Replo",
+    "项目类型": "Web前端",
+    "方向": "落地页生成、A/B 测试、主题编辑",
+    "来源生态": "Shopify App Store"
+  },
+  {
+    "id": 15,
+    "业务方向": "商品采购",
+    "典型产品/项目": "DSers / Spocket / Printful / Printify",
+    "项目类型": "全栈Web应用",
+    "方向": "Dropshipping、POD、供应商同步",
+    "来源生态": "Shopify App Store"
+  },
+  {
+    "id": 16,
+    "业务方向": "项目协作",
+    "典型产品/项目": "Jira Cloud / Asana / Trello / ClickUp",
+    "项目类型": "全栈Web应用",
+    "方向": "任务同步、状态提醒、项目更新",
+    "来源生态": "Slack / Atlassian"
+  },
+  {
+    "id": 17,
+    "业务方向": "客服与工单",
+    "典型产品/项目": "Zendesk / Intercom / Freshdesk / Halp",
+    "项目类型": "全栈Web应用",
+    "方向": "工单创建、客服协作、SLA 提醒",
+    "来源生态": "Slack App Directory"
+  },
+  {
+    "id": 18,
+    "业务方向": "HR 与团队",
+    "典型产品/项目": "Donut / Polly / Lattice / Culture Amp",
+    "项目类型": "全栈Web应用",
+    "方向": "新人融入、脉搏调查、绩效反馈",
+    "来源生态": "Slack App Directory"
+  },
+  {
+    "id": 19,
+    "业务方向": "Jira 项目管理",
+    "典型产品/项目": "Tempo / Structure / BigPicture / Planning Poker",
+    "项目类型": "全栈Web应用",
+    "方向": "工时、组合项目、排期、需求估算",
+    "来源生态": "Atlassian Marketplace"
+  },
+  {
+    "id": 20,
+    "业务方向": "测试管理",
+    "典型产品/项目": "Zephyr / Xray / TestRail Integration",
+    "项目类型": "全栈Web应用",
+    "方向": "测试用例、测试报告、缺陷追踪",
+    "来源生态": "Atlassian Marketplace"
+  },
+  {
+    "id": 21,
+    "业务方向": "Confluence 知识库",
+    "典型产品/项目": "draw.io / Scroll Viewport / Comala Document Management",
+    "项目类型": "全栈Web应用",
+    "方向": "图表、文档审批、知识门户",
+    "来源生态": "Atlassian Marketplace"
+  },
+  {
+    "id": 22,
+    "业务方向": "CRM 增强",
+    "典型产品/项目": "DocuSign / Conga / ZoomInfo / LinkedIn Sales Navigator",
+    "项目类型": "全栈Web应用",
+    "方向": "合同签署、销售情报、客户数据增强",
+    "来源生态": "Salesforce AppExchange"
+  },
+  {
+    "id": 23,
+    "业务方向": "客服与呼叫中心",
+    "典型产品/项目": "Five9 / Talkdesk / Genesys / ServiceNow Connector",
+    "项目类型": "全栈Web应用",
+    "方向": "呼叫中心、客服工单、客户360",
+    "来源生态": "Salesforce AppExchange"
+  },
+  {
+    "id": 24,
+    "业务方向": "营销自动化",
+    "典型产品/项目": "Mailchimp / HubSpot / Marketo Connectors",
+    "项目类型": "全栈Web应用",
+    "方向": "线索培育、邮件营销、ROI 分析",
+    "来源生态": "Salesforce / HubSpot"
+  },
+  {
+    "id": 25,
+    "业务方向": "增长营销",
+    "典型产品/项目": "Mailchimp / Typeform / Hotjar / Zapier",
+    "项目类型": "全栈Web应用",
+    "方向": "表单获客、用户行为、自动化触达",
+    "来源生态": "HubSpot Marketplace"
+  },
+  {
+    "id": 26,
+    "业务方向": "销售运营",
+    "典型产品/项目": "Aircall / PandaDoc / Chili Piper / ZoomInfo",
+    "项目类型": "全栈Web应用",
+    "方向": "电话销售、报价、预约、线索丰富",
+    "来源生态": "HubSpot Marketplace"
+  },
+  {
+    "id": 27,
+    "业务方向": "客户支持",
+    "典型产品/项目": "Slack / Shopify / Jira / Tymeshift / Klaus",
+    "项目类型": "全栈Web应用",
+    "方向": "客服协作、质量评估、工单同步",
+    "来源生态": "Zendesk Marketplace"
+  },
+  {
+    "id": 28,
+    "业务方向": "会议协作",
+    "典型产品/项目": "Otter.ai / Miro / Calendly / Grain / Fathom",
+    "项目类型": "全栈Web应用",
+    "方向": "会议转写、摘要、排期、回放分析",
+    "来源生态": "Zoom App Marketplace"
+  },
+  {
+    "id": 29,
+    "业务方向": "内容填充",
+    "典型产品/项目": "Content Reel / Google Sheets Sync / Unsplash",
+    "项目类型": "Web前端",
+    "方向": "批量文案、图片素材、数据填充",
+    "来源生态": "Figma Community"
+  },
+  {
+    "id": 30,
+    "业务方向": "SEO 与内容",
+    "典型产品/项目": "Yoast SEO / Rank Math / AIOSEO",
+    "项目类型": "全栈Web应用",
+    "方向": "SEO 优化、内容结构、站点增长",
+    "来源生态": "WordPress Plugin Directory"
+  },
+  {
+    "id": 31,
+    "业务方向": "电商与会员",
+    "典型产品/项目": "WooCommerce / Easy Digital Downloads / MemberPress",
+    "项目类型": "全栈Web应用",
+    "方向": "在线商店、数字商品、会员订阅",
+    "来源生态": "WordPress Plugin Directory"
+  },
+  {
+    "id": 32,
+    "业务方向": "数据与 AI",
+    "典型产品/项目": "Snowflake / Databricks / MongoDB Atlas / Elastic",
+    "项目类型": "数据分析与可视化",
+    "方向": "数据仓库、搜索、湖仓、AI 数据底座",
+    "来源生态": "AWS Marketplace"
+  },
+  {
+    "id": 33,
+    "业务方向": "监控与运维",
+    "典型产品/项目": "New Relic / Splunk / Grafana Cloud / Sumo Logic",
+    "项目类型": "数据分析与可视化",
+    "方向": "日志、指标、链路、告警",
+    "来源生态": "AWS Marketplace"
+  },
+  {
+    "id": 34,
+    "业务方向": "项目协作",
+    "典型产品/项目": "Slack + GitHub / Zenhub / Jira GitHub Integration",
+    "项目类型": "全栈Web应用",
+    "方向": "PR 通知、Issue 同步、研发工作流",
+    "来源生态": "GitHub Marketplace"
+  },
+  {
+    "id": 35,
+    "业务方向": "模板与数据库",
+    "典型产品/项目": "Notion Templates / Airtable Extensions / Softr",
+    "项目类型": "全栈Web应用",
+    "方向": "个人管理、CRM、项目数据库、门户站",
+    "来源生态": "Notion / Airtable"
+  },
+  {
+    "id": 36,
+    "业务方向": "内容与设计",
+    "典型产品/项目": "AI Image Apps / QR Code / Brandfetch / Mockups",
+    "项目类型": "Web前端",
+    "方向": "社媒内容、品牌素材、营销图片",
+    "来源生态": "Canva Apps Marketplace"
+  },
+  {
+    "id": 37,
+    "业务方向": "开源部署",
+    "典型产品/项目": "Postgres / Redis / Nginx / n8n / Supabase Stack",
+    "项目类型": "全栈Web应用",
+    "方向": "一键部署、私有化应用、开发环境",
+    "来源生态": "Docker Hub"
+  }
+]

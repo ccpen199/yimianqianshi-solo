@@ -1,0 +1,22 @@
+.DS_Store
+*.pid
+__pycache__/
+*.py[cod]
+
+# Local runtime logs and temporary server state
+.logs/
+*.log
+
+# Dependency/build outputs if any are created locally
+node_modules/
+dist/
+build/
+.next/
+.nuxt/
+.vite/
+coverage/
+
+# Local environment files
+.env
+.env.*
+!.env.example

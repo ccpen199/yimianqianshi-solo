@@ -1,0 +1,1236 @@
+{
+  "generated_at": "2026-04-29T18:26:47.804411",
+  "workspace_count": 55,
+  "records": [
+    {
+      "workspace_hash": "4c25e77758bb1b1f7ec80eede243b812",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-1",
+      "xm": "xm-1",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/4c25e77758bb1b1f7ec80eede243b812/state.vscdb",
+      "current_session_id": "69edd23e1fd05a3273d38634",
+      "session_ids": [
+        "69edd23e1fd05a3273d38634"
+      ],
+      "input_history_count": 0,
+      "last_inputs": [],
+      "model_map_keys": [],
+      "global_models": {},
+      "has_chatstore": false,
+      "has_input_history": false
+    },
+    {
+      "workspace_hash": "0271697df56a1b884bb7efc6163976dc",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-1111",
+      "xm": "xm-1111",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/0271697df56a1b884bb7efc6163976dc/state.vscdb",
+      "current_session_id": "69edd41c1fd05a3273d38636",
+      "session_ids": [
+        "69edd41c1fd05a3273d38636"
+      ],
+      "input_history_count": 0,
+      "last_inputs": [],
+      "model_map_keys": [],
+      "global_models": {},
+      "has_chatstore": false,
+      "has_input_history": false
+    },
+    {
+      "workspace_hash": "b0c9cf8dd226562bad52ebeaba28a85d",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-4892",
+      "xm": "xm-4892",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/b0c9cf8dd226562bad52ebeaba28a85d/state.vscdb",
+      "current_session_id": "69ee0013d349bb7f543c5fb2",
+      "session_ids": [
+        "69ee1498d349bb7f543c6136",
+        "69ee0013d349bb7f543c5fb2"
+      ],
+      "input_history_count": 5,
+      "last_inputs": [
+        "页面提示请求资源不存在，请继续迭代完成目标，包括数据。",
+        "采购商第一个核心需求和链路无法完成，订单创建页面出现空白。请持续迭代修复问题。",
+        "没有对地名进行核实校验。请持续迭代修复"
+      ],
+      "model_map_keys": [
+        "69ee0013d349bb7f543c5fb2",
+        "69ee1498d349bb7f543c6136"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "4d3abe2372d527faa06f2a1b5065bd6d",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-6763",
+      "xm": "xm-6763",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/4d3abe2372d527faa06f2a1b5065bd6d/state.vscdb",
+      "current_session_id": "69ee1476d349bb7f543c6135",
+      "session_ids": [
+        "69ee1476d349bb7f543c6135"
+      ],
+      "input_history_count": 5,
+      "last_inputs": [
+        "继续迭代完成上一轮的目标。这可能是第三轮了。",
+        "第四轮了，没有完成环境依赖构建和启动程序，这一轮你要完成并且解决端口冲突。",
+        "这是最后一轮了，你要完成所有的需求所需要的所有组件安装,包括数据库才能完成页面。请持续迭代修复。"
+      ],
+      "model_map_keys": [
+        "69ee1476d349bb7f543c6135"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Doubao_1_6"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "5ca3f2248dc9bff0a063d8b92d42d60d",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-6766",
+      "xm": "xm-6766",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/5ca3f2248dc9bff0a063d8b92d42d60d/state.vscdb",
+      "current_session_id": "69ee14ecd349bb7f543c6146",
+      "session_ids": [
+        "69ee14ecd349bb7f543c6146"
+      ],
+      "input_history_count": 5,
+      "last_inputs": [
+        "启动报错了，请修复问题，这是第三轮了。",
+        "你要完成数据库部分并完成展示。完成需求的完整闭环。",
+        "上一轮传感器模块没有搭建完善，数据并不会做实时态势显示，你要根据需求前端要能完成的反映需求链路，加入测试按钮方便链路测试，你需要重新根据要求重新完善需求链路。"
+      ],
+      "model_map_keys": [
+        "69ee14ecd349bb7f543c6146"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Doubao_1_6"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "62c797a0efba3224787a75bf3a070940",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-6769",
+      "xm": "xm-6769",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/62c797a0efba3224787a75bf3a070940/state.vscdb",
+      "current_session_id": "69ee1590d349bb7f543c6168",
+      "session_ids": [
+        "69ee1590d349bb7f543c6168"
+      ],
+      "input_history_count": 6,
+      "last_inputs": [
+        "第二轮依然没有解决端口冲突问题，3002端口是常用的端口，而且页面显示服务不可用。你没有进行冲突检测，第三轮请选择稀有端口进行修复检测和迭代。",
+        "第四轮，点击喂养计划并不能实际编辑，录入领料的前端入口病没有生成。",
+        "填写饲喂信息后，点击完成并不能显示信息到列表。另外牲畜详情页面并没有完成开发。防疫功能也是空白。这是最后一轮修复了"
+      ],
+      "model_map_keys": [
+        "69ee1590d349bb7f543c6168"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Doubao_1_6"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "16efa6e38ddecf6356cedd88e0f1177a",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-6770",
+      "xm": "xm-6770",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/16efa6e38ddecf6356cedd88e0f1177a/state.vscdb",
+      "current_session_id": "69ee1746d349bb7f543c623f",
+      "session_ids": [
+        "69ee1746d349bb7f543c623f"
+      ],
+      "input_history_count": 6,
+      "last_inputs": [
+        "第二轮依然没有解决端口冲突问题，3000端口是常用的端口，你没有进行冲突检测，第三轮请选择稀有端口进行修复检测和迭代。",
+        "显示的并不是这个项目的页面，你依然没有解决，第四轮请解决端口冲突问题，不要在覆盖了。",
+        "前端页面完全用不了，请你根据业务和需求信息好好的梳理前端架构和功能点，而且非常的不美观，这是最后一轮的修复了。"
+      ],
+      "model_map_keys": [
+        "69ee1746d349bb7f543c623f"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Doubao_1_6"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "99fece93781856a46faca1551c186114",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-6771",
+      "xm": "xm-6771",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/99fece93781856a46faca1551c186114/state.vscdb",
+      "current_session_id": "69ee1777d349bb7f543c625b",
+      "session_ids": [
+        "69ee1777d349bb7f543c625b"
+      ],
+      "input_history_count": 6,
+      "last_inputs": [
+        "第二轮依然没有解决端口冲突问题，5173端口是常用的端口，你没有进行冲突检测，第三轮请选择稀有端口进行修复检测和迭代。",
+        "第三轮的 产地 拍照功能，操作类型的查看 农事记录，提交质检的前端按钮完全是没用的，第四轮请持续完成业务目标。",
+        "产地创建失败，这是最后一轮，请持续迭代修复所有的问题。"
+      ],
+      "model_map_keys": [
+        "69ee1777d349bb7f543c625b"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Doubao_1_6"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "acbdaa47cc5158fb97c77cc56abc7a05",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-6776",
+      "xm": "xm-6776",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/acbdaa47cc5158fb97c77cc56abc7a05/state.vscdb",
+      "current_session_id": "69ee17a7d349bb7f543c6280",
+      "session_ids": [
+        "69ee17a7d349bb7f543c6280"
+      ],
+      "input_history_count": 6,
+      "last_inputs": [
+        "第二轮依然没有解决端口冲突问题，3000端口是常用的端口，你没有进行冲突检测，第三轮请选择稀有端口进行修复检测和迭代。",
+        "页面是空白的。数据库你也必须要自己完成，要么就内置数据库或文件。第四轮你要持续迭代，完成任务要自己去检查而不是等着我找问题。",
+        "前端页面还是404.请持续修复迭代问题。这是最后一轮了"
+      ],
+      "model_map_keys": [
+        "69ee17a7d349bb7f543c6280"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Doubao_1_6"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "d90108e5372869ddc62bc1462b3e2140",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-6778",
+      "xm": "xm-6778",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/d90108e5372869ddc62bc1462b3e2140/state.vscdb",
+      "current_session_id": "69ee17d1d349bb7f543c62b1",
+      "session_ids": [
+        "69ee17d1d349bb7f543c62b1"
+      ],
+      "input_history_count": 5,
+      "last_inputs": [
+        "第二轮并没有完成正确的前端端口冲突问题，打开的是其他页面，请第三轮进行修复迭代。选择稀有端口。",
+        "服务依然不可用，第四轮请继续持续迭代修复，你并没有完成服务的完整启动",
+        "前端页面还是构造失败，最后一轮，请持续迭代修复所有的问题！"
+      ],
+      "model_map_keys": [
+        "69ee17d1d349bb7f543c62b1"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Doubao_1_6"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "870e5e00137bde5d916c1b1a2991e687",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-6780",
+      "xm": "xm-6780",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/870e5e00137bde5d916c1b1a2991e687/state.vscdb",
+      "current_session_id": "69ee17ead349bb7f543c62d9",
+      "session_ids": [
+        "69ee17ead349bb7f543c62d9"
+      ],
+      "input_history_count": 5,
+      "last_inputs": [
+        "前端页面根本就没构建完成，第三轮请根据目标业务完成全部链路的修复迭代。",
+        "前端页面的登录入口，账号密码全是错误，第四轮请持续迭代修复。完成目标业务需求",
+        "登录显示网络问题，本地起程序却报网络问题。这是不对的。这是最后一轮修复了，请完成。"
+      ],
+      "model_map_keys": [
+        "69ee17ead349bb7f543c62d9"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Doubao_1_6"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "9bd32cf65682715f4209533208ede73a",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-6781",
+      "xm": "xm-6781",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/9bd32cf65682715f4209533208ede73a/state.vscdb",
+      "current_session_id": "69ee1807d349bb7f543c62ed",
+      "session_ids": [
+        "69ee1807d349bb7f543c62ed"
+      ],
+      "input_history_count": 6,
+      "last_inputs": [
+        "这是第三轮， 你并没有成功的起前端页面，请根据目标业务完成前端页面的构造和启动，不要产生端口冲突。",
+        "需求管理，最基础的功能都创建失败。第四轮请持续迭代修复。",
+        "需求填写完信息，点击创建以后，信息并没有成功推到列表里显示的还是空的数据。最后一轮，麻烦你修复迭代所有的问题。"
+      ],
+      "model_map_keys": [
+        "69ee1807d349bb7f543c62ed"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Doubao_1_6"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "96e06adc93080ae4d1fcc96feb5256a9",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7005",
+      "xm": "xm-7005",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/96e06adc93080ae4d1fcc96feb5256a9/state.vscdb",
+      "current_session_id": "69ee370bd349bb7f543c6afa",
+      "session_ids": [
+        "69ee370bd349bb7f543c6afa"
+      ],
+      "input_history_count": 8,
+      "last_inputs": [
+        "第四轮，登录依然存在问题，请持续迭代修复。",
+        "页面显示不可用，请解决端口问题。而且登录持续出现问题，请进行最后一轮修复迭代/",
+        "页面显示不可用，请解决端口问题。而且登录持续出现问题，请进行最后一轮修复迭代"
+      ],
+      "model_map_keys": [
+        "69ee370bd349bb7f543c6afa"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Doubao_1_6"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "b356592803999bdf7a1469a785ad1fe8",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7008",
+      "xm": "xm-7008",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/b356592803999bdf7a1469a785ad1fe8/state.vscdb",
+      "current_session_id": "69ef30efd349bb7f543c78c9",
+      "session_ids": [
+        "69ef30efd349bb7f543c78c9"
+      ],
+      "input_history_count": 3,
+      "last_inputs": [
+        "请面向设备维护保养系统的真实使用场景生成首版实现，让每个按钮背后都有权限判断、状态迁移和日志记录。工程结构请根据你对领域对象的理解组织，要避免页面、接口、任务和报表各自为政，让实现细节围绕场景自然生长。\n工业设备管理多端业务系统，核心服务于设备管理员、维修工、使用人、备件管理员四大角色，所有功能围绕“设备建档—保养计划—故障报修—派工维修—验收归档”展开，嵌入保养周期引擎、报修分派引擎、备件扣减引",
+        "这是第二轮，请你启动页面并解决页面端口冲突问题，不然无法检测业务需求目标。",
+        "上一轮你没有按照要求去轮换和解决端口冲突，第三轮你要重点修复和迭代此问题。3000端口被占了"
+      ],
+      "model_map_keys": [
+        "69ef30efd349bb7f543c78c9"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Doubao_1_6"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "43c3d9e952abaf46e49d599e359d1046",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7009",
+      "xm": "xm-7009",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/43c3d9e952abaf46e49d599e359d1046/state.vscdb",
+      "current_session_id": "69ef3116d349bb7f543c78d9",
+      "session_ids": [
+        "69ef3116d349bb7f543c78d9"
+      ],
+      "input_history_count": 2,
+      "last_inputs": [
+        "把仓储 WMS 系统交给工程实现前，需要把正常路径、人工介入路径、失败补偿路径和统计分析口径一起考虑进去。系统骨架请根据业务闭环的难点灵活生成，需要把高频主线和低频异常都放进可维护结构里，让首版既能演示，也能继续迭代。\n仓储物流行业管理端业务系统，核心服务于仓库主管、收货员、拣货员、复核员四大角色，所有功能围绕“到货预约—收货质检—上架—拣货复核—出库交接”展开，嵌入库位推荐引擎、波次拣货引擎、库",
+        "这是第二轮，第一轮前端页面起是空白的，第二轮请持续迭代修复，不然会影响目标业务的实现和检测。"
+      ],
+      "model_map_keys": [
+        "69ef3116d349bb7f543c78d9"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Doubao_1_6"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "a302ab3db50a4090c9357164d21137e0",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7010",
+      "xm": "xm-7010",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/a302ab3db50a4090c9357164d21137e0/state.vscdb",
+      "current_session_id": "69f1ac5198facda6a8bd682b",
+      "session_ids": [
+        "69f1ac5198facda6a8bd682b"
+      ],
+      "input_history_count": 5,
+      "last_inputs": [
+        "5173是常用端口，你没有按照要求解决端口冲突，第三轮请重点修复此问题。",
+        "请让运输 TMS 调度系统围绕主流程展开，请先拆出核心角色、关键对象、生命周期状态和跨角色交接，再展开页面与接口。实现架构不需要套固定后台范式，需要让主对象、明细对象和处理动作保持清晰关系，让生成结果更像真实团队会接手的项目。\n物流运输行业多端业务系统，核心服务于调度员、司机、客户、财务人员四大角色，所有功能围绕“订单导入—派车调度—在途监控—电子回单—运费结算”展开，嵌入智能派车引擎、轨迹监控引",
+        "第一轮执行时间过长，而且自己打断流程，第二轮请实现完成业务目标。"
+      ],
+      "model_map_keys": [
+        "69f1ac5198facda6a8bd682b"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Doubao_1_6"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "07013c5affb34684d4b04334a58f405b",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7011",
+      "xm": "xm-7011",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/07013c5affb34684d4b04334a58f405b/state.vscdb",
+      "current_session_id": "69ef3160d349bb7f543c7914",
+      "session_ids": [
+        "69ef3160d349bb7f543c7914"
+      ],
+      "input_history_count": 3,
+      "last_inputs": [
+        "我要把快递末端派件系统做成可上线的业务系统，重点是流程闭环、数据一致、权限清晰和异常可复盘。服务拆分和模块边界可以由你按业务主线决定，只要保证核心流程能跑通、关键状态可追踪，不要为了形式统一而削弱业务表达。\n快递物流末端多端业务系统，核心服务于快递员、站点管理员、收件人、客服四大角色，所有功能围绕“包裹入站—扫码分拣—派件通知—签收/自提—异常处理”展开，嵌入扫码识别引擎、短信通知引擎、签收码验证",
+        "我要把快递末端派件系统做成可上线的业务系统，重点是流程闭环、数据一致、权限清晰和异常可复盘。服务拆分和模块边界可以由你按业务主线决定，只要保证核心流程能跑通、关键状态可追踪，不要为了形式统一而削弱业务表达。\n快递物流末端多端业务系统，核心服务于快递员、站点管理员、收件人、客服四大角色，所有功能围绕“包裹入站—扫码分拣—派件通知—签收/自提—异常处理”展开，嵌入扫码识别引擎、短信通知引擎、签收码验证",
+        "第一轮业务还是不可达。第二轮请完成业务目标。"
+      ],
+      "model_map_keys": [
+        "69ef3160d349bb7f543c7914"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "47c222fc8ad5b512c47cdcae3666637e",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7012",
+      "xm": "xm-7012",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/47c222fc8ad5b512c47cdcae3666637e/state.vscdb",
+      "current_session_id": "69f1a32698facda6a8bd6706",
+      "session_ids": [
+        "69f1a32698facda6a8bd6706"
+      ],
+      "input_history_count": 5,
+      "last_inputs": [
+        "8081页面显示服务不可用，第三轮请修复和迭代问题。",
+        "冷链物流温控平台不要只写功能菜单，先请把行业规则转成可执行的字段、动作、状态、消息和报表。页面、接口和数据层的边界可由你综合判断，并让前端视图始终受后端状态和权限约束，保证复杂度来自业务本身而不是模板堆叠。\n冷链物流专用多端业务系统，核心服务于货主、承运商、司机、质控人员四大角色，所有功能围绕“任务创建—冷链装车—温度采集—异常告警—到货验收”展开，嵌入温度采集引擎、GPS定位引擎、异常告警引擎、",
+        "运行的时间过长，异常失败，第二轮继续完成业务目标。"
+      ],
+      "model_map_keys": [
+        "69f1a32698facda6a8bd6706"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "b2824950c135e6a5fb77b59a94181c54",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7013",
+      "xm": "xm-7013",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/b2824950c135e6a5fb77b59a94181c54/state.vscdb",
+      "current_session_id": "69f1abd598facda6a8bd67af",
+      "session_ids": [
+        "69f1abd598facda6a8bd67af"
+      ],
+      "input_history_count": 5,
+      "last_inputs": [
+        "你没有按照要求解决前端端口冲突问题。第三轮请完成修复和迭代。",
+        "请按跨境电商店铺管理系统的作业现场来组织需求，让前端呈现、后端服务、数据库结构和测试用例围绕同一条流程展开。系统设计可以按你对流程、权限和异常的理解生成，但不要牺牲业务流转、数据一致性和可测试性，让架构选择能解释业务为什么这样流转。\n跨境电商SaaS模式PC端业务系统，支持响应式适配，核心服务于运营、采购、仓库、客服四大角色，所有功能围绕“选品上架—订单同步—仓库发货—客服售后—利润核算”展开，嵌",
+        "请按跨境电商店铺管理系统的作业现场来组织需求，让前端呈现、后端服务、数据库结构和测试用例围绕同一条流程展开。系统设计可以按你对流程、权限和异常的理解生成，但不要牺牲业务流转、数据一致性和可测试性，让架构选择能解释业务为什么这样流转。\n跨境电商SaaS模式PC端业务系统，支持响应式适配，核心服务于运营、采购、仓库、客服四大角色，所有功能围绕“选品上架—订单同步—仓库发货—客服售后—利润核算”展开，嵌"
+      ],
+      "model_map_keys": [
+        "69f1abd598facda6a8bd67af"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "274fbde16803b090d29d5867d29e97ac",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7116",
+      "xm": "xm-7116",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/274fbde16803b090d29d5867d29e97ac/state.vscdb",
+      "current_session_id": "69ef3203d349bb7f543c795f",
+      "session_ids": [
+        "69ef3203d349bb7f543c795f"
+      ],
+      "input_history_count": 2,
+      "last_inputs": [
+        "独立站电商系统这类项目要请把列表筛选、详情处理、批量操作、通知触达和结果导出都纳入核心流程。架构方案允许你结合数据流和角色流自由发挥，同时兼顾异常兜底、权限边界和报表来源，最终以可运行、可追踪、可验收为准。\n品牌电商B2C模式多端业务系统，核心服务于消费者、运营、仓库、客服四大角色，所有功能围绕“浏览商品—加购结算—支付发货—售后复购”展开，嵌入购物车引擎、优惠券引擎、支付回调引擎、订单管理引擎四",
+        "第一轮执行时间太长了 第二轮请继续实现业务目标，而且尽量规避docker 尽快实现业务链路"
+      ],
+      "model_map_keys": [
+        "69ef3203d349bb7f543c795f"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "74edf435a593a6bda80e764fa1397733",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7117",
+      "xm": "xm-7117",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/74edf435a593a6bda80e764fa1397733/state.vscdb",
+      "current_session_id": "69ef3253d349bb7f543c7979",
+      "session_ids": [
+        "69ef3253d349bb7f543c7979"
+      ],
+      "input_history_count": 3,
+      "last_inputs": [
+        "我希望线下门店 POS 系统不是演示项目，而是能支撑多人协作、规则裁决、凭证留存和追溯查询的业务应用。架构颗粒度请按首版可运行和后续扩展来权衡，需要保证业务对象生命周期可以被完整表达，避免只生成静态页面和空泛接口。\n线下零售门店PC+移动端业务系统，支持小票打印与扫码设备对接，核心服务于店员、店长、会员、财务四大角色，所有功能围绕“扫码收银—会员识别—优惠结算—库存扣减—日结报表”展开，嵌入收银引",
+        "第一轮执行时间太长了。第二轮请继续实现业务目标。",
+        "第二轮没有按照要求避开常规端口，第三轮请注意业务目标内容，完成目标。"
+      ],
+      "model_map_keys": [
+        "69ef3253d349bb7f543c7979"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "26dd766f0281a0b423a21fb692c39582",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7118",
+      "xm": "xm-7118",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/26dd766f0281a0b423a21fb692c39582/state.vscdb",
+      "current_session_id": "69ef36ffd349bb7f543c7b6c",
+      "session_ids": [
+        "69ef36ffd349bb7f543c7b6c"
+      ],
+      "input_history_count": 6,
+      "last_inputs": [
+        "第二轮的服务依然不可用，第三轮请保证链路正常。",
+        "第三轮服务依然是不可达。第四轮请完成修复并完成业务目标。",
+        "第四轮服务依然是不可达，最后一轮请完成所有问题修复并实现链路实现。"
+      ],
+      "model_map_keys": [
+        "69ef36ffd349bb7f543c7b6c"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "4977ff1430b5259b7652ac8ce78c2f1d",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7119",
+      "xm": "xm-7119",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/4977ff1430b5259b7652ac8ce78c2f1d/state.vscdb",
+      "current_session_id": "69f0eca1e367e380ab407d9d",
+      "session_ids": [
+        "69f0eca1e367e380ab407d9d"
+      ],
+      "input_history_count": 4,
+      "last_inputs": [
+        "服务页面全是空的。说明业务链路没通。第二轮你需要修复所有的问题并启动前后端，并完成业务目标。",
+        "第二轮没有启动前后端，也没有告知启动方式。第三轮请保证所有的链路可用且完成业务目标。",
+        "第三轮还是没有完成所有的业务链路。第四轮请保证业务链路的完整。"
+      ],
+      "model_map_keys": [
+        "69f0eca1e367e380ab407d9d"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "95ff1963868e26aaddd4ee55fb9b03d0",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7120",
+      "xm": "xm-7120",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/95ff1963868e26aaddd4ee55fb9b03d0/state.vscdb",
+      "current_session_id": "69f0c0ecc78330fd32250451",
+      "session_ids": [
+        "69f0c0ecc78330fd32250451"
+      ],
+      "input_history_count": 6,
+      "last_inputs": [
+        "在外卖聚合接单系统里，所有关键记录都要能追到创建来源、处理过程、当前责任人和最终结果，请按这个原则生成项目。业务中台、单体或轻量服务的取舍可按你的理解处理，但要让角色工作台、状态机和审计日志彼此连贯，不要把复杂业务压成普通 CRUD。\n餐饮外卖SaaS模式PC+移动端业务系统，支持打印机对接，核心服务于商家、店员、骑手、外卖平台四大角色，所有功能围绕“平台授权—订单聚合—自动接单—厨房打印—售后处",
+        "第一轮显示服务不可用，第二轮请修复所有问题保证链路通畅。",
+        "第二轮服务依然是不可达的。第三轮请保证所有的链路正常，而且完成业务目标。"
+      ],
+      "model_map_keys": [
+        "69f0c0ecc78330fd32250451"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "8761ea28dbcc15ea4737f49fbfc6fe30",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7121",
+      "xm": "xm-7121",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/8761ea28dbcc15ea4737f49fbfc6fe30/state.vscdb",
+      "current_session_id": "69f0c147c78330fd3225046b",
+      "session_ids": [
+        "69f0c147c78330fd3225046b"
+      ],
+      "input_history_count": 7,
+      "last_inputs": [
+        "第一轮前端页面显示服务不可用，第二轮请完成所有修复保证链路通畅。",
+        "第二轮执行的时间太长，第三轮请继续完成业务目标。",
+        "第三轮服务依然不可用。第四轮请根据要求完成链路闭环。"
+      ],
+      "model_map_keys": [
+        "69f0c147c78330fd3225046b"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "53126887b7da50f48f8cabd268c26989",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7122",
+      "xm": "xm-7122",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/53126887b7da50f48f8cabd268c26989/state.vscdb",
+      "current_session_id": "69f0e09ce367e380ab407236",
+      "session_ids": [
+        "69f0e09ce367e380ab407236"
+      ],
+      "input_history_count": 9,
+      "last_inputs": [
+        "第二轮服务依然是不可达的。第三轮请保证所有的链路正常，而且完成业务目标。",
+        "服务依然不可用，第三轮请继续修复并完成业务目标。",
+        "第三轮点击房东的功能区域完全没反应。第四轮请完成所有业务要求，不是给我假页面。"
+      ],
+      "model_map_keys": [
+        "69f0e09ce367e380ab407236"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "223a5a83e6d203f3c61d6f1c86a38359",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7123",
+      "xm": "xm-7123",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/223a5a83e6d203f3c61d6f1c86a38359/state.vscdb",
+      "current_session_id": "69f0e096e367e380ab407228",
+      "session_ids": [
+        "69f0e096e367e380ab407228"
+      ],
+      "input_history_count": 8,
+      "last_inputs": [
+        "第一轮页面存在问题，第二轮请修复所有的问题。保证业务目标和链路走通。",
+        "服务依然不可用，第三轮请继续修复并完成业务目标。",
+        "第三轮点击线路直接提示线路不存在这是有问题的，最起码有个数据模版。游客点击已有的数据线路也是提示线路不存在。第四轮请根据业务要求完成所有问题的修复。"
+      ],
+      "model_map_keys": [
+        "69f0e096e367e380ab407228"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding",
+        "dev_builder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "2642c43f5b95ee82f142e63b035d7d54",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7124",
+      "xm": "xm-7124",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/2642c43f5b95ee82f142e63b035d7d54/state.vscdb",
+      "current_session_id": "69f0c181c78330fd322504c5",
+      "session_ids": [
+        "69f0c181c78330fd322504c5"
+      ],
+      "input_history_count": 5,
+      "last_inputs": [
+        "第一轮并没有完成所有规划，第二轮请完成所有规划和业务要求。",
+        "第一轮并没有完成所有规划，第二轮请完成所有规划和业务要求。",
+        "请把票务预约核销系统的首版重点放在要让业务人员看得懂流程，让工程人员能据此建表、写接口和补测试。系统分层不必拘泥固定模板，重点保证页面动作、接口校验和数据库事实一致，让工程方案保留足够的业务判断空间。\n景区/场馆票务多端业务系统，支持闸机对接，核心服务于游客、票务员、检票员、运营人员四大角色，所有功能围绕“购票预约—时段分配—二维码核销—客流统计—渠道结算”展开，嵌入票码生成引擎、库存扣减引擎、核"
+      ],
+      "model_map_keys": [
+        "69f0c181c78330fd322504c5"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": false,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "4cba58acecd04acb659ce6b3282992f7",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7125",
+      "xm": "xm-7125",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/4cba58acecd04acb659ce6b3282992f7/state.vscdb",
+      "current_session_id": "69f0c197c78330fd322504fa",
+      "session_ids": [
+        "69f0c197c78330fd322504fa"
+      ],
+      "input_history_count": 7,
+      "last_inputs": [
+        "第二轮的服务依然不可用，第三轮请保证链路正常。",
+        "第三轮前端首页不是让你展示api列表。请根据业务需求完成目标。",
+        "第四轮教师和管理员板块数据全是空的，最后一轮请完成所有修复和链路完整。"
+      ],
+      "model_map_keys": [
+        "69f0c197c78330fd322504fa"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "40b75955eff50c82e1f6671d1539fa5f",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7126",
+      "xm": "xm-7126",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/40b75955eff50c82e1f6671d1539fa5f/state.vscdb",
+      "current_session_id": "69f0c308c78330fd322506ed",
+      "session_ids": [
+        "69f0c308c78330fd322506ed"
+      ],
+      "input_history_count": 5,
+      "last_inputs": [
+        "我需要在线课程学习平台的0到1实现，重点呈现真实角色如何创建任务、处理任务、确认结果并追溯历史。数据模型和服务层拆分可以围绕主对象自然展开，需要把高频主线和低频异常都放进可维护结构里，让首版既能演示，也能继续迭代。\n在线教育B2C模式多端业务系统，核心服务于学员、老师、助教、运营四大角色，所有功能围绕“课程购买—学习播放—作业提交—答疑互动—证书发放”展开，嵌入视频播放引擎、进度记录引擎、作业批改",
+        "第一轮页面显示有问题，第二轮请修复所有问题保证链路通畅。",
+        "第二轮运行、思考和规划的时间过长。第三轮请根据业务要求完成所有修复。"
+      ],
+      "model_map_keys": [
+        "69f0c308c78330fd322506ed"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "50aeb8acaf28bb4c39a2505a599c7512",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7127",
+      "xm": "xm-7127",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/50aeb8acaf28bb4c39a2505a599c7512/state.vscdb",
+      "current_session_id": "69f0e0b0e367e380ab40724e",
+      "session_ids": [
+        "69f0e0b0e367e380ab40724e"
+      ],
+      "input_history_count": 10,
+      "last_inputs": [
+        "第三轮完成了第一个功能。但是最基础的课表没有完成，整个业务链路走不通。第四轮请完成所有问题的修复。",
+        "第四轮没有告知前后端启动的方式也没有成功的启动前后端，最后一轮请修复所有问题并启动前后端。",
+        "你看下通过tare编译器，多轮会话过程中，有没有特别的地方是存储不同项目的会话id 会话内容 日志轨迹的？"
+      ],
+      "model_map_keys": [
+        "69f0e0b0e367e380ab40724e"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding",
+        "dev_builder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "dfed31ed412f3ec141b36abec17fdd8c",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7128",
+      "xm": "xm-7128",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/dfed31ed412f3ec141b36abec17fdd8c/state.vscdb",
+      "current_session_id": "69f0e196e367e380ab407387",
+      "session_ids": [
+        "69f0e196e367e380ab407387"
+      ],
+      "input_history_count": 8,
+      "last_inputs": [
+        "第二轮的页面上服务不可达的，说明你没有启动后端。第三轮请完成所有链路和业务目标在告知我。",
+        "第三轮登录进去之后是黑的，程序完全不可用。第四轮请修复所有问题。",
+        "页面还是显示有问题。最后一轮请修复所有问题并完成业务目标。"
+      ],
+      "model_map_keys": [
+        "69f0e196e367e380ab407387",
+        "69f11cd4e367e380ab409089"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "04cb9ec475cd436027f867b25c416364",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7129",
+      "xm": "xm-7129",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/04cb9ec475cd436027f867b25c416364/state.vscdb",
+      "current_session_id": "69f0e0bce367e380ab40725f",
+      "session_ids": [
+        "69f0e0bce367e380ab40725f"
+      ],
+      "input_history_count": 10,
+      "last_inputs": [
+        "第一轮运行时间超过一个多小时了，第二轮请持续的完成业务目标。",
+        "第二轮执行时间太长了。第三轮请优化并持续完成目标业务。",
+        "第三轮运行出现系统异常，第四轮请继续修复并完成业务目标。"
+      ],
+      "model_map_keys": [
+        "69f0e0bce367e380ab40725f"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Doubao_1_6"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "4b7be42ee61552fb52c74d8419d44212",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7140",
+      "xm": "xm-7140",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/4b7be42ee61552fb52c74d8419d44212/state.vscdb",
+      "current_session_id": "69f0e0cce367e380ab407281",
+      "session_ids": [
+        "69f0e0cce367e380ab407281"
+      ],
+      "input_history_count": 9,
+      "last_inputs": [
+        "第二轮获取仪表盘数据失败。没有做好测试数据的准备以保证链路；患者管理页面没有开发。前端6个页面基本上是空白的。第三轮请认真根据业务目标完成所有开发。",
+        "第三轮前端页面都进不去，大概率是后端服务没起。第四轮修复迭代问题并完成重启。",
+        "第四轮服务依然不可达。最后一轮请完成所有问题修复保证链路。"
+      ],
+      "model_map_keys": [
+        "69f0e0cce367e380ab407281"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "262cc72b4448ab9ceadfe42525f8d2aa",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7141",
+      "xm": "xm-7141",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/262cc72b4448ab9ceadfe42525f8d2aa/state.vscdb",
+      "current_session_id": "69f0e0d3e367e380ab40729e",
+      "session_ids": [
+        "69f0e0d3e367e380ab40729e"
+      ],
+      "input_history_count": 10,
+      "last_inputs": [
+        "第二轮后端启动失败，第三轮请修复所有问题，并且要自己启动页面，不要让我手动。",
+        "第三轮的页面没有任何数据。第四轮请确保数据链路和前后端启动无误。并迭代修复所有问题",
+        "第四轮服务依然不可用，第五轮请完成所有修复和业务目标。"
+      ],
+      "model_map_keys": [
+        "69f0e0d3e367e380ab40729e",
+        "69f12027e367e380ab40918c"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "4f65e3dd17cf0c0a64b2b2b5a9f96c86",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7142",
+      "xm": "xm-7142",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/4f65e3dd17cf0c0a64b2b2b5a9f96c86/state.vscdb",
+      "current_session_id": "69f0e0d9e367e380ab4072af",
+      "session_ids": [
+        "69f0e0d9e367e380ab4072af"
+      ],
+      "input_history_count": 9,
+      "last_inputs": [
+        "第二轮的客户前端页面完全不可用，无效图表占据了大部分页面。前台端只有信息没有ui,完全不可用，数据也是没走通。医生端跟前台端一样的问题。大屏端更是忽悠没有任何信息。第三轮请修复所有问题，迭代业务目标。",
+        "第三轮前端页面提示的账号密码都是错的。第四轮请检测并迭代修复所有问题。",
+        "第四轮已完成第一个功能的前端部分，但是前台页面是空白的，无法实现现场签到以及校验后续的功能，最后一轮请完成所有的修复和业务目标。"
+      ],
+      "model_map_keys": [
+        "69f0e0d9e367e380ab4072af"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "dc9b3064e406735e64267a3a4b9ae9ba",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7143",
+      "xm": "xm-7143",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/dc9b3064e406735e64267a3a4b9ae9ba/state.vscdb",
+      "current_session_id": "69f0c6dec78330fd322509ce",
+      "session_ids": [
+        "69f0c6dec78330fd322509ce"
+      ],
+      "input_history_count": 3,
+      "last_inputs": [
+        "请实现互联网问诊平台的完整首版需求，既要能跑通日常处理，也要覆盖退回、撤销、重试、补录和复核。服务拆分和模块边界可以由你按业务主线决定，只要能解释状态来源、动作限制和结果去向，确保后续开发能直接按模块拆任务。\n移动医疗Web应用，支持跨端访问，核心服务于患者、医生、审方药师、平台客服相关岗位，嵌入Real-time-Communication 通讯引擎、AI-Prescription-Guard ",
+        "第一轮只完成规划的2/9，第二轮请继续完成所有任务。",
+        "请实现互联网问诊平台的完整首版需求，既要能跑通日常处理，也要覆盖退回、撤销、重试、补录和复核。服务拆分和模块边界可以由你按业务主线决定，只要能解释状态来源、动作限制和结果去向，确保后续开发能直接按模块拆任务。\n移动医疗Web应用，支持跨端访问，核心服务于患者、医生、审方药师、平台客服相关岗位，嵌入Real-time-Communication 通讯引擎、AI-Prescription-Guard "
+      ],
+      "model_map_keys": [
+        "69f0c6dec78330fd322509ce"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": false,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "830898900e632641e38b3248d4ef7f44",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7144",
+      "xm": "xm-7144",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/830898900e632641e38b3248d4ef7f44/state.vscdb",
+      "current_session_id": "69f0c6b8c78330fd322509be",
+      "session_ids": [
+        "69f0c6b8c78330fd322509be"
+      ],
+      "input_history_count": 2,
+      "last_inputs": [
+        "健身房会员管理系统不要只写功能菜单，先请把业务对象当成可追踪资产来设计，任何关键动作都应留下可查询的处理依据。页面、接口和数据层的边界可由你综合判断，并确保后续扩展审批、通知、导出时不需要推倒重来，保证代码结构服务于业务，而不是反过来。\n生活服务类SaaS系统，核心服务于会员、前台、教练、销售经理相关岗位，嵌入Credit-Asset 权益扣减引擎、Trainer-Schedule 排课智能校验引",
+        "健身房会员管理系统不要只写功能菜单，先请把业务对象当成可追踪资产来设计，任何关键动作都应留下可查询的处理依据。页面、接口和数据层的边界可由你综合判断，并确保后续扩展审批、通知、导出时不需要推倒重来，保证代码结构服务于业务，而不是反过来。\n生活服务类SaaS系统，核心服务于会员、前台、教练、销售经理相关岗位，嵌入Credit-Asset 权益扣减引擎、Trainer-Schedule 排课智能校验引"
+      ],
+      "model_map_keys": [
+        "69f0aba6c78330fd3224fb32",
+        "69f0c6b8c78330fd322509be"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding",
+        "dev_builder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": false,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "0d5197721623e301048f74ee39d7a4f1",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7145",
+      "xm": "xm-7145",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/0d5197721623e301048f74ee39d7a4f1/state.vscdb",
+      "current_session_id": "69f0c6b7c78330fd322509bd",
+      "session_ids": [
+        "69f0c6b7c78330fd322509bd"
+      ],
+      "input_history_count": 4,
+      "last_inputs": [
+        "我需要生成美业门店预约系统，请把工作台、对象清单、详情页、操作流、异常中心和统计报表串成一条业务链。系统设计可以按你对流程、权限和异常的理解生成，但要让角色工作台、状态机和审计日志彼此连贯，不要把复杂业务压成普通 CRUD。\n垂直行业O2O系统，核心服务于顾客、店员（前台）、技师、店长相关岗位，嵌入Multi-Resource 资源调度引擎、Service-Standard 标准化耗材管理引擎、P",
+        "第一轮模型响应超时，第二轮请继续完成业务目标。",
+        "我需要生成美业门店预约系统，请把工作台、对象清单、详情页、操作流、异常中心和统计报表串成一条业务链。系统设计可以按你对流程、权限和异常的理解生成，但要让角色工作台、状态机和审计日志彼此连贯，不要把复杂业务压成普通 CRUD。\n垂直行业O2O系统，核心服务于顾客、店员（前台）、技师、店长相关岗位，嵌入Multi-Resource 资源调度引擎、Service-Standard 标准化耗材管理引擎、P"
+      ],
+      "model_map_keys": [
+        "69f0b805c78330fd322500ae",
+        "69f0c6b7c78330fd322509bd"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": false,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "f8ebdd0c5b0f7131432e9f9a4e85f79f",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/local_projects/xm-7149",
+      "xm": "xm-7149",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/f8ebdd0c5b0f7131432e9f9a4e85f79f/state.vscdb",
+      "current_session_id": null,
+      "session_ids": [],
+      "input_history_count": 0,
+      "last_inputs": [],
+      "model_map_keys": [],
+      "global_models": {},
+      "has_chatstore": false,
+      "has_input_history": false
+    },
+    {
+      "workspace_hash": "8292bff090c63eecb10a8c003c73d189",
+      "workspace_path": "file:///Users/chen/Desktop/Cursor_project/ai_money/yimianqianshi",
+      "xm": "",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/8292bff090c63eecb10a8c003c73d189/state.vscdb",
+      "current_session_id": "69eb2f00bf0a5b999bd29861",
+      "session_ids": [
+        "69eb2f00bf0a5b999bd29861"
+      ],
+      "input_history_count": 16,
+      "last_inputs": [
+        "序号列表的字体要小两号。修复完请重启程序。 你看 多一个号码就不对了",
+        "我会从当前实际状态继续，不重新跑恢复脚本，避免覆盖已经手写的 `g-1` 到 `g-70`。先确认断点和下批 `g-71` 开始的原始产品，再继续写回 JSON。断点确认：当前干净到 `g-70`，总数 `1184`。我现在写 `g-71` 到 `g-100`，这一段主要是视频保存、虚拟宠物、同步观影、个性化浏览器、歌词、运动分析、流媒体增强、音频均衡、弹幕 AI、漫画阅读、B站播放器等。`g-7",
+        "我会从当前实际状态继续，不重新跑恢复脚本，避免覆盖已经手写的 `g-1` 到 `g-70`。先确认断点和下批 `g-71` 开始的原始产品，再继续写回 JSON。断点确认：当前干净到 `g-70`，总数 `1184`。我现在写 `g-71` 到 `g-100`，这一段主要是视频保存、虚拟宠物、同步观影、个性化浏览器、歌词、运动分析、流媒体增强、音频均衡、弹幕 AI、漫画阅读、B站播放器等。`g-7"
+      ],
+      "model_map_keys": [
+        "69eb2f00bf0a5b999bd29861"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "2961e326128deac251b991b2dfceefb4",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/news_weather/xw-5789",
+      "xm": "",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/2961e326128deac251b991b2dfceefb4/state.vscdb",
+      "current_session_id": "69ec70df75dae8336a86fc4b",
+      "session_ids": [
+        "69ec70df75dae8336a86fc4b"
+      ],
+      "input_history_count": 8,
+      "last_inputs": [
+        "舆情概览信息依然不完整，缺乏很多数据和图表。情感分布、情感指数雷达图均没有合适的数据和图表。请你去修复bug,将数据进行拉取。",
+        "舆情概览信息依然不完整，缺乏很多数据和图表。情感分布、情感指数雷达图均没有合适的数据和图表。增强情感分布饼图",
+        "舆情概览信息依然不完整，缺乏很多数据和图表。情感分布、情感指数雷达图均没有合适的数据和图表。增强情感分布饼图、雷达图、趋势图均没有结果！你的检测链路肯定存在问题，以及前端的存在问题，这是你最后一轮修复，请完成任务！"
+      ],
+      "model_map_keys": [
+        "69ec70df75dae8336a86fc4b",
+        "69eda37575dae8336a870468"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "7f040de77425df02220253d0edebd98e",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/translate-web",
+      "xm": "",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/7f040de77425df02220253d0edebd98e/state.vscdb",
+      "current_session_id": "691a87d79afb8b5c48e3fe1c",
+      "session_ids": [
+        "691a87d79afb8b5c48e3fe1c"
+      ],
+      "input_history_count": 6,
+      "last_inputs": [
+        "根据规划文档 docs/PROJECT_EVALUATION_REPORT.md 进行开发，开发完之后要要生成一份文档进行总结和评价。不做移动端，选择规划文档最核心的功能进行功能扩展，尤其是更能满足人类的高维需求，实时翻译平滑转化为无障碍沟通的便利。",
+        "根据最新的功能，实时输入文字并不能完成实时翻译，请修复bug.",
+        "你要同步好远程分支啊？"
+      ],
+      "model_map_keys": [
+        "691a87d79afb8b5c48e3fe1c",
+        "69ec48c7bf0a5b999bd29864"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "4f935eb3f508a409537a9da882bc4f4b",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/home/jj-5784",
+      "xm": "",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/4f935eb3f508a409537a9da882bc4f4b/state.vscdb",
+      "current_session_id": "69ec6cfc75dae8336a86fb28",
+      "session_ids": [
+        "69ec6cfc75dae8336a86fb28"
+      ],
+      "input_history_count": 5,
+      "last_inputs": [
+        "菜谱模块功能数据应当有非常丰富的数据，应当爬取和收集全网名菜进行预制。根据智能家居的需求目标，针对菜谱的维修计划应当有一个详细和科学的流程。",
+        "对于上一轮的菜谱结果，但是页面无法打开，请修复bug.",
+        "对于上一轮的菜谱结果，但是页面无法打开，请修复最后一轮bug.如果不行可以换个稀有端口试试。"
+      ],
+      "model_map_keys": [],
+      "global_models": {},
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "8166b3bd5dca76eaaa6b131ad8f8b670",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/health/jk-4902",
+      "xm": "",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/8166b3bd5dca76eaaa6b131ad8f8b670/state.vscdb",
+      "current_session_id": "69ec67cb75dae8336a86f9e0",
+      "session_ids": [
+        "69ec67cb75dae8336a86f9e0"
+      ],
+      "input_history_count": 5,
+      "last_inputs": [
+        "整个项目，核心资产资料是患者管理，你错误的遗漏了这一个模块，应该继续完成这一个模块。",
+        "导出报告有缺陷，请完成。",
+        "康复计划，需要针对习惯、饮食、运动、睡眠等场景进行建立，你需要优化目前的功能模块，直至更优化目标需求。"
+      ],
+      "model_map_keys": [],
+      "global_models": {},
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "cc298dcfee5ccde6218964ceb2f23e80",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/shopping/g-4889",
+      "xm": "",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/cc298dcfee5ccde6218964ceb2f23e80/state.vscdb",
+      "current_session_id": "69ec5e9575dae8336a86f8fb",
+      "session_ids": [
+        "69ec5e9575dae8336a86f8fb"
+      ],
+      "input_history_count": 5,
+      "last_inputs": [
+        "目前的代码完成情况，是否完成了目标需求，评估一下未完成的原因以及现有的代码结构。",
+        "竞品和产品除了自定义添加以外，应当新增前100模块，将爆款品优先导进来",
+        "针对整套流程和每一个独立的模块进行代码测试，并生成一份测试报告和潜在问题。"
+      ],
+      "model_map_keys": [],
+      "global_models": {},
+      "has_chatstore": true,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "32abd5e45a562c4e02c824dfe4efee8f",
+      "workspace_path": "",
+      "xm": "",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/32abd5e45a562c4e02c824dfe4efee8f/state.vscdb",
+      "current_session_id": "69f0c1acc78330fd3225052e",
+      "session_ids": [
+        "69f0c1acc78330fd3225052e"
+      ],
+      "input_history_count": 1,
+      "last_inputs": [
+        "我需要在线课程学习平台的0到1实现，重点呈现真实角色如何创建任务、处理任务、确认结果并追溯历史。数据模型和服务层拆分可以围绕主对象自然展开，需要把高频主线和低频异常都放进可维护结构里，让首版既能演示，也能继续迭代。\n在线教育B2C模式多端业务系统，核心服务于学员、老师、助教、运营四大角色，所有功能围绕“课程购买—学习播放—作业提交—答疑互动—证书发放”展开，嵌入视频播放引擎、进度记录引擎、作业批改"
+      ],
+      "model_map_keys": [],
+      "global_models": {},
+      "has_chatstore": false,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "d2ed4d686f8b883ad03502b10df640c8",
+      "workspace_path": "file:///Users/chen/Desktop/Cursor_project/Tools-project",
+      "xm": "",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/d2ed4d686f8b883ad03502b10df640c8/state.vscdb",
+      "current_session_id": "69ecae2d75dae8336a8702ea",
+      "session_ids": [
+        "69ecae2d75dae8336a8702ea"
+      ],
+      "input_history_count": 1,
+      "last_inputs": [
+        "帮我启动这个项目。"
+      ],
+      "model_map_keys": [
+        "69ecae2d75dae8336a8702ea"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": false,
+      "has_input_history": true
+    },
+    {
+      "workspace_hash": "0fceb61a445d12e01d9bc8c2382fc82a",
+      "workspace_path": "",
+      "xm": "",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/0fceb61a445d12e01d9bc8c2382fc82a/state.vscdb",
+      "current_session_id": "69f1d049f00aad4ad7d9156a",
+      "session_ids": [
+        "69f1d049f00aad4ad7d9156a"
+      ],
+      "input_history_count": 0,
+      "last_inputs": [],
+      "model_map_keys": [],
+      "global_models": {},
+      "has_chatstore": false,
+      "has_input_history": false
+    },
+    {
+      "workspace_hash": "1777455032288",
+      "workspace_path": "",
+      "xm": "",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/1777455032288/state.vscdb",
+      "current_session_id": "69f1cfb9f00aad4ad7d91567",
+      "session_ids": [
+        "69f1cfb9f00aad4ad7d91567"
+      ],
+      "input_history_count": 0,
+      "last_inputs": [],
+      "model_map_keys": [
+        "69f1cfb9f00aad4ad7d91567"
+      ],
+      "global_models": {
+        "solo_coder": "1_-_Seed-Code-DogFooding"
+      },
+      "has_chatstore": false,
+      "has_input_history": false
+    },
+    {
+      "workspace_hash": "2bedaba8b508b062e9048bbfb6800565",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/shopping/g-2",
+      "xm": "",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/2bedaba8b508b062e9048bbfb6800565/state.vscdb",
+      "current_session_id": "69ec63fd75dae8336a86f9b9",
+      "session_ids": [
+        "69ec63fd75dae8336a86f9b9"
+      ],
+      "input_history_count": 0,
+      "last_inputs": [],
+      "model_map_keys": [],
+      "global_models": {},
+      "has_chatstore": false,
+      "has_input_history": false
+    },
+    {
+      "workspace_hash": "708383201cc8bd7103de8d8dd8bed3ce",
+      "workspace_path": "",
+      "xm": "",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/708383201cc8bd7103de8d8dd8bed3ce/state.vscdb",
+      "current_session_id": "69f20961f00aad4ad7d91730",
+      "session_ids": [
+        "69f20961f00aad4ad7d91730"
+      ],
+      "input_history_count": 0,
+      "last_inputs": [],
+      "model_map_keys": [],
+      "global_models": {},
+      "has_chatstore": false,
+      "has_input_history": false
+    },
+    {
+      "workspace_hash": "93d681db2b4df3916964ae30027c4a8a",
+      "workspace_path": "",
+      "xm": "",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/93d681db2b4df3916964ae30027c4a8a/state.vscdb",
+      "current_session_id": "69efa3092976ea066ad4e18c",
+      "session_ids": [
+        "69efa3092976ea066ad4e18c"
+      ],
+      "input_history_count": 0,
+      "last_inputs": [],
+      "model_map_keys": [],
+      "global_models": {},
+      "has_chatstore": false,
+      "has_input_history": false
+    },
+    {
+      "workspace_hash": "c0753bc292ae3f642019b5ddfdde361f",
+      "workspace_path": "file:///Users/chen/Documents/trae_projects/shopping/g-3",
+      "xm": "",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/c0753bc292ae3f642019b5ddfdde361f/state.vscdb",
+      "current_session_id": "69ec641275dae8336a86f9be",
+      "session_ids": [
+        "69ec641275dae8336a86f9be"
+      ],
+      "input_history_count": 0,
+      "last_inputs": [],
+      "model_map_keys": [],
+      "global_models": {},
+      "has_chatstore": false,
+      "has_input_history": false
+    },
+    {
+      "workspace_hash": "f2b70b25c65b0ebb2b17fb91931a6686",
+      "workspace_path": "",
+      "xm": "",
+      "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/f2b70b25c65b0ebb2b17fb91931a6686/state.vscdb",
+      "current_session_id": "69f1d476f00aad4ad7d915af",
+      "session_ids": [
+        "69f1d476f00aad4ad7d915af"
+      ],
+      "input_history_count": 0,
+      "last_inputs": [],
+      "model_map_keys": [],
+      "global_models": {},
+      "has_chatstore": false,
+      "has_input_history": false
+    }
+  ]
+}

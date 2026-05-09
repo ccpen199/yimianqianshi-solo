@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>标注项目执行手册</title>
+  <style>
+    :root {
+      --bg-1: #f6f2e9;
+      --bg-2: #e8f0ec;
+      --card: #fffdf8;
+      --ink: #1f2933;
+      --muted: #5f6c76;
+      --brand: #0f766e;
+      --accent: #d97706;
+      --line: #d6d3cc;
+      --ok: #166534;
+      --warn: #b45309;
+      --bad: #b91c1c;
+      --shadow: 0 10px 30px rgba(28, 38, 46, 0.1);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 0% 0%, #fff8e6 0%, transparent 45%),
+        radial-gradient(circle at 100% 100%, #ddeee8 0%, transparent 35%),
+        linear-gradient(135deg, var(--bg-1), var(--bg-2));
+      font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.6;
+    }
+
+    .shell {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 28px 18px 70px;
+    }
+
+    .hero {
+      background: linear-gradient(130deg, #134e4a, #0f766e);
+      color: #f8fffd;
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -80px;
+      top: -80px;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      letter-spacing: 0.4px;
+    }
+
+    .subtitle {
+      margin-top: 10px;
+      max-width: 760px;
+      color: #dff8f0;
+      font-size: 15px;
+    }
+
+    .meta {
+      margin-top: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .chip {
+      border: 1px solid rgba(255, 255, 255, 0.36);
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: rgba(255, 255, 255, 0.11);
+    }
+
+    .nav {
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+    }
+
+    .tab {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fffefb;
+      padding: 10px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      text-align: center;
+      transition: all .15s ease;
+    }
+
+    .tab:hover { border-color: #9ca3af; }
+
+    .tab.active {
+      background: #0f766e;
+      color: white;
+      border-color: #0f766e;
+      font-weight: 600;
+    }
+
+    .panel {
+      display: none;
+      margin-top: 16px;
+      background: var(--card);
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+
+    .panel.active { display: block; }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 22px;
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 17px;
+    }
+
+    ul, ol { margin: 8px 0 0 20px; }
+
+    .hint {
+      margin-top: 10px;
+      border-left: 4px solid var(--accent);
+      padding: 8px 12px;
+      background: #fff5e9;
+      border-radius: 6px;
+      color: #7c4700;
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      margin-top: 12px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      background: #fff;
+    }
+
+    .flag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 10px;
+      font-size: 12px;
+      margin-bottom: 8px;
+      border: 1px solid;
+    }
+
+    .ok { color: var(--ok); border-color: #bbf7d0; background: #f0fdf4; }
+    .warn { color: var(--warn); border-color: #fde68a; background: #fff7ed; }
+    .bad { color: var(--bad); border-color: #fecaca; background: #fef2f2; }
+
+    .checklist {
+      columns: 2;
+      column-gap: 30px;
+    }
+
+    .checklist label {
+      display: block;
+      break-inside: avoid;
+      margin-bottom: 9px;
+      font-size: 14px;
+    }
+
+    .progress {
+      margin-top: 12px;
+      font-weight: 600;
+      color: var(--brand);
+    }
+
+    pre {
+      background: #111827;
+      color: #e5e7eb;
+      padding: 14px;
+      border-radius: 10px;
+      overflow: auto;
+      border: 1px solid #374151;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .copy {
+      margin-top: 8px;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .copy:hover { border-color: #9ca3af; }
+
+    .footer {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 760px) {
+      h1 { font-size: 24px; }
+      .checklist { columns: 1; }
+      .panel { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <h1>标注项目执行手册（网页版）</h1>
+      <p class="subtitle">用于统一执行约束标注与 Solo Coder 用户满意度标注。你可以直接按本页面开展作业、质检、复盘和提问。</p>
+      <div class="meta">
+        <span class="chip">模块A：Constraint 标注</span>
+        <span class="chip">模块B：过程满意度标注</span>
+        <span class="chip">适用：Trae CN / Solo Coder</span>
+      </div>
+    </section>
+
+    <nav class="nav" id="tabs">
+      <button class="tab active" data-tab="overview">项目怎么做</button>
+      <button class="tab" data-tab="constraint">约束标注规则</button>
+      <button class="tab" data-tab="quality">质检规则</button>
+      <button class="tab" data-tab="satisfaction">满意度标注</button>
+      <button class="tab" data-tab="ask">怎么问问题</button>
+      <button class="tab" data-tab="daily">每日执行清单</button>
+    </nav>
+
+    <section class="panel active" data-panel="overview">
+      <h2>项目怎么做</h2>
+      <ol>
+        <li>准备阶段：明确当天样本范围、任务来源、提交字段格式。</li>
+        <li>标注阶段：先做 10 条约束编写与双标签标注，再做过程满意度判定。</li>
+        <li>质检阶段：单条质检 + 批量质检，全通过后提交。</li>
+        <li>复盘阶段：把驳回项沉淀到 badcase 库，更新判定口径。</li>
+      </ol>
+      <div class="hint">执行原则：先硬门槛（数量/分布/覆盖）后软质量（清晰/必要/可验证）。</div>
+
+      <div class="grid">
+        <div class="card">
+          <span class="flag ok">输出目标</span>
+          <ul>
+            <li>每批 10 条可用约束数据。</li>
+            <li>每轮过程满意度结论可复核。</li>
+            <li>结论与证据一一对应。</li>
+          </ul>
+        </div>
+        <div class="card">
+          <span class="flag warn">风险点</span>
+          <ul>
+            <li>把任务指令误写成约束。</li>
+            <li>标签理由缺失或错配。</li>
+            <li>“不满意”无证据链支撑。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="constraint">
+      <h2>约束标注规则</h2>
+      <h3>1. Constraint 定义</h3>
+      <ul>
+        <li>Constraint 是“如何做”的约束，不是“做什么”的任务。</li>
+        <li>排除项：多 agent/subagent 编排、MCP Server、纯任务命令。</li>
+      </ul>
+
+      <h3>2. 标签</h3>
+      <ul>
+        <li><code>task_dependent</code>：是否依赖当前任务上下文。</li>
+        <li><code>framework_dependent</code>：是否依赖 Agent（Codex 模块）工具能力（Read/Write/Edit/Bash/Glob/Grep）。</li>
+      </ul>
+
+      <h3>3. 10 条硬规则</h3>
+      <ul>
+        <li>总数 = 10，类别覆盖 >= 6。</li>
+        <li>前 8 条：全是 <code>task_dependent=true</code>，其中 <code>framework_dependent=true</code> 至少 4 条。</li>
+        <li>后 2 条：全是 <code>task_dependent=false</code>，其中 <code>framework_dependent=true</code> 至少 1 条。</li>
+        <li>同一组合（Category + 双标签）数量 <= 3。</li>
+      </ul>
+    </section>
+
+    <section class="panel" data-panel="quality">
+      <h2>质检规则</h2>
+      <div class="grid">
+        <div class="card">
+          <span class="flag ok">单条 7 维</span>
+          <ul>
+            <li>信息充分性</li>
+            <li>约束必要性</li>
+            <li>表达精确性</li>
+            <li>结果可验证性</li>
+            <li>工具使用准确性</li>
+            <li>求解方案独立性</li>
+            <li>场景匹配性</li>
+          </ul>
+        </div>
+        <div class="card">
+          <span class="flag warn">标签 5 维</span>
+          <ul>
+            <li><code>task_dependent</code> 正确</li>
+            <li><code>framework_dependent</code> 正确</li>
+            <li>Category 正确</li>
+            <li>标签理由完整</li>
+            <li>标签理由合理</li>
+          </ul>
+        </div>
+        <div class="card">
+          <span class="flag bad">批量 2 维</span>
+          <ul>
+            <li>约束间一致性（无冲突）</li>
+            <li>内容无重复性（非同义改写）</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>质检输出模板</h3>
+      <pre id="tpl-qc">质检结果：TRUE/FALSE
+
+若 FALSE：
+不通过项：
+1. [维度名称]：[具体原因]
+2. [维度名称]：[具体原因]</pre>
+      <button class="copy" data-copy="tpl-qc">复制模板</button>
+    </section>
+
+    <section class="panel" data-panel="satisfaction">
+      <h2>Solo Coder 满意度标注</h2>
+      <h3>判定对象</h3>
+      <ul>
+        <li>判断“执行过程是否满意”，不是只看最终答案对错。</li>
+        <li>关键检查：需求对齐、推进效率、工具使用、沟通反馈。</li>
+      </ul>
+
+      <h3>红线</h3>
+      <ul>
+        <li>已完成任务通常应判“满意”。</li>
+        <li>若判“不满意”，必须给可验证、过程相关原因。</li>
+        <li>不允许“只有结论，没有证据”。</li>
+      </ul>
+
+      <h3>判定输出 JSON 模板</h3>
+      <pre id="tpl-json">{
+  "过程是否满意": "满意/不满意",
+  "不满意原因": ""
+}</pre>
+      <button class="copy" data-copy="tpl-json">复制 JSON</button>
+    </section>
+
+    <section class="panel" data-panel="ask">
+      <h2>你怎么问问题（给我）</h2>
+      <p>直接复制下面模板提问，我会按模板快速执行，不会反复追问基础信息。</p>
+
+      <h3>模板 A：让我生成一批约束</h3>
+      <pre id="ask-a">请基于以下任务生成 10 条 Constraint，并完成标签与自检：
+- 任务描述：...
+- 技术栈/项目路径：...
+- 重点风险：...
+- 是否要求中文输出：是/否
+
+输出要求：
+1) 10 条约束（每条可验证）
+2) 每条附 category + task_dependent + framework_dependent + 两个理由
+3) 给出批量质检结论与不通过项（若有）</pre>
+      <button class="copy" data-copy="ask-a">复制提问模板 A</button>
+
+      <h3>模板 B：让我判定过程满意度</h3>
+      <pre id="ask-b">请根据以下信息判定“过程是否满意”：
+- User Prompt：...
+- 对话日志：...
+- 工具调用/报错：...
+- 最终状态：...
+
+输出要求：
+- 仅输出 JSON：
+{
+  "过程是否满意": "满意/不满意",
+  "不满意原因": ""
+}
+- 若不满意，原因必须可复核且只谈过程问题。</pre>
+      <button class="copy" data-copy="ask-b">复制提问模板 B</button>
+
+      <h3>模板 C：让我做批量复盘</h3>
+      <pre id="ask-c">请对这批已提交样本做复盘：
+- 样本列表：...
+- 被驳回原因：...
+
+我要的输出：
+1) 按严重级排序的问题清单
+2) 每类问题的修复规则
+3) 可落地的新检查清单（提交前 30 秒可执行）</pre>
+      <button class="copy" data-copy="ask-c">复制提问模板 C</button>
+    </section>
+
+    <section class="panel" data-panel="daily">
+      <h2>每日执行清单</h2>
+      <div class="checklist" id="dailyList">
+        <label><input type="checkbox" /> 今天目标样本范围已确认</label>
+        <label><input type="checkbox" /> 10 条约束数量已满足</label>
+        <label><input type="checkbox" /> 类别覆盖 >= 6</label>
+        <label><input type="checkbox" /> 前8/后2分布规则通过</label>
+        <label><input type="checkbox" /> 组合重复 <= 3</label>
+        <label><input type="checkbox" /> 单条 12 项质检已完成</label>
+        <label><input type="checkbox" /> 批内无冲突、无重复</label>
+        <label><input type="checkbox" /> 满意度判定有证据链</label>
+        <label><input type="checkbox" /> 不满意样本原因可复核</label>
+        <label><input type="checkbox" /> 提交字段全部填写完整</label>
+      </div>
+      <div class="progress" id="progress">完成进度：0 / 10</div>
+      <div class="footer">建议：每次提交前把进度刷到 10/10，再上传。</div>
+    </section>
+  </div>
+
+  <script>
+    const tabs = document.querySelectorAll('.tab');
+    const panels = document.querySelectorAll('.panel');
+
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        tabs.forEach((t) => t.classList.remove('active'));
+        panels.forEach((p) => p.classList.remove('active'));
+        tab.classList.add('active');
+        const key = tab.dataset.tab;
+        document.querySelector(`[data-panel="${key}"]`).classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('.copy').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.copy;
+        const text = document.getElementById(id).innerText;
+        await navigator.clipboard.writeText(text);
+        const old = btn.textContent;
+        btn.textContent = '已复制';
+        setTimeout(() => btn.textContent = old, 1200);
+      });
+    });
+
+    const checks = document.querySelectorAll('#dailyList input[type="checkbox"]');
+    const progress = document.getElementById('progress');
+    const refresh = () => {
+      const done = [...checks].filter((i) => i.checked).length;
+      progress.textContent = `完成进度：${done} / ${checks.length}`;
+    };
+    checks.forEach((c) => c.addEventListener('change', refresh));
+  </script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "order": "xm-12261",
+  "db_path": "/Users/chen/Library/Application Support/Trae CN/User/workspaceStorage/4804083f881b36dd2ccf45574be28ce8/state.vscdb",
+  "sessionId": "69f7ad457f0ec5291f1c7204",
+  "rows": [
+    {
+      "sessionId": ".3792634309254663:ab9f751d781ef617c21f2b3975c31777_69f7ad457f0ec5291f1c7204.69f7cc7f7f0ec5291f1c7eba.69f7cc7f4b23084e68b1651a:Trae CN.T(2026/5/4 01:30:23)",
+      "rawSessionId": "69f7ad457f0ec5291f1c7204",
+      "conversation": "静态方法存在问题。",
+      "logTrace": ".3792634309254663:ab9f751d781ef617c21f2b3975c31777_69f7ad457f0ec5291f1c7204.69f7cc7f7f0ec5291f1c7eba.69f7cc7f4b23084e68b1651a:Trae CN.T(2026/5/4 01:30:23)"
+    },
+    {
+      "sessionId": ".3792634309254663:78888652e35849b393ce2b6d2b81abc7_69f7ad457f0ec5291f1c7204.69f7cd8f7f0ec5291f1c7f77.69f7cd8f4b23084e68b1651b:Trae CN.T(2026/5/4 01:34:55)",
+      "rawSessionId": "69f7ad457f0ec5291f1c7204",
+      "conversation": "账号密码出错了",
+      "logTrace": ".3792634309254663:78888652e35849b393ce2b6d2b81abc7_69f7ad457f0ec5291f1c7204.69f7cd8f7f0ec5291f1c7f77.69f7cd8f4b23084e68b1651b:Trae CN.T(2026/5/4 01:34:55)"
+    }
+  ],
+  "cached": true,
+  "refreshedAt": "2026-05-04T01:43:18"
+}
