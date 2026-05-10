@@ -44,7 +44,15 @@ const copyBatchOrderColumnButton = document.getElementById('copyBatchOrderColumn
 const copyBatchSessionIdColumnButton = document.getElementById('copyBatchSessionIdColumn');
 const copyBatchDissatisfactionColumnButton = document.getElementById('copyBatchDissatisfactionColumn');
 const copyBatchConversationColumnButton = document.getElementById('copyBatchConversationColumn');
+const copyBatchTraceOrderColumnButton = document.getElementById('copyBatchTraceOrderColumn');
+const copyBatchScreenshotColumnButton = document.getElementById('copyBatchScreenshotColumn');
 const copyBatchLogTraceColumnButton = document.getElementById('copyBatchLogTraceColumn');
+const batchSessionMinRowsInput = document.getElementById('batchSessionMinRows');
+const refreshBatchMissingSessionsButton = document.getElementById('refreshBatchMissingSessions');
+const copyNextBatchScreenshotButton = document.getElementById('copyNextBatchScreenshot');
+const pasteBatchScreenshotsToFeishuButton = document.getElementById('pasteBatchScreenshotsToFeishu');
+const pasteBatchAllToFeishuButton = document.getElementById('pasteBatchAllToFeishu');
+const batchSessionRefreshStatus = document.getElementById('batchSessionRefreshStatus');
 
 let candidates = [];
 let prompts = [];
@@ -60,12 +68,16 @@ let currentSessionRows = [];
 let sessionOrderList = [];
 let activeSessionOrder = '';
 let currentBatchSessionRows = [];
+let currentBatchSessionOrders = [];
+let currentBatchSessionGroupName = '';
 let sessionLoadRequestId = 0;
 const refreshingSessionOrders = new Set();
 const sessionRefreshPollTimers = new Map();
 const sessionFetchTimeoutMs = 30000;
 const sessionRefreshTimeoutMs = 42000;
 let activeSessionFetchController = null;
+let batchScreenshotCopyQueue = [];
+let batchScreenshotCopyIndex = 0;
 const scenePrefix = {
   shopping: 'g',
   social: 's',
@@ -401,9 +413,10 @@ async function runBatchTrae(action) {
   }
   const button = action === 'open' ? batchOpenTraeButton : batchCloseTraeButton;
   const otherButton = action === 'open' ? batchCloseTraeButton : batchOpenTraeButton;
+  const launcherName = 'Trae';
   if (button) button.disabled = true;
   if (otherButton) otherButton.disabled = true;
-  setBatchStatus(action === 'open' ? `开启组 ${groupName || '-'}：${orders.join(',')}` : `关闭组 ${groupName || '-'}：${orders.join(',')}`);
+  setBatchStatus(action === 'open' ? `启动 ${launcherName} 组 ${groupName || '-'}：${orders.join(',')}` : `关闭组 ${groupName || '-'}：${orders.join(',')}`);
   try {
     const response = await fetch('/api/batch-trae-projects', {
       method: 'POST',
@@ -437,15 +450,21 @@ function downloadText(filename, content) {
   URL.revokeObjectURL(url);
 }
 
-async function copyText(text, button) {
-  await navigator.clipboard.writeText(text);
-  const original = button.textContent;
-  button.textContent = '已复制';
+function markCopied(button, label = '已复制') {
+  if (!button) return;
+  const original = button.dataset.originalLabel || button.textContent;
+  button.dataset.originalLabel = original;
+  button.textContent = label;
   button.classList.add('copied');
   setTimeout(() => {
-    button.textContent = original;
+    button.textContent = button.dataset.originalLabel || original;
     button.classList.remove('copied');
   }, 1000);
+}
+
+async function copyText(text, button) {
+  await navigator.clipboard.writeText(text);
+  markCopied(button);
 }
 
 function splitPrompt(prompt) {
@@ -554,6 +573,10 @@ function fetchWithTimeout(url, options = {}, timeoutMs = sessionFetchTimeoutMs) 
   return fetch(url, requestOptions).finally(() => window.clearTimeout(timeout));
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 function isCompositeTraeSessionId(value) {
   return /^\.[^:\s]+:[0-9a-f]{32}_[0-9a-f]{24}\.[0-9a-f]{24}\.[0-9a-f]{24}:Trae CN\.T\(/.test(String(value || '').trim());
 }
@@ -561,6 +584,17 @@ function isCompositeTraeSessionId(value) {
 function rawSessionIdFromComposite(value) {
   const match = String(value || '').trim().match(/^\.[^:\s]+:[0-9a-f]{32}_([0-9a-f]{24})\.[0-9a-f]{24}\.[0-9a-f]{24}:Trae CN\.T\(/);
   return match ? match[1] : '';
+}
+
+function displaySessionId(value) {
+  return String(value || '').trim().replace(
+    /^(\.[^:\s]+:[0-9a-f]{32}_[0-9a-f]{24}\.[0-9a-f]{24})\.[0-9a-f]{24}(:Trae CN\.T\([^)]+\))$/,
+    '$1$2',
+  );
+}
+
+function sessionColumnText(row) {
+  return displaySessionId(row?.sessionId || row?.sessionComposite || row?.logTraceId || '-');
 }
 
 function normalizeSessionRow(row) {
@@ -600,7 +634,68 @@ function normalizeSessionRow(row) {
     : (sessionId || rawSessionId);
   normalized.sessionDisplayId = existingDisplayId || String(displaySessionId || '').trim();
   normalized.dissatisfactionReason = String(normalized.dissatisfactionReason || '').trim();
+  normalized.screenshots = Array.isArray(normalized.screenshots) ? normalized.screenshots : [];
   return normalized;
+}
+
+const batchOrderThemes = [
+  { color: '#1d4ed8', bg: '#dbeafe', tint: '#dbeafe', border: '#60a5fa', hover: '#bfdbfe' },
+  { color: '#047857', bg: '#d1fae5', tint: '#d1fae5', border: '#34d399', hover: '#bbf7d0' },
+  { color: '#b45309', bg: '#fef3c7', tint: '#fef3c7', border: '#f59e0b', hover: '#fde68a' },
+  { color: '#be123c', bg: '#ffe4e6', tint: '#ffe4e6', border: '#fb7185', hover: '#fecdd3' },
+  { color: '#6d28d9', bg: '#ede9fe', tint: '#ede9fe', border: '#a78bfa', hover: '#ddd6fe' },
+  { color: '#0f766e', bg: '#ccfbf1', tint: '#ccfbf1', border: '#2dd4bf', hover: '#99f6e4' },
+  { color: '#c2410c', bg: '#ffedd5', tint: '#ffedd5', border: '#fb923c', hover: '#fed7aa' },
+  { color: '#4338ca', bg: '#e0e7ff', tint: '#e0e7ff', border: '#818cf8', hover: '#c7d2fe' },
+];
+
+function batchOrderTheme(order) {
+  const text = String(order || '');
+  const match = text.match(/-(\d+)$/);
+  if (match) {
+    return batchOrderThemes[Number.parseInt(match[1], 10) % batchOrderThemes.length];
+  }
+  let hash = 0;
+  for (const char of text) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return batchOrderThemes[hash % batchOrderThemes.length];
+}
+
+function applyBatchOrderTheme(tr, order) {
+  const theme = batchOrderTheme(order);
+  tr.classList.add('batch-order-row');
+  tr.style.setProperty('background-color', theme.tint, 'important');
+  tr.style.setProperty('--batch-order-color', theme.color);
+  tr.style.setProperty('--batch-order-bg', theme.bg);
+  tr.style.setProperty('--batch-order-border', theme.border);
+  tr.style.setProperty('--batch-order-hover', theme.hover);
+  tr.style.setProperty('--batch-order-tint', theme.tint);
+  return theme;
+}
+
+function paintBatchOrderRow(tr, orderCell, order) {
+  const theme = applyBatchOrderTheme(tr, order);
+  for (const cellNode of tr.children) {
+    const td = cellNode;
+    td.style.setProperty('background-color', theme.tint, 'important');
+    td.style.setProperty('background-image', 'none', 'important');
+    td.style.setProperty('border-color', theme.border, 'important');
+    td.style.setProperty('border-top-color', theme.border, 'important');
+    td.style.setProperty('border-bottom-color', theme.border, 'important');
+    td.style.setProperty('color', theme.color, 'important');
+    const textNode = td.querySelector('.session-cell-text');
+    if (textNode) {
+      textNode.style.setProperty('color', theme.color, 'important');
+    }
+  }
+  orderCell.style.setProperty('background-color', theme.bg, 'important');
+  orderCell.style.setProperty('color', theme.color, 'important');
+  orderCell.style.setProperty('border-left', `7px solid ${theme.border}`, 'important');
+  const orderText = orderCell.querySelector('.session-cell-text');
+  if (orderText) {
+    orderText.style.setProperty('background-color', theme.bg, 'important');
+    orderText.style.setProperty('color', theme.color, 'important');
+    orderText.style.setProperty('border', `1px solid ${theme.border}`, 'important');
+  }
 }
 
 function sessionLogTraceText(row) {
@@ -616,21 +711,509 @@ function sessionLogTraceText(row) {
   return '未找到真实日志轨迹文件/内容';
 }
 
-function makeSessionCopyCell(value, className, shorten = false) {
+function dissatisfactionReasonText(value) {
+  const text = String(value || '').trim();
+  if (!text || text === '-') return '产物不满意:';
+  if (/^产物不满意[:：]/.test(text)) return text;
+  return `产物不满意: ${text}`;
+}
+
+function spreadsheetColumnText(value) {
+  return String(value || '-')
+    .replace(/\r?\n/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim() || '-';
+}
+
+function makeSessionCopyCell(value, className, shorten = false, displayValue = '', maxChars = 90) {
   const td = document.createElement('td');
   td.className = className;
   const text = String(value || '-');
-  const show = shorten && text.length > 90 ? `${text.slice(0, 90)}...` : text;
+  const visibleText = String(displayValue || text || '-');
+  const limit = Number.isFinite(maxChars) && maxChars > 0 ? maxChars : 90;
+  const show = shorten && visibleText.length > limit ? `${visibleText.slice(0, limit)}...` : visibleText;
   const textEl = document.createElement('span');
   textEl.className = 'session-cell-text';
   textEl.textContent = show;
-  textEl.title = text;
+  textEl.title = displayValue ? `${visibleText}\n\n复制完整值：${text}` : text;
   const copyBtn = actionButton('复制', 'session-copy-button');
   copyBtn.addEventListener('click', async (event) => {
     event.stopPropagation();
     await copyText(text, copyBtn);
   });
   td.append(textEl, copyBtn);
+  return td;
+}
+
+function sessionScreenshots(row) {
+  return Array.isArray(row?.screenshots)
+    ? row.screenshots.filter((item) => item && (item.url || item.resourceId || item.path))
+    : [];
+}
+
+function rowsWithScreenshotsShiftedBack(rows) {
+  const sourceRows = Array.isArray(rows) ? rows : [];
+  const shiftedRows = sourceRows.map((row) => ({ ...row }));
+  for (let index = 0; index < shiftedRows.length; index += 1) {
+    const order = String(sourceRows[index]?.order || '').trim();
+    const next = sourceRows[index + 1];
+    const nextOrder = String(next?.order || '').trim();
+    shiftedRows[index].screenshots = order && nextOrder === order
+      ? sessionScreenshots(next)
+      : [];
+  }
+  return shiftedRows;
+}
+
+function absoluteUrl(url) {
+  const text = String(url || '').trim();
+  if (!text) return '';
+  try {
+    return new URL(text, window.location.origin).href;
+  } catch {
+    return text;
+  }
+}
+
+function screenshotColumnText(row) {
+  const values = sessionScreenshots(row)
+    .map((item) => absoluteUrl(item.url || item.path || item.resourceId))
+    .filter(Boolean);
+  return values.join(' ');
+}
+
+function screenshotHtmlItems(row) {
+  return sessionScreenshots(row)
+    .map((item) => ({
+      src: absoluteUrl(item.url || item.path || item.resourceId),
+      title: item.filename || item.resourceId || item.path || '截图',
+    }))
+    .filter((item) => item.src);
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('图片读取失败'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function loadImageElement(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('图片加载失败'));
+    image.src = src;
+  });
+}
+
+async function loadScreenshotImages(row) {
+  const screenshots = sessionScreenshots(row);
+  const images = [];
+  for (const item of screenshots) {
+    const url = absoluteUrl(item.url || item.path || item.resourceId);
+    if (!url) continue;
+    try {
+      const response = await fetch(url, { cache: 'no-store' });
+      if (!response.ok) continue;
+      const blob = await response.blob();
+      const type = blob.type || 'image/png';
+      if (!type.startsWith('image/')) continue;
+      images.push({
+        blob: blob.type ? blob : new Blob([blob], { type }),
+        type,
+        dataUrl: await blobToDataUrl(blob),
+        src: url,
+        title: item.filename || item.resourceId || item.path || '截图',
+      });
+    } catch (error) {
+      console.warn('读取截图失败:', error);
+    }
+  }
+  return images;
+}
+
+async function composeImagesBlob(images) {
+  const loaded = [];
+  for (const image of images || []) {
+    if (!image?.dataUrl) continue;
+    try {
+      loaded.push(await loadImageElement(image.dataUrl));
+    } catch (error) {
+      console.warn('合成截图时图片加载失败:', error);
+    }
+  }
+  if (!loaded.length) return null;
+  const maxWidth = Math.min(900, Math.max(...loaded.map((image) => image.naturalWidth || image.width || 1)));
+  const gap = 12;
+  const padding = 12;
+  const sizes = loaded.map((image) => {
+    const width = image.naturalWidth || image.width || 1;
+    const height = image.naturalHeight || image.height || 1;
+    const scale = Math.min(1, maxWidth / width);
+    return {
+      image,
+      width: Math.max(1, Math.round(width * scale)),
+      height: Math.max(1, Math.round(height * scale)),
+    };
+  });
+  const canvas = document.createElement('canvas');
+  canvas.width = maxWidth + padding * 2;
+  canvas.height = sizes.reduce((total, item, index) => total + item.height + (index ? gap : 0), padding * 2);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  let y = padding;
+  for (const item of sizes) {
+    const x = padding + Math.floor((maxWidth - item.width) / 2);
+    ctx.drawImage(item.image, x, y, item.width, item.height);
+    y += item.height + gap;
+  }
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+}
+
+async function writeScreenshotImagesToClipboard(images) {
+  const validImages = (images || []).filter(Boolean);
+  if (!validImages.length) {
+    await navigator.clipboard.writeText('-');
+    return 'empty';
+  }
+  if (!window.ClipboardItem) {
+    throw new Error('当前浏览器不支持图片剪贴板写入');
+  }
+  if (validImages.length === 1) {
+    const image = validImages[0];
+    await navigator.clipboard.write([new ClipboardItem({ [image.type || 'image/png']: image.blob })]);
+    return 'image';
+  }
+  const blob = await composeImagesBlob(validImages);
+  if (!blob) {
+    await navigator.clipboard.writeText('-');
+    return 'empty';
+  }
+  await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+  return 'image';
+}
+
+function screenshotHtmlTable(rowImages, srcKey = 'src') {
+  const rowsHtml = rowImages.map((images) => {
+    const inner = images.length
+      ? images.map((image) => {
+        const src = image[srcKey] || image.dataUrl || image.src || '';
+        return (
+          `<img src="${escapeHtml(src)}" alt="${escapeHtml(image.title)}" ` +
+          'style="max-width:220px;max-height:180px;display:inline-block;margin:2px;border:1px solid #d9d9d9;" />'
+        );
+      }).join('')
+      : '&nbsp;';
+    return `<tr><td>${inner}</td></tr>`;
+  }).join('');
+  return `<table style="border-collapse:collapse;"><tbody>${rowsHtml}</tbody></table>`;
+}
+
+function screenshotHtmlDocument(rowImages, srcKey = 'dataUrl') {
+  const table = screenshotHtmlTable(rowImages, srcKey);
+  return (
+    '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>' +
+    `<!--StartFragment-->${table}<!--EndFragment-->` +
+    '</body></html>'
+  );
+}
+
+function screenshotPlainTable(rowImages) {
+  return rowImages.map((images) => (images.length ? ' ' : '-')).join('\n');
+}
+
+async function copyScreenshotRowsAsHtmlTable(rowImageItems) {
+  if (!window.ClipboardItem) {
+    throw new Error('当前浏览器不支持富文本剪贴板写入');
+  }
+  const rowImages = rowImageItems.map((item) => item.images || []);
+  const html = screenshotHtmlDocument(rowImages, 'dataUrl');
+  const plain = screenshotPlainTable(rowImages);
+  await navigator.clipboard.write([new ClipboardItem({
+    'text/html': new Blob([html], { type: 'text/html' }),
+    'text/plain': new Blob([plain], { type: 'text/plain' }),
+  })]);
+}
+
+function waitForImages(root, timeoutMs = 1800) {
+  const images = Array.from(root.querySelectorAll('img'));
+  if (!images.length) return Promise.resolve();
+  return new Promise((resolve) => {
+    let done = false;
+    let remaining = images.length;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resolve();
+    };
+    const tick = () => {
+      remaining -= 1;
+      if (remaining <= 0) finish();
+    };
+    window.setTimeout(finish, timeoutMs);
+    for (const img of images) {
+      if (img.complete) {
+        tick();
+      } else {
+        img.addEventListener('load', tick, { once: true });
+        img.addEventListener('error', tick, { once: true });
+      }
+    }
+  });
+}
+
+async function copyHtmlTableBySelection(html, waitForLoad = false) {
+  const wrapper = document.createElement('div');
+  wrapper.contentEditable = 'true';
+  wrapper.style.position = 'fixed';
+  wrapper.style.left = '-10000px';
+  wrapper.style.top = '0';
+  wrapper.style.width = '900px';
+  wrapper.style.background = '#fff';
+  wrapper.innerHTML = html;
+  document.body.appendChild(wrapper);
+  if (waitForLoad) await waitForImages(wrapper);
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(wrapper);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  let ok = false;
+  try {
+    ok = document.execCommand('copy');
+  } finally {
+    selection.removeAllRanges();
+    wrapper.remove();
+  }
+  if (!ok) throw new Error('浏览器表格复制失败');
+}
+
+async function copyScreenshotRowsAsImages(rows, button) {
+  const targetRows = Array.isArray(rows) ? rows : [];
+  try {
+    if (button) {
+      button.dataset.originalLabel = button.dataset.originalLabel || button.textContent;
+      button.textContent = '复制中';
+    }
+    const rowImages = [];
+    const orderCounts = new Map();
+    for (const row of targetRows) {
+      const order = String(row?.order || activeSessionOrder || '').trim() || '-';
+      const indexInOrder = (orderCounts.get(order) || 0) + 1;
+      orderCounts.set(order, indexInOrder);
+      rowImages.push({
+        order,
+        indexInOrder,
+        images: await loadScreenshotImages(row),
+      });
+    }
+    const imageCount = rowImages.reduce((total, item) => total + item.images.length, 0);
+    if (!imageCount) {
+      await copyText(targetRows.map(() => '-').join('\n') || '-', button);
+      return;
+    }
+
+    if (targetRows.length > 1) {
+      batchScreenshotCopyQueue = rowImages;
+      batchScreenshotCopyIndex = 0;
+      try {
+        await copyScreenshotRowsAsHtmlTable(rowImages);
+        markCopied(button);
+        updateBatchScreenshotQueueStatus(
+          `已复制批量截图表格：${rowImages.length} 行。如果飞书仍只进第一格，可用“复制下一张截图”逐行粘贴。`,
+        );
+        return;
+      } catch (error) {
+        console.warn('批量截图表格复制失败，改用逐张队列:', error);
+        await copyNextBatchScreenshotQueueItem(button);
+      }
+      return;
+    }
+
+    await writeScreenshotImagesToClipboard(rowImages[0]?.images || []);
+    markCopied(button);
+  } catch (error) {
+    console.error('复制截图失败:', error);
+    markCopied(button, '失败');
+  }
+}
+
+async function screenshotRowsForFeishuPaste(rows) {
+  const targetRows = Array.isArray(rows) ? rows : [];
+  const orderCounts = new Map();
+  const prepared = [];
+  for (const row of targetRows) {
+    const order = String(row?.order || activeSessionOrder || '').trim() || '-';
+    const indexInOrder = (orderCounts.get(order) || 0) + 1;
+    orderCounts.set(order, indexInOrder);
+    const screenshots = sessionScreenshots(row);
+    const imagePaths = screenshots
+      .map((item) => String(item.path || '').trim())
+      .filter(Boolean);
+    prepared.push({
+      order,
+      indexInOrder,
+      imagePaths,
+      imageCount: imagePaths.length,
+    });
+  }
+  return prepared;
+}
+
+async function rowsForFeishuBatchPaste(rows) {
+  const targetRows = Array.isArray(rows) ? rows : [];
+  const orderCounts = new Map();
+  const prepared = [];
+  for (const row of targetRows) {
+    const order = String(row?.order || activeSessionOrder || '').trim() || '-';
+    const indexInOrder = (orderCounts.get(order) || 0) + 1;
+    orderCounts.set(order, indexInOrder);
+    const screenshots = sessionScreenshots(row);
+    const imagePaths = screenshots
+      .map((item) => String(item.path || '').trim())
+      .filter(Boolean);
+    prepared.push({
+      order,
+      indexInOrder,
+      conversation: spreadsheetColumnText(row?.conversation || ''),
+      dissatisfactionReason: spreadsheetColumnText(dissatisfactionReasonText(row?.dissatisfactionReason)),
+      logTrace: spreadsheetColumnText(sessionLogTraceText(row)),
+      imagePaths,
+      imageCount: imagePaths.length,
+    });
+  }
+  return prepared;
+}
+
+async function pasteBatchScreenshotsToFeishu() {
+  if (!pasteBatchScreenshotsToFeishuButton) return;
+  const rows = batchRowsForColumnCopy();
+  if (!rows.length) {
+    setBatchSessionRefreshStatus('当前批量列表没有可粘贴行', true);
+    return;
+  }
+  pasteBatchScreenshotsToFeishuButton.disabled = true;
+  pasteBatchScreenshotsToFeishuButton.dataset.originalLabel = pasteBatchScreenshotsToFeishuButton.dataset.originalLabel || pasteBatchScreenshotsToFeishuButton.textContent;
+  pasteBatchScreenshotsToFeishuButton.textContent = '准备图片';
+  try {
+    setBatchSessionRefreshStatus(`正在准备 ${rows.length} 行截图路径，请保持飞书目标单元格已选中`);
+    const preparedRows = await screenshotRowsForFeishuPaste(rows);
+    const imageRows = preparedRows.filter((row) => Array.isArray(row.imagePaths) && row.imagePaths.length).length;
+    pasteBatchScreenshotsToFeishuButton.textContent = '粘贴中';
+    const requestBody = {
+      rows: preparedRows,
+      delay_ms: 1600,
+    };
+    const response = await fetch('/api/paste-feishu-screenshots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
+    const payload = await response.json();
+    if (!payload.ok) throw new Error(payload.error || '自动粘贴失败');
+    setBatchSessionRefreshStatus(`已自动粘贴 ${payload.pasted || 0} 张图片，跳过空行 ${payload.empty || 0} 行，共 ${payload.total || rows.length} 行`);
+    markCopied(pasteBatchScreenshotsToFeishuButton, imageRows ? '已粘贴' : '无图片');
+  } catch (error) {
+    console.error('自动粘贴截图列失败:', error);
+    setBatchSessionRefreshStatus(`自动粘贴失败：${error.message || error}`, true);
+    window.alert(`自动粘贴截图列失败：${error.message || error}`);
+    markCopied(pasteBatchScreenshotsToFeishuButton, '失败');
+  } finally {
+    pasteBatchScreenshotsToFeishuButton.disabled = false;
+  }
+}
+
+async function pasteBatchAllToFeishu() {
+  if (!pasteBatchAllToFeishuButton) return;
+  const rows = batchRowsForColumnCopy();
+  if (!rows.length) {
+    setBatchSessionRefreshStatus('当前批量列表没有可粘贴行', true);
+    return;
+  }
+  pasteBatchAllToFeishuButton.disabled = true;
+  pasteBatchAllToFeishuButton.dataset.originalLabel = pasteBatchAllToFeishuButton.dataset.originalLabel || pasteBatchAllToFeishuButton.textContent;
+  pasteBatchAllToFeishuButton.textContent = '粘贴中';
+  try {
+    setBatchSessionRefreshStatus(`正在自动粘贴 ${rows.length} 行：请确认飞书 User Prompt 第一行单元格已选中`);
+    const preparedRows = await rowsForFeishuBatchPaste(rows);
+    const response = await fetch('/api/paste-feishu-batch-sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rows: preparedRows,
+        delay_ms: 1400,
+      }),
+    });
+    const payload = await response.json();
+    if (!payload.ok) throw new Error(payload.error || '自动粘贴失败');
+    setBatchSessionRefreshStatus(
+      `已自动粘贴主要列：文本列 ${payload.textColumns || 0}，图片 ${payload.screenshots?.pasted || 0}，空截图 ${payload.screenshots?.empty || 0}；Session 未粘贴`,
+    );
+    markCopied(pasteBatchAllToFeishuButton, '已粘贴');
+  } catch (error) {
+    console.error('自动粘贴主要列失败:', error);
+    setBatchSessionRefreshStatus(`自动粘贴主要列失败：${error.message || error}`, true);
+    window.alert(`自动粘贴主要列失败：${error.message || error}`);
+    markCopied(pasteBatchAllToFeishuButton, '失败');
+  } finally {
+    pasteBatchAllToFeishuButton.disabled = false;
+  }
+}
+
+function makeScreenshotCell(row) {
+  const td = document.createElement('td');
+  td.className = 'session-screenshot-cell';
+  const screenshots = sessionScreenshots(row);
+  if (!screenshots.length) {
+    const textEl = document.createElement('span');
+    textEl.className = 'session-cell-text screenshot-empty-text';
+    textEl.textContent = '-';
+    td.appendChild(textEl);
+  } else {
+    const imageWrap = document.createElement('div');
+    imageWrap.className = 'session-screenshot-wrap';
+    const first = screenshots[0];
+    if (first.url) {
+      const img = document.createElement('img');
+      img.className = 'session-screenshot-thumb';
+      img.src = first.url;
+      img.alt = '截图';
+      img.loading = 'lazy';
+      img.title = first.resourceId || first.path || '截图';
+      imageWrap.appendChild(img);
+    } else {
+      const badge = document.createElement('span');
+      badge.className = 'session-screenshot-badge';
+      badge.textContent = '已找到ID';
+      badge.title = first.resourceId || '';
+      imageWrap.appendChild(badge);
+    }
+    if (screenshots.length > 1) {
+      const count = document.createElement('span');
+      count.className = 'session-screenshot-count';
+      count.textContent = `+${screenshots.length - 1}`;
+      imageWrap.appendChild(count);
+    }
+    td.appendChild(imageWrap);
+  }
+  const copyBtn = actionButton('复制', 'session-copy-button');
+  copyBtn.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await copyScreenshotRowsAsImages([row], copyBtn);
+  });
+  td.appendChild(copyBtn);
   return td;
 }
 
@@ -668,9 +1251,9 @@ function renderSessionRows(payload) {
   for (const row of rows) {
     const tr = document.createElement('tr');
     tr.append(
-      makeSessionCopyCell(row.sessionId || '-', 'session-id-cell'),
+      makeSessionCopyCell(sessionColumnText(row), 'session-id-cell'),
       makeSessionCopyCell(row.conversation || '', 'session-conv-cell', true),
-      makeSessionCopyCell(row.dissatisfactionReason || '-', 'session-reason-cell', true),
+      makeSessionCopyCell(dissatisfactionReasonText(row.dissatisfactionReason), 'session-reason-cell', true),
       makeSessionCopyCell(sessionLogTraceText(row), 'session-log-cell', true),
     );
     sessionRows.appendChild(tr);
@@ -680,10 +1263,20 @@ function renderSessionRows(payload) {
 function renderBatchSessionRows(payload) {
   if (!batchSessionRows || !batchSessionMeta) return;
   batchSessionRows.innerHTML = '';
-  const rows = Array.isArray(payload?.rows) ? payload.rows.map(normalizeSessionRow) : [];
+  batchScreenshotCopyQueue = [];
+  batchScreenshotCopyIndex = 0;
+  if (copyNextBatchScreenshotButton) {
+    copyNextBatchScreenshotButton.hidden = true;
+    copyNextBatchScreenshotButton.disabled = true;
+  }
+  const rawRows = Array.isArray(payload?.rows) ? payload.rows.map(normalizeSessionRow) : [];
+  const rows = rowsWithScreenshotsShiftedBack(rawRows);
   currentBatchSessionRows = rows;
   const groupName = payload?.groupName || currentBatchGroupName() || '-';
-  batchSessionMeta.textContent = `组: ${groupName} | 项目: ${payload?.orders?.length || 0} | 记录: ${rows.length}`;
+  const orders = normalizeBatchOrders(payload?.orders || currentBatchSessionOrders || []);
+  currentBatchSessionOrders = orders;
+  currentBatchSessionGroupName = groupName;
+  batchSessionMeta.textContent = `组: ${groupName} | 项目: ${orders.length || payload?.orders?.length || 0} | 记录: ${rows.length}`;
   if (!rows.length) {
     const tr = document.createElement('tr');
     tr.append(
@@ -691,6 +1284,8 @@ function renderBatchSessionRows(payload) {
       cell('-', 'session-id-cell'),
       cell('暂无批量会话数据', 'session-conv-cell'),
       cell('-', 'session-reason-cell'),
+      cell('-', 'session-trace-order-cell'),
+      cell('-', 'session-screenshot-cell'),
       cell('-', 'session-log-cell'),
     );
     batchSessionRows.appendChild(tr);
@@ -698,15 +1293,141 @@ function renderBatchSessionRows(payload) {
   }
   for (const row of rows) {
     const tr = document.createElement('tr');
+    const orderCell = makeSessionCopyCell(row.order || '-', 'session-order-cell');
+    orderCell.classList.add('batch-order-cell');
     tr.append(
-      makeSessionCopyCell(row.order || '-', 'session-order-cell'),
-      makeSessionCopyCell(row.sessionId || '-', 'session-id-cell'),
+      orderCell,
+      makeSessionCopyCell(sessionColumnText(row), 'session-id-cell batch-session-id-cell'),
       makeSessionCopyCell(row.conversation || '', 'session-conv-cell', true),
-      makeSessionCopyCell(row.dissatisfactionReason || '-', 'session-reason-cell', true),
+      makeSessionCopyCell(dissatisfactionReasonText(row.dissatisfactionReason), 'session-reason-cell', true),
+      makeSessionCopyCell(row.order || '-', 'session-trace-order-cell'),
+      makeScreenshotCell(row),
       makeSessionCopyCell(sessionLogTraceText(row), 'session-log-cell', true),
     );
+    paintBatchOrderRow(tr, orderCell, row.order);
     batchSessionRows.appendChild(tr);
   }
+}
+
+function setBatchSessionRefreshStatus(text, isError = false) {
+  if (!batchSessionRefreshStatus) return;
+  batchSessionRefreshStatus.textContent = text || '';
+  batchSessionRefreshStatus.classList.toggle('error', Boolean(isError));
+}
+
+function updateBatchScreenshotQueueStatus(text = '', isError = false) {
+  setBatchSessionRefreshStatus(text, isError);
+  if (!copyNextBatchScreenshotButton) return;
+  const hasNext = batchScreenshotCopyIndex < batchScreenshotCopyQueue.length;
+  copyNextBatchScreenshotButton.hidden = !hasNext;
+  copyNextBatchScreenshotButton.disabled = !hasNext;
+  if (hasNext) {
+    copyNextBatchScreenshotButton.textContent = `复制下一张截图 ${batchScreenshotCopyIndex + 1}/${batchScreenshotCopyQueue.length}`;
+  } else {
+    copyNextBatchScreenshotButton.textContent = '复制下一张截图';
+  }
+}
+
+async function copyNextBatchScreenshotQueueItem(button = copyNextBatchScreenshotButton) {
+  if (batchScreenshotCopyIndex >= batchScreenshotCopyQueue.length) {
+    updateBatchScreenshotQueueStatus('截图队列已复制完成');
+    return;
+  }
+  const item = batchScreenshotCopyQueue[batchScreenshotCopyIndex];
+  const isQueueButton = button === copyNextBatchScreenshotButton;
+  try {
+    if (button) {
+      button.dataset.originalLabel = button.dataset.originalLabel || button.textContent;
+      button.textContent = '复制中';
+      button.disabled = true;
+    }
+    const kind = await writeScreenshotImagesToClipboard(item.images);
+    batchScreenshotCopyIndex += 1;
+    const copiedText = kind === 'empty' ? '空截图占位' : '图片';
+    updateBatchScreenshotQueueStatus(
+      `已复制 ${batchScreenshotCopyIndex}/${batchScreenshotCopyQueue.length}：${item.order} 第 ${item.indexInOrder} 轮 ${copiedText}，粘贴后点“复制下一张截图”`,
+    );
+    if (!isQueueButton) markCopied(button);
+  } catch (error) {
+    console.error('复制队列截图失败:', error);
+    updateBatchScreenshotQueueStatus(`复制截图失败：${error.message || error}`, true);
+    if (!isQueueButton) markCopied(button, '失败');
+  } finally {
+    if (button) {
+      if (isQueueButton) {
+        button.disabled = batchScreenshotCopyIndex >= batchScreenshotCopyQueue.length;
+      } else {
+        button.disabled = false;
+      }
+    }
+  }
+}
+
+function batchSessionRowCounts(rows = currentBatchSessionRows) {
+  const counts = new Map();
+  for (const row of rows || []) {
+    const order = String(row?.order || '').trim();
+    if (!order) continue;
+    const sessionId = String(row?.sessionId || '').trim();
+    const conversation = String(row?.conversation || '').trim();
+    if (!sessionId || sessionId === '-' || conversation.startsWith('读取失败:')) continue;
+    counts.set(order, (counts.get(order) || 0) + 1);
+  }
+  return counts;
+}
+
+function batchCopyLimit() {
+  const value = Number.parseInt(String(batchSessionMinRowsInput?.value || ''), 10);
+  return Number.isInteger(value) && value > 0 ? value : Infinity;
+}
+
+function batchRowsForColumnCopy(rows = currentBatchSessionRows) {
+  const limit = batchCopyLimit();
+  if (!Number.isFinite(limit)) return Array.isArray(rows) ? rows : [];
+  const counts = new Map();
+  const selected = [];
+  for (const row of rows || []) {
+    const order = String(row?.order || '').trim() || '__missing_order__';
+    const nextCount = (counts.get(order) || 0) + 1;
+    counts.set(order, nextCount);
+    if (nextCount <= limit) selected.push(row);
+  }
+  return selected;
+}
+
+async function fetchBatchRowsForOrders(groupName, orders) {
+  const results = [];
+  for (const order of orders) {
+    const response = await fetchWithTimeout(`/api/trae-session-rounds?order=${encodeURIComponent(order)}`, { cache: 'no-store' });
+    const payload = await response.json();
+    if (payload.ok) {
+      for (const row of Array.isArray(payload.rows) ? payload.rows : []) {
+        results.push({
+          order,
+          sessionId: row.sessionId || payload.sessionId || '-',
+          rawSessionId: row.rawSessionId || '',
+          logTraceId: row.logTraceId || '',
+          sessionComposite: row.sessionComposite || '',
+          dissatisfactionReason: row.dissatisfactionReason || '-',
+          conversation: row.conversation || '',
+          logTrace: row.logTrace || '',
+          screenshots: Array.isArray(row.screenshots) ? row.screenshots : [],
+        });
+      }
+    } else {
+      results.push({
+        order,
+        sessionId: '-',
+        rawSessionId: '',
+        dissatisfactionReason: '-',
+        conversation: `读取失败: ${payload.error || 'unknown'}`,
+        logTrace: '',
+        screenshots: [],
+      });
+    }
+    renderBatchSessionRows({ groupName, orders, rows: results });
+  }
+  return results;
 }
 
 function updateSessionNavState() {
@@ -718,26 +1439,35 @@ function updateSessionNavState() {
 
 async function copySessionColumn(field, button) {
   if (field === 'logTrace') {
-    const values = currentSessionRows
-      .map((row) => String(row?.logTrace || '').trim())
-      .filter((value) => value && !isCompositeTraeSessionId(value) && !value.startsWith('[reconstructed:') && !value.includes('source: local-trae-logs'));
-    await copyText(values.length ? values.join('\n\n---\n\n') : '未找到真实日志轨迹文件/内容', button);
+    const values = currentSessionRows.map((row) => spreadsheetColumnText(sessionLogTraceText(row)));
+    await copyText(values.join('\n'), button);
     return;
   }
-  const values = currentSessionRows.map((row) => String(row?.[field] || '').trim());
-  await copyText(values.map((value) => value.replace(/\r?\n/g, ' ')).join('\n'), button);
+  const values = currentSessionRows.map((row) => {
+    if (field === 'sessionId') return sessionColumnText(row);
+    if (field === 'dissatisfactionReason') return dissatisfactionReasonText(row?.[field]);
+    return String(row?.[field] || '').trim();
+  });
+  await copyText(values.map(spreadsheetColumnText).join('\n'), button);
 }
 
 async function copyBatchColumn(field, button) {
+  const rows = batchRowsForColumnCopy();
   if (field === 'logTrace') {
-    const values = currentBatchSessionRows
-      .map((row) => String(row?.logTrace || '').trim())
-      .filter((value) => value && !isCompositeTraeSessionId(value) && !value.startsWith('[reconstructed:') && !value.includes('source: local-trae-logs'));
-    await copyText(values.length ? values.join('\n\n---\n\n') : '未找到真实日志轨迹文件/内容', button);
+    const values = rows.map((row) => spreadsheetColumnText(sessionLogTraceText(row)));
+    await copyText(values.join('\n'), button);
     return;
   }
-  const values = currentBatchSessionRows.map((row) => String(row?.[field] || '').trim());
-  await copyText(values.map((value) => value.replace(/\r?\n/g, ' ')).join('\n'), button);
+  if (field === 'screenshot') {
+    await copyScreenshotRowsAsImages(rows, button);
+    return;
+  }
+  const values = rows.map((row) => {
+    if (field === 'sessionId') return sessionColumnText(row);
+    if (field === 'dissatisfactionReason') return dissatisfactionReasonText(row?.[field]);
+    return String(row?.[field] || '').trim();
+  });
+  await copyText(values.map(spreadsheetColumnText).join('\n'), button);
 }
 
 async function showSessionModal(order) {
@@ -805,36 +1535,9 @@ async function openBatchSessions() {
   renderBatchSessionRows({ groupName, orders, rows: [] });
   if (!batchSessionModal.open) batchSessionModal.showModal();
   setBatchStatus(`批量会话加载中：${orders.join(',')}`);
+  setBatchSessionRefreshStatus('');
   try {
-    const results = [];
-    for (const order of orders) {
-      const response = await fetchWithTimeout(`/api/trae-session-rounds?order=${encodeURIComponent(order)}`, { cache: 'no-store' });
-      const payload = await response.json();
-      if (payload.ok) {
-        for (const row of Array.isArray(payload.rows) ? payload.rows : []) {
-          results.push({
-            order,
-            sessionId: row.sessionId || payload.sessionId || '-',
-            rawSessionId: row.rawSessionId || '',
-            logTraceId: row.logTraceId || '',
-            sessionComposite: row.sessionComposite || '',
-            dissatisfactionReason: row.dissatisfactionReason || '-',
-            conversation: row.conversation || '',
-            logTrace: row.logTrace || '',
-          });
-        }
-      } else {
-        results.push({
-          order,
-          sessionId: '-',
-          rawSessionId: '',
-          dissatisfactionReason: '-',
-          conversation: `读取失败: ${payload.error || 'unknown'}`,
-          logTrace: '',
-        });
-      }
-      renderBatchSessionRows({ groupName, orders, rows: results });
-    }
+    const results = await fetchBatchRowsForOrders(groupName, orders);
     renderBatchSessionRows({ groupName, orders, rows: results });
     setBatchStatus(`批量会话已加载：${results.length} 条`);
   } catch (error) {
@@ -1000,6 +1703,109 @@ async function refreshSessionCache(order, button, options = {}) {
       refreshingSessionOrders.delete(targetOrder);
       setSessionRefreshButtonState(targetOrder, 'idle');
     }, 1400);
+  }
+}
+
+function sessionPayloadRowCount(payload) {
+  const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+  let count = 0;
+  for (const row of rows) {
+    const sessionId = String(row?.sessionId || '').trim();
+    const conversation = String(row?.conversation || '').trim();
+    if (!sessionId || sessionId === '-' || conversation.startsWith('读取失败:')) continue;
+    count += 1;
+  }
+  return count;
+}
+
+async function refreshMissingSessionOrder(order, threshold) {
+  const targetOrder = String(order || '').trim();
+  const startedAt = Date.now();
+  const maxWaitMs = 420000;
+  let lastPayload = null;
+  setSessionRefreshButtonState(targetOrder, 'loading');
+  refreshingSessionOrders.add(targetOrder);
+  try {
+    while (Date.now() - startedAt < maxWaitMs) {
+      const response = await fetchWithTimeout('/api/refresh-trae-session-rounds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: targetOrder, force: true, discover: true }),
+      }, 0);
+      const payload = await response.json();
+      if (!payload.ok) throw new Error(payload.busy ? '刷新繁忙，请稍后再点' : (payload.error || '刷新失败'));
+      lastPayload = payload;
+      const rowCount = sessionPayloadRowCount(payload);
+      if (payload.refreshPending) {
+        const expectedText = payload.expectedRows ? `，预计 ${payload.expectedRows}` : '';
+        setBatchSessionRefreshStatus(`后台发现轮次中：${targetOrder} 当前 ${rowCount}/${threshold}${expectedText}`);
+        await sleep(2500);
+        continue;
+      }
+      if (rowCount >= threshold) {
+        setSessionRefreshButtonState(targetOrder, 'success');
+        return { payload, rowCount, complete: true };
+      }
+      if (payload.deepScan) {
+        setSessionRefreshButtonState(targetOrder, rowCount > 0 ? 'success' : 'empty');
+        return { payload, rowCount, complete: true };
+      }
+      setBatchSessionRefreshStatus(`继续发现轮次：${targetOrder} 当前 ${rowCount}/${threshold}`);
+      await sleep(700);
+    }
+    setSessionRefreshButtonState(targetOrder, 'empty');
+    return { payload: lastPayload, rowCount: sessionPayloadRowCount(lastPayload), complete: false };
+  } finally {
+    refreshingSessionOrders.delete(targetOrder);
+    window.setTimeout(() => setSessionRefreshButtonState(targetOrder, 'idle'), 1200);
+  }
+}
+
+async function refreshBatchMissingSessions() {
+  if (!refreshBatchMissingSessionsButton) return;
+  const threshold = Number.parseInt(String(batchSessionMinRowsInput?.value || ''), 10);
+  if (!Number.isInteger(threshold) || threshold <= 0) {
+    setBatchSessionRefreshStatus('请输入大于 0 的最低记录数', true);
+    return;
+  }
+  const { groupName, orders: collectedOrders } = collectBatchOrders();
+  const orders = normalizeBatchOrders(currentBatchSessionOrders.length ? currentBatchSessionOrders : collectedOrders);
+  if (!orders.length) {
+    setBatchSessionRefreshStatus('当前组没有项目', true);
+    return;
+  }
+  const counts = batchSessionRowCounts();
+  const missingOrders = orders.filter((order) => (counts.get(order) || 0) < threshold);
+  if (!missingOrders.length) {
+    setBatchSessionRefreshStatus(`全部项目已达到 ${threshold} 条`);
+    return;
+  }
+
+  refreshBatchMissingSessionsButton.disabled = true;
+  setBatchSessionRefreshStatus(`待刷新 ${missingOrders.length} 项：${missingOrders.join(', ')}`);
+  try {
+    for (let index = 0; index < missingOrders.length; index += 1) {
+      const order = missingOrders[index];
+      const beforeCount = counts.get(order) || 0;
+      setBatchSessionRefreshStatus(`刷新 ${index + 1}/${missingOrders.length}：${order} 当前 ${beforeCount}/${threshold}`);
+      const result = await refreshMissingSessionOrder(order, threshold);
+      setBatchSessionRefreshStatus(`刷新 ${index + 1}/${missingOrders.length}：${order} 完成 ${result.rowCount}/${threshold}`);
+    }
+    setBatchSessionRefreshStatus('已发起未达标项目刷新，正在重新读取批量会话...');
+    const results = await fetchBatchRowsForOrders(currentBatchSessionGroupName || groupName, orders);
+    renderBatchSessionRows({ groupName: currentBatchSessionGroupName || groupName, orders, rows: results });
+    const nextCounts = batchSessionRowCounts(results);
+    const stillMissing = orders.filter((order) => (nextCounts.get(order) || 0) < threshold);
+    setBatchSessionRefreshStatus(
+      stillMissing.length
+        ? `已刷新一次，仍未达标：${stillMissing.join(', ')}`
+        : `刷新完成，全部达到 ${threshold} 条`,
+      stillMissing.length > 0,
+    );
+  } catch (error) {
+    setBatchSessionRefreshStatus(`批量刷新失败：${error.message || error}`, true);
+  } finally {
+    refreshBatchMissingSessionsButton.disabled = false;
   }
 }
 
@@ -1368,6 +2174,8 @@ async function loadWorkbenchConfig() {
 }
 
 function bindBatchTraeControls() {
+  localStorage.removeItem('workbench.executionEngine');
+  if (batchOpenTraeButton) batchOpenTraeButton.textContent = '开启 Trae';
   if (batchTraeInput) {
     batchTraeInput.addEventListener('input', () => {
       if (activeBatchGroup && batchGroups[activeBatchGroup]) {
@@ -1675,6 +2483,34 @@ if (batchSessionModal) {
   });
 }
 
+if (refreshBatchMissingSessionsButton) {
+  refreshBatchMissingSessionsButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await refreshBatchMissingSessions();
+  });
+}
+
+if (copyNextBatchScreenshotButton) {
+  copyNextBatchScreenshotButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await copyNextBatchScreenshotQueueItem(copyNextBatchScreenshotButton);
+  });
+}
+
+if (pasteBatchScreenshotsToFeishuButton) {
+  pasteBatchScreenshotsToFeishuButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await pasteBatchScreenshotsToFeishu();
+  });
+}
+
+if (pasteBatchAllToFeishuButton) {
+  pasteBatchAllToFeishuButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await pasteBatchAllToFeishu();
+  });
+}
+
 if (copyBatchOrderColumnButton) {
   copyBatchOrderColumnButton.addEventListener('click', async (event) => {
     event.stopPropagation();
@@ -1700,6 +2536,20 @@ if (copyBatchConversationColumnButton) {
   copyBatchConversationColumnButton.addEventListener('click', async (event) => {
     event.stopPropagation();
     await copyBatchColumn('conversation', copyBatchConversationColumnButton);
+  });
+}
+
+if (copyBatchTraceOrderColumnButton) {
+  copyBatchTraceOrderColumnButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await copyBatchColumn('order', copyBatchTraceOrderColumnButton);
+  });
+}
+
+if (copyBatchScreenshotColumnButton) {
+  copyBatchScreenshotColumnButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await copyBatchColumn('screenshot', copyBatchScreenshotColumnButton);
   });
 }
 

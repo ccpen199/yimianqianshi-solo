@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PromptHub</title>
-  <link rel="stylesheet" href="./styles.css?v=41" />
+  <link rel="stylesheet" href="./styles.css?v=50" />
 </head>
 <body>
   <main class="page">
@@ -141,6 +141,17 @@
   </dialog>
   <dialog id="batchSessionModal" class="session-modal batch-session-modal">
     <div class="session-meta" id="batchSessionMeta"></div>
+    <div class="batch-session-toolbar">
+      <label class="batch-session-threshold-field">
+        <span>最低记录数</span>
+        <input id="batchSessionMinRows" type="number" min="1" max="99" step="1" value="5" />
+      </label>
+      <button id="refreshBatchMissingSessions" type="button" class="batch-session-refresh-button">刷新未达标项目</button>
+      <button id="copyNextBatchScreenshot" type="button" class="batch-session-refresh-button batch-screenshot-next-button" hidden>复制下一张截图</button>
+      <button id="pasteBatchScreenshotsToFeishu" type="button" class="batch-session-refresh-button batch-session-image-paste-button">截图粘贴</button>
+      <button id="pasteBatchAllToFeishu" type="button" class="batch-session-refresh-button batch-session-main-paste-button">一键粘贴</button>
+      <span id="batchSessionRefreshStatus" class="batch-session-refresh-status"></span>
+    </div>
     <div class="session-table-wrap">
       <table class="session-table batch-session-table">
         <thead>
@@ -149,6 +160,8 @@
             <th><span>Session</span><button id="copyBatchSessionIdColumn" type="button" class="session-column-copy">复制本列</button></th>
             <th><span>会话</span><button id="copyBatchConversationColumn" type="button" class="session-column-copy">复制本列</button></th>
             <th><span>不满意原因</span><button id="copyBatchDissatisfactionColumn" type="button" class="session-column-copy">复制本列</button></th>
+            <th><span>序号列</span><button id="copyBatchTraceOrderColumn" type="button" class="session-column-copy">复制本列</button></th>
+            <th><span>截图列</span><button id="copyBatchScreenshotColumn" type="button" class="session-column-copy">复制本列</button></th>
             <th><span>日志轨迹</span><button id="copyBatchLogTraceColumn" type="button" class="session-column-copy">复制本列</button></th>
           </tr>
         </thead>
@@ -156,6 +169,6 @@
       </table>
     </div>
   </dialog>
-  <script src="./app.js?v=62"></script>
+  <script src="./app.js?v=93"></script>
 </body>
 </html>

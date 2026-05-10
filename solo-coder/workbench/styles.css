@@ -2853,29 +2853,280 @@ table.large-table,
   width: min(1740px, 98vw);
 }
 
+.batch-session-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.batch-session-threshold-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.batch-session-threshold-field input {
+  width: 62px;
+  height: 24px;
+  padding: 2px 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.batch-session-refresh-button {
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid #2563eb;
+  border-radius: 999px;
+  color: #fff;
+  background: #2563eb;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.batch-session-refresh-button:hover {
+  background: #1d4ed8;
+}
+
+#pasteBatchScreenshotsToFeishu.batch-session-image-paste-button {
+  border-color: #0f766e;
+  color: #fff;
+  background: #0f766e;
+}
+
+#pasteBatchScreenshotsToFeishu.batch-session-image-paste-button:hover {
+  background: #0d9488;
+}
+
+#pasteBatchAllToFeishu.batch-session-main-paste-button {
+  min-width: 86px;
+  border-color: #f97316;
+  color: #111827;
+  background: linear-gradient(135deg, #fbbf24, #fb923c);
+  box-shadow: 0 0 0 2px rgba(251, 146, 60, .18);
+}
+
+#pasteBatchAllToFeishu.batch-session-main-paste-button:hover {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+}
+
+.batch-session-refresh-button:disabled {
+  cursor: wait;
+  opacity: .64;
+}
+
+.batch-session-refresh-status {
+  min-width: 0;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.batch-session-refresh-status.error {
+  color: #b91c1c;
+}
+
+.batch-session-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f8fafc;
+  box-shadow: 0 1px 0 #e2e8f0;
+}
+
+.batch-session-table td {
+  height: 48px;
+  max-height: 48px;
+  padding: 2px 4px;
+  text-align: left;
+  font-size: 9px !important;
+  line-height: 1.05;
+}
+
 .batch-session-table th:nth-child(1),
 .batch-session-table td:nth-child(1) {
-  width: 9%;
+  width: 7% !important;
 }
 
 .batch-session-table th:nth-child(2),
 .batch-session-table td:nth-child(2) {
-  width: 17%;
+  width: 26% !important;
 }
 
 .batch-session-table th:nth-child(3),
 .batch-session-table td:nth-child(3) {
-  width: 34%;
+  width: 20% !important;
 }
 
 .batch-session-table th:nth-child(4),
 .batch-session-table td:nth-child(4) {
-  width: 18%;
+  width: 13% !important;
 }
 
 .batch-session-table th:nth-child(5),
 .batch-session-table td:nth-child(5) {
-  width: 22%;
+  width: 7% !important;
+}
+
+.batch-session-table th:nth-child(6),
+.batch-session-table td:nth-child(6) {
+  width: 8% !important;
+}
+
+.batch-session-table th:nth-child(7),
+.batch-session-table td:nth-child(7) {
+  width: 19% !important;
+}
+
+.batch-session-table tbody tr.batch-order-row td {
+  border-left-color: var(--batch-order-border) !important;
+  background-color: var(--batch-order-tint) !important;
+  background-image: none !important;
+}
+
+.batch-session-table tbody tr.batch-order-row:hover td {
+  background: var(--batch-order-hover) !important;
+}
+
+.batch-session-table td.session-order-cell {
+  text-align: center;
+  color: var(--batch-order-color);
+  background: linear-gradient(90deg, var(--batch-order-bg), #ffffff);
+}
+
+.batch-session-table td.session-trace-order-cell {
+  text-align: center;
+  color: var(--batch-order-color);
+  font-weight: 800;
+}
+
+.batch-session-table td.session-order-cell .session-cell-text {
+  display: inline-flex;
+  max-width: none;
+  min-height: 20px;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 8px;
+  border: 1px solid var(--batch-order-border);
+  border-radius: 999px;
+  background: var(--batch-order-bg);
+  color: var(--batch-order-color);
+  font-weight: 800;
+  letter-spacing: 0;
+  overflow: visible;
+  white-space: nowrap;
+  word-break: normal;
+  -webkit-line-clamp: 1;
+}
+
+.batch-session-table td.session-trace-order-cell .session-cell-text {
+  display: inline-block;
+  max-width: none;
+  overflow: visible;
+  white-space: nowrap;
+  word-break: normal;
+  -webkit-line-clamp: 1;
+}
+
+.batch-session-table td.session-screenshot-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.session-screenshot-wrap {
+  position: relative;
+  display: inline-flex;
+  max-width: calc(100% - 34px);
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+
+.session-screenshot-thumb {
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(15, 23, 42, .18);
+  border-radius: 6px;
+  background: #fff;
+  object-fit: cover;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .18);
+}
+
+.session-screenshot-count {
+  position: absolute;
+  right: -7px;
+  bottom: -5px;
+  min-width: 16px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  color: #fff;
+  background: #2563eb;
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.session-screenshot-badge,
+.screenshot-empty-text {
+  display: inline-block;
+  max-width: calc(100% - 34px);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.batch-session-table td.session-id-cell .session-cell-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  color: #1e293b;
+}
+
+.batch-session-table td.batch-session-id-cell {
+  height: auto;
+  max-height: none;
+  vertical-align: top;
+}
+
+.batch-session-table td.batch-session-id-cell .session-cell-text {
+  display: inline-block;
+  max-width: calc(100% - 30px);
+  max-height: none;
+  overflow: visible;
+  font-size: 8.2px;
+  line-height: 1.04;
+  word-break: break-all;
+  -webkit-line-clamp: unset;
+}
+
+.batch-session-table td.session-conv-cell .session-cell-text,
+.batch-session-table td.session-reason-cell .session-cell-text,
+.batch-session-table td.session-log-cell .session-cell-text {
+  max-height: 36px;
+  -webkit-line-clamp: 3;
+  word-break: break-word;
+}
+
+.batch-session-table .session-copy-button {
+  margin-left: 3px;
+  padding: 1px 4px;
+  font-size: 9px;
+}
+
+.batch-session-table td.session-reason-cell {
+  color: #334155;
+  font-weight: 600;
 }
 
 button.session-refresh-button {

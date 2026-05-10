@@ -1,0 +1,803 @@
+{
+  "changed_count": 114,
+  "changed": [
+    {
+      "order": "may-991",
+      "old_name": "综合电商购物平台",
+      "new_name": "综合电商购物平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-992",
+      "old_name": "社交分销电商平台",
+      "new_name": "社交分销电商平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-993",
+      "old_name": "严选商品内容导购平台",
+      "new_name": "严选商品内容导购平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-994",
+      "old_name": "商品榜单种草平台",
+      "new_name": "商品榜单种草平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-995",
+      "old_name": "优惠券发放策略系统",
+      "new_name": "优惠券发放策略系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-996",
+      "old_name": "移动电商首页购物平台",
+      "new_name": "电商首页购物平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-998",
+      "old_name": "拼团电商交易平台",
+      "new_name": "拼团电商交易平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-999",
+      "old_name": "家居内容与家具选购平台",
+      "new_name": "家居内容与家具选购平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-1257",
+      "old_name": "家电租借与押金管理平台",
+      "new_name": "家电租借与押金管理平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-1260",
+      "old_name": "电商需求规格管理后台",
+      "new_name": "电商需求规格管理后台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-1261",
+      "old_name": "电商产品内容社区",
+      "new_name": "电商产品内容社区",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-1267",
+      "old_name": "限时秒杀与消费回忆平台",
+      "new_name": "限时秒杀与消费回忆平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-1268",
+      "old_name": "元宇宙社交浏览器",
+      "new_name": "元宇宙社交浏览器",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-1269",
+      "old_name": "产品经理职业社区平台",
+      "new_name": "产品经理职业社区平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-1273",
+      "old_name": "产品经理问答内容社区",
+      "new_name": "产品经理问答内容社区",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-1277",
+      "old_name": "产品经理知识交流平台",
+      "new_name": "产品经理知识交流平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4755",
+      "old_name": "兴趣活动社交平台",
+      "new_name": "兴趣活动社交平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4756",
+      "old_name": "灵魂匹配陌生人社交平台",
+      "new_name": "灵魂匹配陌生人社交平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4757",
+      "old_name": "问答内容社区平台",
+      "new_name": "问答内容社区平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4758",
+      "old_name": "知识问答与内容分发平台",
+      "new_name": "知识问答与内容分发平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4759",
+      "old_name": "付费社群知识服务平台",
+      "new_name": "付费社群知识服务平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4760",
+      "old_name": "陌生人泛娱乐社交平台",
+      "new_name": "陌生人泛娱乐社交平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4761",
+      "old_name": "校园共享信息平台",
+      "new_name": "校园共享信息平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4762",
+      "old_name": "垂直问答社区平台",
+      "new_name": "垂直问答社区平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4763",
+      "old_name": "匿名兴趣匹配社交平台",
+      "new_name": "匿名兴趣匹配社交平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4764",
+      "old_name": "搞笑内容互动社区",
+      "new_name": "搞笑内容互动社区",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4766",
+      "old_name": "熟人短视频社交平台",
+      "new_name": "熟人短视频社交平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4767",
+      "old_name": "情绪陪伴社交平台",
+      "new_name": "情绪陪伴社交平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4768",
+      "old_name": "生活方式话题运营系统",
+      "new_name": "生活方式话题运营系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4769",
+      "old_name": "生活方式内容种草平台",
+      "new_name": "生活方式内容种草平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4770",
+      "old_name": "弹幕视频内容社区",
+      "new_name": "弹幕视频内容社区",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4771",
+      "old_name": "线上一起看视频平台",
+      "new_name": "线上一起看视频平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4772",
+      "old_name": "音频内容订阅平台",
+      "new_name": "音频内容订阅平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4773",
+      "old_name": "泛娱乐直播互动平台",
+      "new_name": "泛娱乐直播互动平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4774",
+      "old_name": "ASMR音频内容平台",
+      "new_name": "ASMR音频内容平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4775",
+      "old_name": "二次元视频社区平台",
+      "new_name": "二次元视频社区平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4776",
+      "old_name": "移动直播打赏平台",
+      "new_name": "直播打赏平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4777",
+      "old_name": "音乐私藏推荐系统",
+      "new_name": "音乐私藏推荐系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4778",
+      "old_name": "短视频推荐娱乐平台",
+      "new_name": "短视频推荐娱乐平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4779",
+      "old_name": "短视频听歌扩展系统",
+      "new_name": "短视频听歌扩展系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4780",
+      "old_name": "二次元音频直播平台",
+      "new_name": "二次元音频直播平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4783",
+      "old_name": "Web视频播放器系统",
+      "new_name": "Web视频播放器系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4784",
+      "old_name": "竖屏短视频创作平台",
+      "new_name": "竖屏短视频创作平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4788",
+      "old_name": "短视频拍摄发布平台",
+      "new_name": "短视频拍摄发布平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4789",
+      "old_name": "有声内容播放平台",
+      "new_name": "有声内容播放平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4791",
+      "old_name": "用户价值分层推荐系统",
+      "new_name": "用户价值分层推荐系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4792",
+      "old_name": "内嵌UGC视频播放平台",
+      "new_name": "内嵌UGC视频播放平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4793",
+      "old_name": "音乐播放与歌单社区",
+      "new_name": "音乐播放与歌单社区",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4794",
+      "old_name": "音乐下载任务管理系统",
+      "new_name": "音乐下载任务管理系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4798",
+      "old_name": "驾考学习题库平台",
+      "new_name": "驾考学习题库平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4801",
+      "old_name": "课程作业学习助手",
+      "new_name": "课程作业学习助手",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4802",
+      "old_name": "在线简历制作平台",
+      "new_name": "在线简历制作平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4807",
+      "old_name": "中小学作业练习平台",
+      "new_name": "中小学作业练习平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4809",
+      "old_name": "词典翻译学习平台",
+      "new_name": "词典翻译学习平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4812",
+      "old_name": "家教撮合与在线辅导平台",
+      "new_name": "家教撮合与在线辅导平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4813",
+      "old_name": "云笔记知识管理平台",
+      "new_name": "云笔记知识管理平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4817",
+      "old_name": "古诗词内容学习平台",
+      "new_name": "古诗词内容学习平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4818",
+      "old_name": "电子书借阅阅读平台",
+      "new_name": "电子书借阅阅读平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4819",
+      "old_name": "知识付费听书平台",
+      "new_name": "知识付费听书平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4820",
+      "old_name": "智能翻译工具平台",
+      "new_name": "智能翻译工具平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4821",
+      "old_name": "数字图书馆阅读平台",
+      "new_name": "数字图书馆阅读平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4822",
+      "old_name": "大学生职业教育平台",
+      "new_name": "大学生职业教育平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4823",
+      "old_name": "对外汉语学习平台",
+      "new_name": "对外汉语学习平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4824",
+      "old_name": "在线法律咨询平台",
+      "new_name": "在线法律咨询平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4825",
+      "old_name": "健身训练课程平台",
+      "new_name": "健身训练课程平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4826",
+      "old_name": "运动打卡训练系统",
+      "new_name": "运动打卡训练系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4827",
+      "old_name": "健身社区与课程平台",
+      "new_name": "健身社区与课程平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4829",
+      "old_name": "健康饮食小程序",
+      "new_name": "健康饮食平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4830",
+      "old_name": "宝宝成长记录平台",
+      "new_name": "宝宝成长记录平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4831",
+      "old_name": "宠物医疗服务平台",
+      "new_name": "宠物医疗服务平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4832",
+      "old_name": "宠物日记社区平台",
+      "new_name": "宠物日记社区平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4833",
+      "old_name": "冥想课程与情绪放松平台",
+      "new_name": "冥想课程与情绪放松平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4834",
+      "old_name": "宠物生活服务平台",
+      "new_name": "宠物生活服务平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4835",
+      "old_name": "睡眠助眠设备管理系统",
+      "new_name": "睡眠助眠设备管理系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4836",
+      "old_name": "育儿成长陪伴平台",
+      "new_name": "育儿成长陪伴平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4837",
+      "old_name": "信贷H5申请平台",
+      "new_name": "信贷申请平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4838",
+      "old_name": "聊天式记账平台",
+      "new_name": "聊天式记账平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4839",
+      "old_name": "互联网理财投资平台",
+      "new_name": "互联网理财投资平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4840",
+      "old_name": "移动信贷审批平台",
+      "new_name": "信贷审批平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4841",
+      "old_name": "信用卡账单管理平台",
+      "new_name": "信用卡账单管理平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4842",
+      "old_name": "商户收款账务系统",
+      "new_name": "商户收款账务系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4843",
+      "old_name": "应用消息推送系统",
+      "new_name": "应用消息推送系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4844",
+      "old_name": "数据可视化图表工具",
+      "new_name": "数据可视化图表工具",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4845",
+      "old_name": "智能家居设备控制平台",
+      "new_name": "智能家居设备控制平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4846",
+      "old_name": "白噪音专注睡眠工具",
+      "new_name": "白噪音专注睡眠工具",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4847",
+      "old_name": "专注计时与习惯养成平台",
+      "new_name": "专注计时与习惯养成平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4848",
+      "old_name": "智能搜索浏览器平台",
+      "new_name": "智能搜索浏览器平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4849",
+      "old_name": "水滴筹助力传播系统",
+      "new_name": "水滴筹助力传播系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4850",
+      "old_name": "智能家居虚拟设备系统",
+      "new_name": "智能家居虚拟设备系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4851",
+      "old_name": "电影票务预订平台",
+      "new_name": "电影票务预订平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4852",
+      "old_name": "本地生活兴趣社交平台",
+      "new_name": "本地生活兴趣社交平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4853",
+      "old_name": "城市活动发现平台",
+      "new_name": "城市活动发现平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4854",
+      "old_name": "企业官网内容管理系统",
+      "new_name": "企业官网内容管理系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4855",
+      "old_name": "民宿小程序预订平台",
+      "new_name": "民宿平台预订平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4856",
+      "old_name": "旅行攻略内容平台",
+      "new_name": "旅行攻略内容平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4857",
+      "old_name": "旅游达人种草小程序",
+      "new_name": "旅游达人种草平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4858",
+      "old_name": "大学社团资讯平台",
+      "new_name": "大学社团资讯平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4859",
+      "old_name": "足球资讯社区平台",
+      "new_name": "足球资讯社区平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4860",
+      "old_name": "新闻资讯阅读平台",
+      "new_name": "新闻资讯阅读平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4861",
+      "old_name": "澳门旅行资讯平台",
+      "new_name": "澳门旅行资讯平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4862",
+      "old_name": "体育社区资讯平台",
+      "new_name": "体育社区资讯平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4863",
+      "old_name": "语音直播社交平台",
+      "new_name": "语音直播社交平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4864",
+      "old_name": "美颜拍摄修图社区",
+      "new_name": "美颜拍摄修图社区",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4865",
+      "old_name": "自由行攻略交易平台",
+      "new_name": "自由行攻略交易平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4866",
+      "old_name": "企业协同消息模块",
+      "new_name": "企业协同消息模块",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4867",
+      "old_name": "新商业资讯平台注册登录",
+      "new_name": "新商业资讯平台注册登录",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4868",
+      "old_name": "公益养成能量森林系统",
+      "new_name": "公益养成能量森林系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4869",
+      "old_name": "二手书书评社区",
+      "new_name": "二手书书评社区",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4870",
+      "old_name": "云会议协作平台",
+      "new_name": "云会议协作平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4871",
+      "old_name": "企业云视频会议平台",
+      "new_name": "企业云视频会议平台",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4872",
+      "old_name": "机票首页搜索系统",
+      "new_name": "机票首页搜索系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4873",
+      "old_name": "会议预定与会控系统",
+      "new_name": "会议预定与会控系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4874",
+      "old_name": "待办清单与时间管理系统",
+      "new_name": "待办清单与时间管理系统",
+      "prompt_changed": true,
+      "guard_added": true
+    },
+    {
+      "order": "may-4875",
+      "old_name": "区块链价值共享平台",
+      "new_name": "区块链价值共享平台",
+      "prompt_changed": true,
+      "guard_added": true
+    }
+  ]
+}

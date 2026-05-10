@@ -1588,3 +1588,165 @@ Modular 精准匹配：
   有 rows：只补日志轨迹
   无 rows：深扫找真实轮次
 ```
+
+## 2026-05-09 v14.3：刷新已有缓存但缺轮次的问题
+
+问题复盘：
+
+```text
+may-979 / may-980 / may-981 / may-982 实际都已跑完 5 轮。
+
+workspaceStorage 中：
+  icube-ai-agent-storage-input-history = 5 条有效输入
+
+刷新前缓存中：
+  may-979 = 3 rows
+  may-980 = 2 rows
+  may-981 = 2 rows
+  may-982 = 1 row
+
+旧 v14.1/v14.2 分流规则是：
+  只要已有 rows，就走 logTraceOnlyRefresh。
+
+结果：
+  已有 2-3 行的项目不会再进入 deepScan。
+  后台只会补已有行的日志轨迹，不会发现第 4/5 轮。
+  前端表现就是“刷新成功了，但仍只有 2-3 轮”。
+```
+
+修正后的刷新分流：
+
+```text
+点击刷新 { force: true } 时先比较：
+  expectedRows = workspace input history 的有效轮次数
+  cachedRows   = 当前缓存中的真实 rows 数
+
+如果 cachedRows < expectedRows：
+  deepScan=true
+  reason=cached_rows_less_than_workspace_input_history
+  重新从 workspaceStorage + 全日期 logs 中发现缺失轮次
+
+如果 cachedRows >= expectedRows：
+  logTraceOnlyRefresh=true
+  不重建前三列
+  只补/更新日志轨迹列
+
+如果没有缓存 rows：
+  deepScan=true
+  reason=empty_cache
+```
+
+有效轮次数计算：
+
+```text
+来源：
+  state.vscdb -> icube-ai-agent-storage-input-history
+
+规则：
+  只统计 dict item
+  连续重复 inputText 且无 multiMedia 的记录去重
+  带 multiMedia 的记录保留，因为它可能对应独立轮次
+
+这个计数只用于决定是否需要 deepScan，
+不直接生成前三列内容。
+```
+
+边界要求保持不变：
+
+```text
+deepScan 只在“缓存行数少于 workspace 有效轮次”时触发。
+已有行的前三列语义仍保持：
+  Session       = row.sessionId 复合 ID
+  会话          = row.conversation
+  不满意原因    = row.dissatisfactionReason
+
+日志轨迹格式仍沿用 v13/v14 正确规格：
+  assistant 中文说明
+  标准化工具调用块
+  assistant 最终总结
+  不写 source/traceId 头部
+  不写 role=tool 结果片段
+  不写 reconstructed/local-trae-logs 硬模板
+```
+
+验证结果：
+
+```text
+may-979: cached 3 / expected 5 -> deepScan -> 5 rows
+may-980: cached 2 / expected 5 -> deepScan -> 5 rows
+may-981: cached 2 / expected 5 -> deepScan -> 5 rows
+may-982: cached 1 / expected 5 -> deepScan -> 5 rows
+
+5 行都命中：
+  logTraceSource=trae-modular-ai-agent-history
+```
+
+## 2026-05-09 v14.4：批量会话样式与不满意原因标注
+
+批量会话列表样式：
+
+```text
+同一 order 使用稳定主题色。
+order 列显示为彩色胶囊，便于在 20 行混排中区分 may-979/may-980/may-981/may-982。
+表头 sticky，列宽调整为：
+  order 8%
+  Session 22%
+  会话 29%
+  不满意原因 16%
+  日志轨迹 25%
+```
+
+不满意原因列问题：
+
+```text
+当前行的不满意原因 = 下一轮 conversation 对上一轮产物的反馈摘要。
+最后一行没有下一轮反馈，因此允许为空。
+
+根因：
+  deepScan 新补出的第 3/4/5 轮只有 conversation/logTrace，
+  没有再触发 _annotate_session_rows，
+  所以批量表显示 "-"。
+
+修复：
+  read_trae_session_cache 轻量读取时允许规则兜底标注。
+  refresh/deepScan/logTraceOnlyRefresh 完成后触发标注。
+  标注只写 dissatisfactionReason/annotation* 字段，
+  不改 Session/会话/日志轨迹正文。
+```
+
+标注模型配置：
+
+```text
+默认 provider:
+  deepseek
+
+默认模型:
+  deepseek-v4-pro
+
+默认 BASE URL:
+  https://api.deepseek.com
+
+环境变量：
+  DEEPSEEK_API_KEY=...
+  DEEPSEEK_API_BASE=https://api.deepseek.com
+  DEEPSEEK_TEXT_MODEL=deepseek-v4-pro
+  TRAE_SESSION_ANNOTATION_MODEL=deepseek-v4-pro
+  TRAE_SESSION_ANNOTATION_MODELS=deepseek-v4-pro
+```
+
+无 `DEEPSEEK_API_KEY` 时：
+
+```text
+不阻塞列表展示。
+先用规则从下一轮 conversation 提炼明显问题：
+  模型请求失败
+  接口连接中断
+  showToast未定义
+  加入购物车无响应
+  游客接单权限错误
+  第三方登录失败
+  目的地输入401错误
+  个人中心入口无响应
+
+设置 DEEPSEEK_API_KEY 后，规则无法覆盖的模糊反馈会走 deepseek-v4-pro。
+```

@@ -7,6 +7,7 @@ import json
 import fnmatch
 import os
 import re
+import shlex
 import shutil
 import sqlite3
 import subprocess
@@ -24,7 +25,7 @@ except ImportError:
 
   class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.abspath(os.path.join(ROOT_DIR, '../..'))
@@ -32,6 +33,7 @@ DOCS_DATA_DIR = os.path.join(PROJECT_DIR, 'docs', 'data')
 STATE_FILE = os.path.join(DOCS_DATA_DIR, 'generated', 'prompt_state.json')
 PROMPTS_FILE = os.path.join(DOCS_DATA_DIR, 'generated', 'generation_prompts.json')
 TRAE_SESSION_CACHE_DIR = os.path.join(DOCS_DATA_DIR, 'generated', 'trae_session_rounds')
+FEISHU_SCREENSHOT_PASTE_DIR = os.path.join(DOCS_DATA_DIR, 'generated', 'feishu_screenshot_paste')
 TRAE_ROOT = '/Users/chen/Documents/trae_projects'
 TRAE_APP_SUPPORT_DIR = '/Users/chen/Library/Application Support/Trae CN'
 TRAE_WORKSPACE_STORAGE_DIR = os.path.join(TRAE_APP_SUPPORT_DIR, 'User', 'workspaceStorage')
@@ -44,6 +46,7 @@ TRAE_REFRESH_LOG_TAIL_BYTES = 1024 * 1024
 TRAE_REFRESH_TIMEOUT_SECONDS = 12
 TRAE_DEEP_REFRESH_TIMEOUT_SECONDS = 120
 TRAE_REFRESH_TASK_TTL_SECONDS = 180
+TRAE_DEEP_REFRESH_TASK_TTL_SECONDS = 420
 TRAE_RG_CHAT_TIMEOUT_SECONDS = 4
 TRAE_RG_SESSION_TIMEOUT_SECONDS = 45
 TRAE_RECONSTRUCTED_LOG_TRACE_PREFIX = '[reconstructed: true]'
@@ -113,7 +116,22 @@ MODELSCOPE_API_BASE = os.environ.get('MODELSCOPE_API_BASE') or 'https://api-infe
 MODELSCOPE_CHAT_COMPLETIONS_URL = MODELSCOPE_API_BASE.rstrip('/') + '/chat/completions'
 MODELSCOPE_API_KEY = os.environ.get('MODELSCOPE_API_KEY') or 'ms-9ac400ad-d469-4b18-a792-077c5740e628'
 MODELSCOPE_TEXT_MODEL = os.environ.get('MODELSCOPE_TEXT_MODEL') or 'Qwen/Qwen3-235B-A22B-Instruct-2507'
-TRAE_SESSION_ANNOTATION_PROMPT_VERSION = '20260505_v6'
+DEEPSEEK_API_BASE = os.environ.get('DEEPSEEK_API_BASE') or 'https://api.deepseek.com'
+DEEPSEEK_CHAT_COMPLETIONS_URL = DEEPSEEK_API_BASE.rstrip('/') + '/chat/completions'
+DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY') or ''
+DEEPSEEK_TEXT_MODEL = os.environ.get('DEEPSEEK_TEXT_MODEL') or 'deepseek-v4-pro'
+CODEX_DEEPSEEK_WIRE_API = os.environ.get('CODEX_DEEPSEEK_WIRE_API') or 'chat'
+TRAE_SESSION_ANNOTATION_MODELS = [
+  model.strip()
+  for model in (
+    os.environ.get('TRAE_SESSION_ANNOTATION_MODELS')
+    or os.environ.get('TRAE_SESSION_ANNOTATION_MODEL')
+    or DEEPSEEK_TEXT_MODEL
+  ).split(',')
+  if model.strip()
+]
+TRAE_SESSION_ANNOTATION_PROVIDER = os.environ.get('TRAE_SESSION_ANNOTATION_PROVIDER') or 'deepseek'
+TRAE_SESSION_ANNOTATION_PROMPT_VERSION = '20260509_v10_detailed_permission_issue'
 TRAE_SESSION_ANNOTATION_TIMEOUT_SECONDS = 45
 TRAE_SESSION_ANNOTATION_MAX_CONVERSATION_CHARS = 2400
 RG_CANDIDATES = [
@@ -258,7 +276,7 @@ def _annotation_row_hash(row: dict, reason_conversation: str = None) -> str:
 
 
 def _normalize_dissatisfaction_reason(value: str) -> str:
-  text = _single_line_text(value, limit=56)
+  text = _single_line_text(value, limit=96)
   text = re.sub(r'^产物不满意[:：]?\s*', '', text)
   text = re.sub(r'^不满意原因[:：]?\s*', '', text)
   text = re.sub(r'^(用户|客户)(表示|提出|认为|觉得|反馈|抱怨|指出|说)?[:：]?\s*', '', text)
@@ -270,6 +288,16 @@ def _normalize_dissatisfaction_reason(value: str) -> str:
   if text in {'无', '暂无', '无明显不满意反馈', '无明显问题', '未发现明显不满意反馈', '暂无明显不满意'}:
     text = ''
   return text
+
+
+def _looks_like_detailed_issue(text: str) -> bool:
+  value = re.sub(r'\s+', ' ', str(text or '').strip())
+  if not value:
+    return False
+  issue_hits = len(re.findall(r'没|没有|无|不|失败|错误|报错|缺失|不可用|不显示|没显示|无响应|没反应|异常|中断|问题|不能|无法|要求登录|需要登录|强制登录|未登录|404|401|500|CLOSED', value, re.IGNORECASE))
+  has_connector = bool(re.search(r'，|,|、|而且|并且|同时|另外|还有|且|也', value))
+  has_multiple_nouns = len(re.findall(r'按钮|点击|加入购物车|图片|商品|页面|接口|登录|报错|提示|订单|个人中心|公告|目的地|游客|接单|权限|需求', value)) >= 2
+  return issue_hits >= 1 and (has_connector or has_multiple_nouns)
 
 
 def _conversation_core_issue(conversation: str) -> str:
@@ -288,9 +316,23 @@ def _conversation_core_issue(conversation: str) -> str:
     candidate = re.sub(r'^(第[一二三四五六七八九十0-9]+轮|最后一轮)[，,。；;:\s]*', '', candidate).strip()
     candidate = re.sub(r'[，,。；;:\s]*(请|麻烦)(继续|尽快|直接|优先)?(完成|修复|处理|解决|保证|注意).*$' , '', candidate).strip()
     candidate = candidate.strip(' ，,。；;：:')
-    if len(candidate) <= 18:
+    if _looks_like_detailed_issue(candidate):
       return _normalize_dissatisfaction_reason(candidate)
     replacements = [
+      (r'.*net::ERR_CONNECTION_CLOSED.*', '接口连接中断'),
+      (r'.*showToast.*not defined.*', 'showToast未定义'),
+      (r'.*ReferenceError.*', '前端脚本报错'),
+      (r'.*加入购物车.*没有.*反应.*', '加入购物车无响应'),
+      (r'.*点击.*没有.*反应.*', '关键按钮无响应'),
+      (r'.*第三方登录.*失败.*', '第三方登录失败'),
+      (r'.*微信.*qq.*微博.*失败.*', '第三方登录失败'),
+      (r'.*无法输入目的地.*401.*', '目的地输入401错误'),
+      (r'.*公告.*无法浏览.*目的地.*无法.*', '公告和目的地不可用'),
+      (r'.*未登录.*不能回复消息.*游客.*', '游客模式权限错误'),
+      (r'.*游客.*可以接单.*要求登录.*', '需求明确表示游客可以接单，但点击接单后却要求登录'),
+      (r'.*个人信息资料失败.*没有提醒.*', '资料完善失败无提示'),
+      (r'.*没有按照要求启动项目.*', '项目未按要求启动'),
+      (r'.*个人中心.*订单.*优惠.*收藏.*没反应.*', '个人中心入口无响应'),
       (r'.*数据链路.*没做好.*', '数据链路没做好'),
       (r'.*订单数据.*显示.*问题.*', '订单数据显示有问题'),
       (r'.*数据显示.*问题.*', '数据显示有问题'),
@@ -307,6 +349,8 @@ def _conversation_core_issue(conversation: str) -> str:
     for pattern, replacement in replacements:
       if re.match(pattern, candidate):
         return replacement
+    if len(candidate) <= 18:
+      return _normalize_dissatisfaction_reason(candidate)
     if len(candidate) <= 28:
       return _normalize_dissatisfaction_reason(candidate)
     return _normalize_dissatisfaction_reason(candidate[:18])
@@ -363,11 +407,11 @@ def _extract_json_payload(text: str):
   return json.loads(raw)
 
 
-def _call_modelscope_chat(messages):
+def _call_modelscope_chat(messages, model: str = ''):
   if not MODELSCOPE_API_KEY:
     raise RuntimeError('MODELSCOPE_API_KEY is empty')
   payload = json.dumps({
-    'model': MODELSCOPE_TEXT_MODEL,
+    'model': model or MODELSCOPE_TEXT_MODEL,
     'messages': messages,
     'temperature': 0.1,
     'stream': False,
@@ -404,6 +448,59 @@ def _call_modelscope_chat(messages):
   return content
 
 
+def _call_deepseek_chat(messages, model: str = ''):
+  if not DEEPSEEK_API_KEY:
+    raise RuntimeError('DEEPSEEK_API_KEY is empty')
+  payload = json.dumps({
+    'model': model or DEEPSEEK_TEXT_MODEL,
+    'messages': messages,
+    'temperature': 0,
+    'stream': False,
+    'response_format': {'type': 'json_object'},
+  }).encode('utf-8')
+  request = urllib.request.Request(
+    DEEPSEEK_CHAT_COMPLETIONS_URL,
+    data=payload,
+    headers={
+      'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
+      'Content-Type': 'application/json',
+    },
+    method='POST',
+  )
+  try:
+    with urllib.request.urlopen(request, timeout=TRAE_SESSION_ANNOTATION_TIMEOUT_SECONDS) as response:
+      body = response.read().decode('utf-8')
+  except urllib.error.HTTPError as exc:
+    error_body = ''
+    try:
+      error_body = exc.read().decode('utf-8')
+    except Exception:
+      error_body = str(exc)
+    raise RuntimeError(f'DeepSeek HTTP {exc.code}: {error_body}')
+  except Exception as exc:
+    raise RuntimeError(f'DeepSeek request failed: {exc}')
+  parsed = json.loads(body or '{}')
+  choices = parsed.get('choices') if isinstance(parsed, dict) else None
+  if not isinstance(choices, list) or not choices:
+    raise RuntimeError(f'DeepSeek response missing choices: {body[:400]}')
+  message = choices[0].get('message') if isinstance(choices[0], dict) else {}
+  content = message.get('content') if isinstance(message, dict) else ''
+  if not isinstance(content, str) or not content.strip():
+    raise RuntimeError(f'DeepSeek response missing content: {body[:400]}')
+  return content
+
+
+def _call_annotation_chat(messages, model: str):
+  provider = str(TRAE_SESSION_ANNOTATION_PROVIDER or '').strip().lower()
+  if provider in {'deepseek', 'deepseek-v4', 'deepseek-v4-pro'}:
+    return _call_deepseek_chat(messages, model=model)
+  if provider in {'modelscope', 'qwen'}:
+    return _call_modelscope_chat(messages, model=model)
+  if model.startswith('deepseek-'):
+    return _call_deepseek_chat(messages, model=model)
+  return _call_modelscope_chat(messages, model=model)
+
+
 def _request_session_annotations(pending_rows):
   row_items = []
   for item in pending_rows:
@@ -419,12 +516,15 @@ def _request_session_annotations(pending_rows):
       'content': (
         '你是 Trae 会话标注助手。'
         '当前每条 conversation 都是上一轮产物对应的下一轮会话反馈。'
-        '请只根据每条 conversation 提炼不满意原因，只输出 JSON 数组，不要输出解释。'
+        '请只根据每条 conversation 提炼不满意原因，只输出 JSON 对象，不要输出解释。'
         '字段要求：'
-        'dissatisfactionReason：用 4 到 14 个汉字简洁总结会话内容中的问题原因，例如“服务不可用”“订单取消选项缺失”“同一时间可重复购买”。'
-        '不要写“用户”、不要写“抱怨”、不要写“反馈”、不要写“产物不满意”。'
-        '如果原句已经是清晰的问题句，直接压缩原句，不要改写成长解释。'
-        '返回格式固定为数组，每项必须包含 index、dissatisfactionReason。'
+        'dissatisfactionReason：用 12 到 60 个汉字总结问题，但必须全面保留原句里明确列出的所有问题点。'
+        '如果同一句包含多个问题，用“、”“而且”“同时”等连接，不要只抽取第一个问题，也不要压缩成过短标签。'
+        '例如原句是“点击加入购物车没有任何反应，也没有报错，而且商品图片没有显示”，输出应为“点击加入购物车没有任何反应，也没有报错，而且商品图片没有显示”，不要输出“加入购物车无响应”。'
+        '例如原句是“个人中心点击我的订单、优惠券、行程收藏等都没反应”，输出应为“个人中心我的订单、优惠券、行程收藏等入口均无响应”。'
+        '例如原句是“需求一明确表示游客是可以接单的，但是点击接单后却要求登录，理解存在问题”，输出应为“需求明确表示游客可以接单，但点击接单后却要求登录”，不要输出“游客接单权限错误”。'
+        '可以去掉“你/我/用户/客户/抱怨/反馈/产物不满意/麻烦继续修复”等话术，但不能丢掉具体故障现象、页面、按钮、报错、缺失项。'
+        '返回格式固定为 {"items":[{"index":0,"dissatisfactionReason":"点击加入购物车没有任何反应，也没有报错，而且商品图片没有显示"}]}。'
       ),
     },
     {
@@ -432,7 +532,18 @@ def _request_session_annotations(pending_rows):
       'content': json.dumps(row_items, ensure_ascii=False),
     },
   ]
-  parsed = _extract_json_payload(_call_modelscope_chat(messages))
+  last_error = None
+  for model in TRAE_SESSION_ANNOTATION_MODELS or [MODELSCOPE_TEXT_MODEL]:
+    try:
+      parsed = _extract_json_payload(_call_annotation_chat(messages, model=model))
+      break
+    except Exception as exc:
+      last_error = exc
+      parsed = None
+  else:
+    raise RuntimeError(f'annotation models failed: {last_error}')
+  if isinstance(parsed, dict):
+    parsed = parsed.get('items') or parsed.get('results') or parsed.get('data') or []
   if not isinstance(parsed, list):
     raise RuntimeError(f'annotation response is not a list: {parsed}')
   mapped = {}
@@ -445,12 +556,12 @@ def _request_session_annotations(pending_rows):
       continue
     mapped[index] = {
       'dissatisfactionReason': item.get('dissatisfactionReason'),
-      'annotationSource': 'modelscope',
+      'annotationSource': f'{TRAE_SESSION_ANNOTATION_PROVIDER}:{TRAE_SESSION_ANNOTATION_MODELS[0] if TRAE_SESSION_ANNOTATION_MODELS else DEEPSEEK_TEXT_MODEL}',
     }
   return mapped
 
 
-def _annotate_session_rows(rows):
+def _annotate_session_rows(rows, use_model: bool = True):
   if not isinstance(rows, list) or not rows:
     return False
   pending_rows = []
@@ -494,7 +605,7 @@ def _annotate_session_rows(rows):
     model_pending_rows.append((index, row, reason_conversation))
 
   try:
-    if model_pending_rows:
+    if model_pending_rows and use_model:
       annotations.update(_request_session_annotations(model_pending_rows))
   except Exception as exc:
     print(f'[WARN] session annotation fallback: {exc}', file=sys.stderr)
@@ -765,6 +876,71 @@ def open_trae_projects(order_tokens):
   results = []
   for order in order_tokens:
     results.append(open_trae_project(order))
+    time.sleep(0.8)
+  return results
+
+
+def _codex_deepseek_config_args():
+  return [
+    '-m', DEEPSEEK_TEXT_MODEL,
+    '-c', 'model_provider="deepseek"',
+    '-c', f'model="{DEEPSEEK_TEXT_MODEL}"',
+    '-c', 'model_providers.deepseek.name="DeepSeek"',
+    '-c', f'model_providers.deepseek.base_url="{DEEPSEEK_API_BASE.rstrip()}"',
+    '-c', 'model_providers.deepseek.env_key="DEEPSEEK_API_KEY"',
+    '-c', f'model_providers.deepseek.wire_api="{CODEX_DEEPSEEK_WIRE_API}"',
+    '-c', 'model_providers.deepseek.requires_openai_auth=false',
+  ]
+
+
+def _open_terminal_with_command(shell_command: str):
+  if sys.platform != 'darwin':
+    raise RuntimeError('Codex CLI launcher currently supports macOS Terminal only')
+  script = f'''
+tell application "Terminal"
+  activate
+  do script {json.dumps(shell_command)}
+end tell
+'''
+  return run_cmd(['osascript', '-e', script], check=True)
+
+
+def open_codex_cli_project(order_token: str, use_deepseek: bool = False):
+  project_path = project_folder_for_order(order_token)
+  cmd = ['codex', '-C', project_path]
+  if use_deepseek:
+    cmd.extend(_codex_deepseek_config_args())
+  quoted_cmd = ' '.join(shlex.quote(part) for part in cmd)
+  shell_parts = [
+    f'cd {shlex.quote(project_path)}',
+  ]
+  if use_deepseek:
+    if DEEPSEEK_API_KEY:
+      shell_parts.append(f'export DEEPSEEK_API_KEY={shlex.quote(DEEPSEEK_API_KEY)}')
+    else:
+      shell_parts.append(': "${DEEPSEEK_API_KEY:?请先 export DEEPSEEK_API_KEY=你的DeepSeekKey 后再启动 Codex DeepSeek}"')
+    shell_parts.append(f'export DEEPSEEK_API_BASE={shlex.quote(DEEPSEEK_API_BASE)}')
+  shell_parts.append(quoted_cmd)
+  shell_command = '; '.join(shell_parts)
+  completed = _open_terminal_with_command(shell_command)
+  return {
+    'ok': True,
+    'order': order_token,
+    'folder': project_path,
+    'engine': 'codex-cli',
+    'codexDeepseek': bool(use_deepseek),
+    'model': DEEPSEEK_TEXT_MODEL if use_deepseek else '',
+    'baseUrl': DEEPSEEK_API_BASE if use_deepseek else '',
+    'command': cmd,
+    'stdout': (completed.stdout or '').strip(),
+    'stderr': (completed.stderr or '').strip(),
+  }
+
+
+def open_codex_cli_projects(order_tokens, use_deepseek: bool = False):
+  results = []
+  for order in order_tokens:
+    results.append(open_codex_cli_project(order, use_deepseek=use_deepseek))
     time.sleep(0.8)
   return results
 
@@ -1287,31 +1463,42 @@ def trae_copy_log_trace(order_token: str, mode: str = 'click', scan: str = 'visi
   return click_result
 
 
-def batch_trae_projects(action: str, raw_orders):
+def batch_trae_projects(action: str, raw_orders, options=None):
   action = str(action or '').strip().lower()
   if action not in {'open', 'close'}:
     raise RuntimeError('action must be open or close')
   orders = parse_order_tokens(raw_orders)
   if not orders:
     raise RuntimeError('orders are required')
+  options = options if isinstance(options, dict) else {}
+  engine = str(options.get('engine') or 'trae').strip().lower()
+  use_codex_deepseek = bool(options.get('codexDeepseek'))
   results = []
   if action == 'open':
-    try:
-      results.extend(open_trae_projects(orders))
-    except Exception:
+    if engine == 'codex-cli':
       for order in orders:
         try:
-          results.append(open_trae_project(order))
+          results.append(open_codex_cli_project(order, use_deepseek=use_codex_deepseek))
           time.sleep(0.65)
         except Exception as err:
-          results.append({'ok': False, 'order': order, 'error': str(err)})
+          results.append({'ok': False, 'order': order, 'engine': 'codex-cli', 'error': str(err)})
+    else:
+      try:
+        results.extend(open_trae_projects(orders))
+      except Exception:
+        for order in orders:
+          try:
+            results.append(open_trae_project(order))
+            time.sleep(0.65)
+          except Exception as err:
+            results.append({'ok': False, 'order': order, 'engine': 'trae', 'error': str(err)})
   else:
     for order in orders:
       try:
         results.append(close_trae_project(order))
       except Exception as err:
         results.append({'ok': False, 'order': order, 'error': str(err)})
-  return {'ok': True, 'action': action, 'orders': orders, 'results': results}
+  return {'ok': True, 'action': action, 'orders': orders, 'engine': engine if action == 'open' else 'trae', 'codexDeepseek': use_codex_deepseek if action == 'open' else False, 'results': results}
 
 
 def pick_folder(start_path: str) -> str:
@@ -1432,12 +1619,17 @@ def parse_feishu_task_target(task_url: str):
   }
 
 
-def focus_feishu_task_tab(task_url: str):
+def focus_feishu_task_tab(task_url: str, open_if_missing: bool = True):
   target = parse_feishu_task_target(task_url)
   url_literal = target['url'].replace('"', '\\"')
   origin_literal = target['origin'].replace('"', '\\"')
   app_literal = target['app_token'].replace('"', '\\"')
   page_literal = target['page_id'].replace('"', '\\"')
+  missing_action = (
+    'if not foundTab then set URL of active tab of front window to targetUrl'
+    if open_if_missing
+    else 'if not foundTab then error "未找到匹配的飞书多维表格标签页，请先打开飞书并选中截图列第一格"'
+  )
   run_applescript([
     'tell application "Google Chrome"',
     'activate',
@@ -1459,7 +1651,33 @@ def focus_feishu_task_tab(task_url: str):
     'end repeat',
     'if foundTab then exit repeat',
     'end repeat',
-    'if not foundTab then set URL of active tab of front window to targetUrl',
+    missing_action,
+    'end tell',
+  ])
+
+
+def focus_existing_feishu_tab():
+  return run_applescript([
+    'tell application "Google Chrome"',
+    'activate',
+    'if (count of windows) is 0 then error "没有打开 Chrome 窗口"',
+    'set foundTab to false',
+    'set foundUrl to ""',
+    'repeat with w in windows',
+    'repeat with i from 1 to count of tabs of w',
+    'set tabUrl to URL of tab i of w',
+    'if (tabUrl contains "feishu.cn") or (tabUrl contains "larksuite.com") then',
+    'set active tab index of w to i',
+    'set index of w to 1',
+    'set foundTab to true',
+    'set foundUrl to tabUrl',
+    'exit repeat',
+    'end if',
+    'end repeat',
+    'if foundTab then exit repeat',
+    'end repeat',
+    'if not foundTab then error "未找到已打开的飞书标签页，请先打开飞书多维表格并选中截图列第一格"',
+    'return foundUrl',
     'end tell',
   ])
 
@@ -1669,6 +1887,280 @@ def claim_feishu_tasks(count: int, task_url: str):
     'init': init_result,
     'events': events[-12:],
   }
+
+
+def _applescript_string(value: str) -> str:
+  return str(value or '').replace('\\', '\\\\').replace('"', '\\"')
+
+
+def _data_url_image_bytes(data_url: str):
+  text = str(data_url or '').strip()
+  match = re.fullmatch(r'data:([^;,]+(?:;[^,]+)?);base64,(.+)', text, re.DOTALL)
+  if not match:
+    return '', b''
+  mime_type = match.group(1).split(';', 1)[0]
+  if not mime_type.startswith('image/'):
+    return '', b''
+  return mime_type, base64.b64decode(match.group(2), validate=True)
+
+
+def _save_feishu_paste_image(data_url: str, index: int) -> str:
+  mime_type, image_bytes = _data_url_image_bytes(data_url)
+  if not image_bytes:
+    return ''
+  if len(image_bytes) > 30 * 1024 * 1024:
+    raise RuntimeError('截图图片超过 30MB')
+  os.makedirs(FEISHU_SCREENSHOT_PASTE_DIR, exist_ok=True)
+  extension = image_extension_from_mime(mime_type) or '.png'
+  path = os.path.join(FEISHU_SCREENSHOT_PASTE_DIR, f'paste_{int(time.time() * 1000)}_{index}{extension}')
+  with open(path, 'wb') as file:
+    file.write(image_bytes)
+  return path
+
+
+def _valid_feishu_paste_image_path(path: str) -> str:
+  image_path = os.path.abspath(str(path or '').strip())
+  workspace_root = os.path.abspath(TRAE_WORKSPACE_STORAGE_DIR)
+  if (
+    not image_path
+    or not image_path.startswith(workspace_root + os.sep)
+    or f'{os.sep}images{os.sep}' not in image_path
+    or not os.path.isfile(image_path)
+  ):
+    return ''
+  return image_path
+
+
+def _copy_png_file_to_macos_clipboard(image_path: str):
+  safe_path = _applescript_string(os.path.abspath(image_path))
+  run_applescript([
+    f'set imageFile to POSIX file "{safe_path}"',
+    'set the clipboard to (read imageFile as «class PNGf»)',
+  ])
+
+
+def _compose_feishu_paste_images(image_paths, index: int) -> str:
+  valid_paths = [path for path in image_paths if path]
+  if not valid_paths:
+    return ''
+  if len(valid_paths) == 1:
+    return valid_paths[0]
+  ffmpeg = shutil.which('ffmpeg') or '/opt/homebrew/bin/ffmpeg'
+  if not ffmpeg or not os.path.isfile(ffmpeg):
+    raise RuntimeError('未找到 ffmpeg，无法合成多张截图')
+  os.makedirs(FEISHU_SCREENSHOT_PASTE_DIR, exist_ok=True)
+  output_path = os.path.join(
+    FEISHU_SCREENSHOT_PASTE_DIR,
+    f'paste_compose_{int(time.time() * 1000)}_{index}.png',
+  )
+  max_width = 900
+  canvas_width = max_width + 24
+  gap = 12
+  filters = []
+  labels = []
+  for input_index, _path in enumerate(valid_paths):
+    label = f'v{input_index}'
+    labels.append(f'[{label}]')
+    height_expr = f'ih+{gap}' if input_index < len(valid_paths) - 1 else 'ih'
+    filters.append(
+      f'[{input_index}:v]'
+      f'scale=w=if(gt(iw\\,{max_width})\\,{max_width}\\,iw):h=-2:flags=lanczos,'
+      f'format=rgba,'
+      f'pad={canvas_width}:{height_expr}:(ow-iw)/2:0:color=white,'
+      f'setsar=1[{label}]'
+    )
+  filters.append(
+    ''.join(labels)
+    + f'vstack=inputs={len(valid_paths)},pad=iw:ih+24:0:12:color=white,format=rgba[out]'
+  )
+  cmd = [ffmpeg, '-hide_banner', '-loglevel', 'error', '-y']
+  for path in valid_paths:
+    cmd.extend(['-i', path])
+  cmd.extend(['-filter_complex', ';'.join(filters), '-map', '[out]', '-frames:v', '1', output_path])
+  completed = subprocess.run(cmd, text=True, capture_output=True, check=False)
+  if completed.returncode != 0 or not os.path.isfile(output_path):
+    detail = completed.stderr.strip() or completed.stdout.strip() or 'ffmpeg compose failed'
+    raise RuntimeError(f'合成多张截图失败：{detail}')
+  return output_path
+
+
+def _feishu_paste_current_clipboard_and_move(delay_seconds: float):
+  run_applescript([
+    'tell application "Google Chrome" to activate',
+    'tell application "System Events"',
+    'keystroke "v" using command down',
+    f'delay {max(0.1, delay_seconds):.2f}',
+    'key code 125',
+    'delay 0.08',
+    'end tell',
+  ])
+
+
+def _feishu_move_down_only():
+  run_applescript([
+    'tell application "Google Chrome" to activate',
+    'tell application "System Events"',
+    'key code 125',
+    'delay 0.08',
+    'end tell',
+  ])
+
+
+def _copy_text_to_macos_clipboard(text: str):
+  value = str(text or '')
+  if len(value) > 20 * 1024 * 1024:
+    raise RuntimeError('待粘贴文本超过 20MB')
+  run_cmd(['pbcopy'], check=True, input_text=value)
+
+
+def _feishu_paste_current_clipboard(delay_seconds: float):
+  run_applescript([
+    'tell application "Google Chrome" to activate',
+    'tell application "System Events"',
+    'keystroke "v" using command down',
+    f'delay {max(0.1, delay_seconds):.2f}',
+    'end tell',
+  ])
+
+
+def _feishu_move_horizontal(steps: int, delay_seconds: float = 0.08):
+  count = abs(int(steps or 0))
+  if count <= 0:
+    return
+  key_code = 124 if steps > 0 else 123
+  run_applescript([
+    'tell application "Google Chrome" to activate',
+    'tell application "System Events"',
+    f'repeat {count} times',
+    f'key code {key_code}',
+    f'delay {max(0.02, delay_seconds):.2f}',
+    'end repeat',
+    'end tell',
+  ])
+
+
+def _feishu_text_column(rows, key: str):
+  values = []
+  for row in rows:
+    if isinstance(row, dict):
+      values.append(str(row.get(key) or '').replace('\r\n', ' ').replace('\n', ' ').strip() or '-')
+    else:
+      values.append('-')
+  return '\n'.join(values)
+
+
+def _feishu_paste_text_column(rows, key: str, label: str, delay_seconds: float):
+  text = _feishu_text_column(rows, key)
+  _copy_text_to_macos_clipboard(text)
+  _feishu_paste_current_clipboard(delay_seconds)
+  return {'label': label, 'key': key, 'rows': len(rows), 'chars': len(text)}
+
+
+def paste_feishu_screenshots(rows, task_url: str, delay_ms: int = 850):
+  if sys.platform != 'darwin':
+    raise RuntimeError('自动粘贴截图当前只支持 macOS + Google Chrome')
+  if not isinstance(rows, list) or not rows:
+    raise RuntimeError('rows 不能为空')
+  if len(rows) > 300:
+    raise RuntimeError('一次最多粘贴 300 行')
+  print(f'[feishu-paste] start rows={len(rows)} delay_ms={delay_ms}', flush=True)
+  focused_tab = focus_existing_feishu_tab()
+  time.sleep(0.8)
+  delay_seconds = max(0.25, min(3.0, int(delay_ms or 850) / 1000.0))
+  pasted = 0
+  empty = 0
+  events = []
+  for index, row in enumerate(rows, start=1):
+    if not isinstance(row, dict):
+      empty += 1
+      _feishu_move_down_only()
+      continue
+    data_url = str(row.get('dataUrl') or row.get('data_url') or '').strip()
+    image_paths = row.get('imagePaths') or row.get('image_paths') or []
+    if not isinstance(image_paths, list):
+      image_paths = []
+    order = str(row.get('order') or '').strip()
+    index_in_order = row.get('indexInOrder') or row.get('index_in_order') or ''
+    valid_image_paths = []
+    for candidate_path in image_paths:
+      valid_path = _valid_feishu_paste_image_path(candidate_path)
+      if valid_path:
+        valid_image_paths.append(valid_path)
+    image_path = ''
+    if valid_image_paths:
+      image_path = _compose_feishu_paste_images(valid_image_paths, index)
+    if not image_path and data_url:
+      image_path = _save_feishu_paste_image(data_url, index)
+    if not image_path:
+      empty += 1
+      _feishu_move_down_only()
+      events.append({'index': index, 'order': order, 'indexInOrder': index_in_order, 'action': 'move-empty'})
+      continue
+    _copy_png_file_to_macos_clipboard(image_path)
+    _feishu_paste_current_clipboard_and_move(delay_seconds)
+    pasted += 1
+    events.append({
+      'index': index,
+      'order': order,
+      'indexInOrder': index_in_order,
+      'action': 'paste',
+      'imageCount': len(valid_image_paths) if valid_image_paths else 1,
+      'file': os.path.basename(image_path),
+    })
+    print(f'[feishu-paste] pasted {index}/{len(rows)} {order}#{index_in_order} images={len(valid_image_paths) if valid_image_paths else 1} file={os.path.basename(image_path)}', flush=True)
+  return {
+    'ok': True,
+    'total': len(rows),
+    'pasted': pasted,
+    'empty': empty,
+    'delayMs': int(delay_seconds * 1000),
+    'focusedTab': focused_tab,
+    'events': events[-30:],
+  }
+
+
+def paste_feishu_batch_sessions(rows, delay_ms: int = 1200):
+  if sys.platform != 'darwin':
+    raise RuntimeError('自动粘贴主要列当前只支持 macOS + Google Chrome')
+  if not isinstance(rows, list) or not rows:
+    raise RuntimeError('rows 不能为空')
+  if len(rows) > 300:
+    raise RuntimeError('一次最多粘贴 300 行')
+
+  print(f'[feishu-batch-paste] start rows={len(rows)} delay_ms={delay_ms}', flush=True)
+  focused_tab = focus_existing_feishu_tab()
+  time.sleep(0.8)
+  delay_seconds = max(0.35, min(3.0, int(delay_ms or 1200) / 1000.0))
+  events = []
+
+  # 起点必须是飞书 User Prompt 列第一行。偏移按当前多维表格模板固定：
+  # User Prompt -> 不满意原因(+6) -> 分支/文件夹(+2) -> 日志轨迹(+2)
+  # -> 截图(-1)。截图最后逐行粘贴，因为图片粘贴会向下移动光标。
+  # Trae Session ID 暂不纳入总按钮。
+  events.append(_feishu_paste_text_column(rows, 'conversation', 'User Prompt', delay_seconds))
+  _feishu_move_horizontal(6)
+  events.append(_feishu_paste_text_column(rows, 'dissatisfactionReason', '不满意原因', delay_seconds))
+  _feishu_move_horizontal(2)
+  events.append(_feishu_paste_text_column(rows, 'order', '分支/文件夹', delay_seconds))
+  _feishu_move_horizontal(2)
+  events.append(_feishu_paste_text_column(rows, 'logTrace', '日志轨迹', delay_seconds))
+  _feishu_move_horizontal(-1)
+
+  screenshot_result = paste_feishu_screenshots(rows, '', delay_ms=max(1200, int(delay_ms or 1200)))
+  result = {
+    'ok': True,
+    'total': len(rows),
+    'focusedTab': focused_tab,
+    'textColumns': len(events),
+    'events': events,
+    'screenshots': screenshot_result,
+  }
+  print(
+    f"[feishu-batch-paste] done rows={len(rows)} textColumns={len(events)} "
+    f"screenshots={screenshot_result.get('pasted', 0)} empty={screenshot_result.get('empty', 0)}",
+    flush=True,
+  )
+  return result
 
 
 def sanitize_branch_name(value: str) -> str:
@@ -2062,6 +2554,138 @@ def _session_cache_path(order_token: str):
   if not safe_order:
     raise RuntimeError('order is required')
   return os.path.join(TRAE_SESSION_CACHE_DIR, f'{safe_order}.json')
+
+
+def _trae_media_extension(resource_id: str) -> str:
+  text = str(resource_id or '').strip()
+  m_ext = re.search(r'\.(png|jpe?g|webp|gif|svg)(?:$|[?#])', text, re.IGNORECASE)
+  if m_ext:
+    ext = m_ext.group(1).lower()
+    return '.jpg' if ext == 'jpeg' else f'.{ext}'
+  m_token = re.search(r'_(png|jpe?g|webp|gif|svg)(?:_|$)', text, re.IGNORECASE)
+  if m_token:
+    ext = m_token.group(1).lower()
+    return '.jpg' if ext == 'jpeg' else f'.{ext}'
+  return '.png'
+
+
+def _trae_media_local_path(resource_id: str, db_path: str = '') -> str:
+  resource = str(resource_id or '').strip()
+  if not resource:
+    return ''
+  encoded_name = f'{quote(resource, safe="")}{_trae_media_extension(resource)}'
+  search_dirs = []
+  if db_path:
+    workspace_dir = os.path.dirname(os.path.abspath(db_path))
+    search_dirs.append(os.path.join(workspace_dir, 'images'))
+  for images_dir in search_dirs:
+    candidate = os.path.join(images_dir, encoded_name)
+    if os.path.isfile(candidate):
+      return candidate
+  if not os.path.isdir(TRAE_WORKSPACE_STORAGE_DIR):
+    return ''
+  try:
+    for workspace_name in os.listdir(TRAE_WORKSPACE_STORAGE_DIR):
+      images_dir = os.path.join(TRAE_WORKSPACE_STORAGE_DIR, workspace_name, 'images')
+      candidate = os.path.join(images_dir, encoded_name)
+      if os.path.isfile(candidate):
+        return candidate
+  except Exception:
+    return ''
+  return ''
+
+
+def _trae_session_image_url(path: str) -> str:
+  if not path:
+    return ''
+  return f'/api/trae-session-image?path={quote(os.path.abspath(path), safe="")}'
+
+
+def _normalize_trae_media_items(item: dict, db_path: str = ''):
+  if not isinstance(item, dict):
+    return []
+  media_items = []
+  for key in ('multiMedia', 'images'):
+    values = item.get(key)
+    if isinstance(values, list):
+      media_items.extend(values)
+  screenshots = []
+  seen = set()
+  for media_item in media_items:
+    if not isinstance(media_item, dict):
+      continue
+    resource_id = str(
+      media_item.get('resource_id')
+      or media_item.get('resourceId')
+      or media_item.get('url')
+      or media_item.get('src')
+      or ''
+    ).strip()
+    resource_type = str(media_item.get('resource_type') or media_item.get('type') or '').strip()
+    if not resource_id:
+      continue
+    if resource_type and 'image' not in resource_type.lower() and not re.search(r'image|_(png|jpe?g|webp|gif|svg)_', resource_id, re.IGNORECASE):
+      continue
+    if resource_id in seen:
+      continue
+    seen.add(resource_id)
+    local_path = _trae_media_local_path(resource_id, db_path)
+    screenshots.append({
+      'resourceId': resource_id,
+      'resourceType': resource_type or 'image',
+      'path': local_path,
+      'url': _trae_session_image_url(local_path) if local_path else '',
+      'filename': os.path.basename(local_path) if local_path else os.path.basename(resource_id),
+    })
+  return screenshots
+
+
+def _fill_session_screenshots_from_input_history(order_token: str, payload: dict) -> bool:
+  if not isinstance(payload, dict):
+    return False
+  rows = payload.get('rows')
+  if not isinstance(rows, list) or not rows:
+    return False
+  db_path = str(payload.get('db_path') or '').strip()
+  if not db_path:
+    try:
+      db_path = _find_workspace_db_for_order(order_token)
+      payload['db_path'] = db_path
+    except Exception:
+      return False
+  try:
+    con = sqlite3.connect(db_path)
+    try:
+      cur = con.cursor()
+      cur.execute("select value from ItemTable where key='icube-ai-agent-storage-input-history'")
+      result = cur.fetchone()
+    finally:
+      con.close()
+  except Exception:
+    return False
+  input_history = _safe_json_loads(result[0] if result else '[]', [])
+  if not isinstance(input_history, list):
+    return False
+  effective_items = []
+  previous_text = None
+  for item in input_history:
+    if not isinstance(item, dict):
+      continue
+    text = str(item.get('inputText') or '').strip()
+    screenshots = _normalize_trae_media_items(item, db_path)
+    if text and text == previous_text and not screenshots:
+      continue
+    effective_items.append((item, screenshots))
+    previous_text = text
+  changed = False
+  for index, row in enumerate(rows):
+    if not isinstance(row, dict) or index >= len(effective_items):
+      continue
+    screenshots = effective_items[index][1]
+    if screenshots != row.get('screenshots'):
+      row['screenshots'] = screenshots
+      changed = True
+  return changed
 
 
 def _is_trae_composite_session_id(value: str) -> bool:
@@ -4265,11 +4889,66 @@ def _session_candidate_message_ids(session_id: str):
   return candidates
 
 
+def _cloud_task_meta_for_trace(trace_id: str, session_id: str = '', chat_message_id: str = ''):
+  trace = str(trace_id or '').strip()
+  if not re.fullmatch(r'[0-9a-f]{32}', trace):
+    return {}
+  for raw_line in _rg_lines(trace, timeout_seconds=8, fixed_strings=True):
+    line = raw_line.split(':', 2)[-1] if ':' in raw_line else raw_line
+    if session_id and session_id not in line:
+      continue
+    m_task = re.search(r'task_id[=:]\s*([0-9a-f]{24}).*?message_id[=:]\s*([0-9a-f]{24})', line)
+    if not m_task:
+      continue
+    message_id = m_task.group(2)
+    if chat_message_id and message_id == chat_message_id:
+      continue
+    return {
+      'taskId': m_task.group(1),
+      'messageId': message_id,
+      'time': _log_line_time_to_text(line) or _object_id_time_text(message_id),
+    }
+  return {}
+
+
+def _repair_row_session_identity(row: dict) -> bool:
+  if not isinstance(row, dict):
+    return False
+  composite = str(
+    row.get('sessionComposite')
+    or row.get('logTraceId')
+    or row.get('sessionId')
+    or ''
+  ).strip()
+  match = re.match(
+    r'^\.(?P<user>[^:\s]+):(?P<trace>[0-9a-f]{32})_(?P<session>[0-9a-f]{24})\.(?P<task>[0-9a-f]{24})\.(?P<chat>[0-9a-f]{24}):Trae CN\.T\((?P<time>[^)]+)\)$',
+    composite,
+  )
+  if not match:
+    return False
+  if match.group('task') != match.group('chat'):
+    return False
+  cloud_task_meta = _cloud_task_meta_for_trace(match.group('trace'), match.group('session'), match.group('chat'))
+  task_message_id = str(cloud_task_meta.get('messageId') or '').strip()
+  if not re.fullmatch(r'[0-9a-f]{24}', task_message_id) or task_message_id == match.group('chat'):
+    return False
+  time_text = str(cloud_task_meta.get('time') or match.group('time') or '').strip()
+  repaired = (
+    f".{match.group('user')}:{match.group('trace')}_{match.group('session')}."
+    f"{task_message_id}.{match.group('chat')}:{TRAE_APP_NAME}.T({time_text})"
+  )
+  row['sessionId'] = repaired
+  row['logTraceId'] = repaired
+  row['sessionComposite'] = repaired
+  row['rawSessionId'] = match.group('session')
+  return True
+
+
 def _choose_response_or_task_message_id(chat_message_id: str, candidates):
   chat_time = _object_id_time_text(chat_message_id)
   chat_dt = _session_row_time({'sessionId': f":Trae CN.T({chat_time})"}) if chat_time else None
   if not chat_dt:
-    return chat_message_id
+    return ''
   nearby = []
   for candidate in candidates:
     if candidate == chat_message_id:
@@ -4282,7 +4961,7 @@ def _choose_response_or_task_message_id(chat_message_id: str, candidates):
     if delta <= 3:
       nearby.append((delta, 0 if ('7f0ec' in candidate or '85d83e' in candidate) else 1, candidate))
   if not nearby:
-    return chat_message_id
+    return ''
   nearby.sort()
   return nearby[0][2]
 
@@ -4310,8 +4989,11 @@ def extract_trae_session_rounds_precise(order_token: str):
     trace_id = meta.get('traceId') or ''
     if not (re.fullmatch(r'[0-9a-f]{24}', chat_message_id) and re.fullmatch(r'[0-9a-f]{32}', trace_id)):
       continue
-    task_message_id = _choose_response_or_task_message_id(chat_message_id, candidates)
-    time_text = meta.get('time') or _object_id_time_text(chat_message_id)
+    cloud_task_meta = _cloud_task_meta_for_trace(trace_id, current_session_id, chat_message_id)
+    task_message_id = cloud_task_meta.get('messageId') or _choose_response_or_task_message_id(chat_message_id, candidates)
+    if not re.fullmatch(r'[0-9a-f]{24}', str(task_message_id or '')) or task_message_id == chat_message_id:
+      continue
+    time_text = cloud_task_meta.get('time') or _object_id_time_text(task_message_id) or meta.get('time') or _object_id_time_text(chat_message_id)
     if not time_text:
       continue
     trace_user = user_id or '3792634309254663'
@@ -4369,7 +5051,9 @@ def read_trae_session_cache(order_token: str):
   if _rows_need_official_candidate_scan_on_read(payload['rows']):
     official_trace_changed = fill_official_copied_log_traces(order_token, payload['rows'], db_path=payload.get('db_path') or '')
   trace_changed = mark_missing_real_log_traces(order_token, payload['rows'], db_path=payload.get('db_path') or '')
-  if rows_changed or official_trace_changed or trace_changed or source_rows_removed:
+  annotation_changed = _annotate_session_rows(payload['rows'], use_model=False)
+  screenshot_changed = _fill_session_screenshots_from_input_history(order_token, payload)
+  if rows_changed or official_trace_changed or trace_changed or source_rows_removed or annotation_changed or screenshot_changed:
     _persist_session_cache(path, payload)
   payload['cached'] = True
   payload['cache_path'] = path
@@ -4438,9 +5122,51 @@ def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
     _persist_session_cache(path, payload)
     return payload
   if previous_rows:
+    def _stable_previous_row_key(candidate):
+      parts = _session_row_composite_parts(candidate)
+      if parts:
+        return (
+          parts.get('traceId') or '',
+          parts.get('sessionId') or '',
+          parts.get('chatMessageId') or '',
+        )
+      conversation = str((candidate or {}).get('conversation') or '').strip()
+      if conversation:
+        return ('conversation', hashlib.sha1(conversation.encode('utf-8')).hexdigest(), '')
+      return None
+
+    def _preserve_existing_row_identity(row, previous):
+      if not isinstance(previous, dict) or not previous:
+        return row
+      for key in (
+        'sessionId',
+        'logTraceId',
+        'sessionComposite',
+        'rawSessionId',
+        'conversation',
+        'dissatisfactionReason',
+        'annotationHash',
+        'annotationVersion',
+        'annotationUpdatedAt',
+        'annotationSource',
+      ):
+        if key in previous:
+          row[key] = previous.get(key)
+      return row
+
+    previous_by_key = {}
+    for previous in previous_rows:
+      key = _stable_previous_row_key(previous)
+      if key and key not in previous_by_key:
+        previous_by_key[key] = previous
     merged_rows = []
     for idx, row in enumerate(payload.get('rows') or []):
-      previous = previous_rows[idx] if idx < len(previous_rows) else {}
+      current_key = _stable_previous_row_key(row)
+      previous = previous_by_key.get(current_key) if current_key else None
+      if not previous and idx < len(previous_rows):
+        previous = previous_rows[idx]
+      if not isinstance(previous, dict):
+        previous = {}
       current_parts = _session_row_composite_parts(row)
       previous_parts = _session_row_composite_parts(previous)
       if (
@@ -4455,21 +5181,26 @@ def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
           or not _has_real_task_message_id(current_parts)
         )
       ):
-        row['sessionId'] = previous.get('sessionId')
-        row['logTraceId'] = previous.get('logTraceId') or previous.get('sessionId')
-        row['sessionComposite'] = previous.get('sessionComposite') or previous.get('logTraceId') or previous.get('sessionId')
-        row['logTrace'] = previous.get('logTrace') or ''
-        row['rawSessionId'] = previous.get('rawSessionId') or row.get('rawSessionId') or ''
+        row = _preserve_existing_row_identity(row, previous)
       if not _is_trae_composite_session_id(row.get('sessionId') or '') and _is_trae_composite_session_id(previous.get('sessionId') or ''):
-        row['sessionId'] = previous.get('sessionId')
-        row['logTraceId'] = previous.get('logTraceId') or previous.get('sessionId')
-        row['sessionComposite'] = previous.get('sessionComposite') or previous.get('logTraceId') or previous.get('sessionId')
-        row['logTrace'] = previous.get('logTrace') or ''
-        row['rawSessionId'] = previous.get('rawSessionId') or row.get('rawSessionId') or ''
+        row = _preserve_existing_row_identity(row, previous)
+      elif previous:
+        for key in (
+          'rawSessionId',
+          'conversation',
+          'dissatisfactionReason',
+          'annotationHash',
+          'annotationVersion',
+          'annotationUpdatedAt',
+          'annotationSource',
+        ):
+          if key in previous:
+            row[key] = previous.get(key)
       merged_rows.append(row)
     payload['rows'] = merged_rows
   fill_official_copied_log_traces(order_token, payload.get('rows') or [], db_path=payload.get('db_path') or '')
   mark_missing_real_log_traces(order_token, payload.get('rows') or [], db_path=payload.get('db_path') or '')
+  _annotate_session_rows(payload.get('rows') or [], use_model=True)
   payload['cached'] = True
   payload['refreshedAt'] = datetime.datetime.now().isoformat(timespec='seconds')
   if payload.pop('_traceTimedOut', False):
@@ -4496,22 +5227,72 @@ def _rows_need_force_log_trace_scan(rows) -> bool:
   return False
 
 
+def _effective_trae_input_history_items(input_history):
+  if not isinstance(input_history, list):
+    return []
+  effective_items = []
+  previous_text = None
+  for item in input_history:
+    if not isinstance(item, dict):
+      continue
+    text = str(item.get('inputText') or '').strip()
+    media = item.get('multiMedia') if isinstance(item.get('multiMedia'), list) else []
+    has_media = bool(media)
+    if text and text == previous_text and not has_media:
+      continue
+    effective_items.append(item)
+    previous_text = text
+  return effective_items
+
+
+def _expected_trae_session_round_count(order_token: str) -> int:
+  try:
+    _, _, input_history, _ = _read_trae_workspace_context(order_token)
+  except Exception:
+    return 0
+  return len(_effective_trae_input_history_items(input_history))
+
+
+def _cached_rows_need_deep_discovery(order_token: str, cached_rows) -> tuple:
+  rows, _ = strip_source_only_log_trace_rows(normalize_trae_session_rows(cached_rows or []))
+  expected_count = _expected_trae_session_round_count(order_token)
+  cached_count = len(rows)
+  if expected_count and cached_count < expected_count:
+    return True, expected_count, cached_count
+  return False, expected_count, cached_count
+
+
 def refresh_existing_trae_session_log_traces(order_token: str):
   payload = read_trae_session_cache(order_token)
   rows = payload.get('rows') if isinstance(payload, dict) else []
   if not isinstance(rows, list) or not rows:
     return refresh_trae_session_cache(order_token, deep_scan=True)
+  needs_deep, expected_count, cached_count = _cached_rows_need_deep_discovery(order_token, rows)
+  if needs_deep:
+    refreshed = refresh_trae_session_cache(order_token, deep_scan=True)
+    if isinstance(refreshed, dict):
+      refreshed['deepScanReason'] = 'cached_rows_less_than_workspace_input_history'
+      refreshed['expectedRows'] = expected_count
+      refreshed['cachedRowsBeforeRefresh'] = cached_count
+    return refreshed
   payload['deepScan'] = False
   payload['logTraceOnlyRefresh'] = True
+  before = json.dumps(rows, ensure_ascii=False, sort_keys=True)
+  annotation_changed = _annotate_session_rows(rows, use_model=True)
   if not _rows_need_force_log_trace_scan(rows):
     payload['cached'] = True
     payload['refreshNoLogTraceChanges'] = True
     payload['refreshAttemptedAt'] = datetime.datetime.now().isoformat(timespec='seconds')
+    if annotation_changed:
+      payload['rows'] = sort_session_rows_by_time(rows)
+      payload['refreshedAt'] = payload['refreshAttemptedAt']
+      _persist_session_cache(_session_cache_path(order_token), payload)
+      payload['cache_path'] = _session_cache_path(order_token)
     return payload
 
-  before = json.dumps(rows, ensure_ascii=False, sort_keys=True)
   fill_official_copied_log_traces(order_token, rows, db_path=payload.get('db_path') or '')
   mark_missing_real_log_traces(order_token, rows, db_path=payload.get('db_path') or '')
+  _annotate_session_rows(rows, use_model=True)
   payload['rows'] = sort_session_rows_by_time(rows)
   payload['cached'] = True
   payload['refreshedAt'] = datetime.datetime.now().isoformat(timespec='seconds')
@@ -4523,7 +5304,29 @@ def refresh_existing_trae_session_log_traces(order_token: str):
   return payload
 
 
-def queued_refresh_trae_session_cache(order_token: str, force: bool = False):
+def refresh_trae_session_identity_column(order_token: str):
+  payload = read_json(_session_cache_path(order_token), None)
+  if not isinstance(payload, dict):
+    payload = refresh_trae_session_cache(order_token, deep_scan=False)
+  rows = normalize_trae_session_rows(payload.get('rows') or []) if isinstance(payload, dict) else []
+  changed_count = 0
+  for row in rows:
+    if _repair_row_session_identity(row):
+      changed_count += 1
+  payload['rows'] = sort_session_rows_by_time(rows)
+  payload['cached'] = True
+  payload['deepScan'] = False
+  payload['identityOnlyRefresh'] = True
+  payload['identityFixCount'] = changed_count
+  payload.pop('deepScanReason', None)
+  payload['refreshedAt'] = datetime.datetime.now().isoformat(timespec='seconds')
+  payload['refreshAttemptedAt'] = payload['refreshedAt']
+  _persist_session_cache(_session_cache_path(order_token), payload)
+  payload['cache_path'] = _session_cache_path(order_token)
+  return payload
+
+
+def queued_refresh_trae_session_cache(order_token: str, force: bool = False, discover: bool = False):
   orders = parse_order_tokens([order_token])
   if not orders:
     raise RuntimeError('order is required')
@@ -4536,7 +5339,10 @@ def queued_refresh_trae_session_cache(order_token: str, force: bool = False):
     task_info = TRAE_REFRESH_TASKS.get(order)
     future = task_info.get('future') if isinstance(task_info, dict) else task_info
     started_at = float(task_info.get('startedAt') or 0) if isinstance(task_info, dict) else 0
-    if future is not None and not future.done() and started_at and now - started_at > TRAE_REFRESH_TASK_TTL_SECONDS:
+    task_ttl = TRAE_REFRESH_TASK_TTL_SECONDS
+    if isinstance(task_info, dict) and task_info.get('deepScan'):
+      task_ttl = TRAE_DEEP_REFRESH_TASK_TTL_SECONDS
+    if future is not None and not future.done() and started_at and now - started_at > task_ttl:
       TRAE_REFRESH_TASKS.pop(order, None)
       future = None
     if future is not None and future.done():
@@ -4548,12 +5354,44 @@ def queued_refresh_trae_session_cache(order_token: str, force: bool = False):
       if force:
         cached_payload = read_json(_session_cache_path(order), None)
         cached_rows = (cached_payload or {}).get('rows') if isinstance(cached_payload, dict) else []
-        if isinstance(cached_rows, list) and cached_rows:
-          future = TRAE_REFRESH_EXECUTOR.submit(refresh_existing_trae_session_log_traces, order)
-          TRAE_REFRESH_TASKS[order] = {'future': future, 'startedAt': now, 'deepScan': False, 'logTraceOnly': True}
-        else:
+        cached_count = len(cached_rows) if isinstance(cached_rows, list) else 0
+        if discover:
+          expected_count = _expected_trae_session_round_count(order)
           future = TRAE_REFRESH_EXECUTOR.submit(refresh_trae_session_cache, order, True)
-          TRAE_REFRESH_TASKS[order] = {'future': future, 'startedAt': now, 'deepScan': True, 'logTraceOnly': False}
+          TRAE_REFRESH_TASKS[order] = {
+            'future': future,
+            'startedAt': now,
+            'deepScan': True,
+            'logTraceOnly': False,
+            'identityOnly': False,
+            'expectedRows': expected_count,
+            'cachedRows': cached_count,
+            'reason': 'discover_missing_rounds',
+          }
+        elif isinstance(cached_rows, list) and cached_rows:
+          future = TRAE_REFRESH_EXECUTOR.submit(refresh_trae_session_identity_column, order)
+          TRAE_REFRESH_TASKS[order] = {
+            'future': future,
+            'startedAt': now,
+            'deepScan': False,
+            'logTraceOnly': False,
+            'identityOnly': True,
+            'expectedRows': cached_count,
+            'cachedRows': cached_count,
+            'reason': 'session_identity_only',
+          }
+        else:
+          future = TRAE_REFRESH_EXECUTOR.submit(refresh_trae_session_cache, order, False)
+          TRAE_REFRESH_TASKS[order] = {
+            'future': future,
+            'startedAt': now,
+            'deepScan': False,
+            'logTraceOnly': False,
+            'identityOnly': False,
+            'expectedRows': 0,
+            'cachedRows': cached_count,
+            'reason': 'empty_cache_light_refresh',
+          }
         started = True
 
   if queued or started:
@@ -4562,6 +5400,7 @@ def queued_refresh_trae_session_cache(order_token: str, force: bool = False):
     cached_payload['queued'] = queued
     cached_payload['deepScan'] = bool((TRAE_REFRESH_TASKS.get(order) or {}).get('deepScan'))
     cached_payload['logTraceOnlyRefresh'] = bool((TRAE_REFRESH_TASKS.get(order) or {}).get('logTraceOnly'))
+    cached_payload['identityOnlyRefresh'] = bool((TRAE_REFRESH_TASKS.get(order) or {}).get('identityOnly'))
     return {'ok': True, 'maxWorkers': TRAE_REFRESH_MAX_WORKERS, **cached_payload}
 
   if completed_future is None:
@@ -5074,10 +5913,16 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
         m_block = re.search(rf'block_id\":\"{re.escape(chat_id)}_([0-9a-f]{{24}})\"', line)
         if m_block:
           meta['taskMessageId'] = m_block.group(1)
-        elif is_create_message or not meta.get('taskMessageId'):
+        elif not meta.get('taskMessageId'):
           meta['taskMessageId'] = chat_id
         if is_create_message and (message_meta.get(chat_id) or {}).get('traceId'):
           break
+      meta = message_meta.get(chat_id) or {}
+      cloud_task_meta = _cloud_task_meta_for_trace(meta.get('traceId') or '', meta.get('sessionId') or '', chat_id)
+      if cloud_task_meta.get('messageId'):
+        meta['taskMessageId'] = cloud_task_meta['messageId']
+        if cloud_task_meta.get('time'):
+          meta['time'] = cloud_task_meta['time']
     if _target_metas_complete():
       return
 
@@ -5108,10 +5953,16 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
       meta = _ensure_meta(message_meta, chat_id)
       meta['sessionId'] = session_id
       meta['time'] = _log_time_to_text(line) or meta.get('time', '')
-      meta['taskMessageId'] = chat_id
+      if not meta.get('taskMessageId'):
+        meta['taskMessageId'] = chat_id
       m_trace = re.search(r'trace_id=\"([0-9a-f]{32})\"', line)
       if m_trace:
         meta['traceId'] = m_trace.group(1)
+      cloud_task_meta = _cloud_task_meta_for_trace(meta.get('traceId') or '', session_id, chat_id)
+      if cloud_task_meta.get('messageId'):
+        meta['taskMessageId'] = cloud_task_meta['messageId']
+        if cloud_task_meta.get('time'):
+          meta['time'] = cloud_task_meta['time']
       found.append(chat_id)
     return found
 
@@ -5439,6 +6290,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
       'logTraceId': log_trace_value if include_trace else '',
       'sessionComposite': log_trace_value if include_trace else '',
       'logTrace': '' if include_trace else (trace or ''),
+      'screenshots': _normalize_trae_media_items(item, db_path),
     })
 
   return {
@@ -5532,6 +6384,21 @@ class Handler(SimpleHTTPRequestHandler):
       self._json(200, {'ok': True, 'groups': load_trae_groups()})
       return
 
+    if parsed.path == '/api/trae-session-image':
+      query = parse_qs(parsed.query)
+      raw_path = (query.get('path') or [''])[0]
+      image_path = os.path.abspath(raw_path)
+      workspace_root = os.path.abspath(TRAE_WORKSPACE_STORAGE_DIR)
+      if (
+        not image_path.startswith(workspace_root + os.sep)
+        or f'{os.sep}images{os.sep}' not in image_path
+        or not os.path.isfile(image_path)
+      ):
+        self.send_error(404, 'Image not found')
+        return
+      self._send_static_file(image_path)
+      return
+
     if parsed.path == '/api/trae-session-rounds':
       query = parse_qs(parsed.query)
       order = (query.get('order') or [''])[0]
@@ -5571,7 +6438,11 @@ class Handler(SimpleHTTPRequestHandler):
       try:
         payload = self._read_json_body()
         order = str(payload.get('order') or '').strip()
-        result = queued_refresh_trae_session_cache(order, force=bool(payload.get('force')))
+        result = queued_refresh_trae_session_cache(
+          order,
+          force=bool(payload.get('force')),
+          discover=bool(payload.get('discover')),
+        )
         self._json(200, result)
       except Exception as err:
         self._json(500, {'ok': False, 'error': str(err)})
@@ -5593,7 +6464,7 @@ class Handler(SimpleHTTPRequestHandler):
     if parsed.path == '/api/batch-trae-projects':
       try:
         payload = self._read_json_body()
-        result = batch_trae_projects(payload.get('action'), payload.get('orders'))
+        result = batch_trae_projects(payload.get('action'), payload.get('orders'), options=payload)
         self._json(200, result)
       except Exception as err:
         self._json(500, {'ok': False, 'error': str(err)})
@@ -5690,6 +6561,38 @@ class Handler(SimpleHTTPRequestHandler):
       except ValueError:
         self._json(400, {'ok': False, 'error': 'count must be a positive integer'})
       except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/paste-feishu-screenshots':
+      try:
+        payload = self._read_json_body()
+        task_url = str(payload.get('task_url') or '').strip()
+        result = paste_feishu_screenshots(
+          payload.get('rows'),
+          task_url,
+          delay_ms=int(payload.get('delay_ms') or 850),
+        )
+        self._json(200, result)
+      except ValueError:
+        self._json(400, {'ok': False, 'error': 'delay_ms must be an integer'})
+      except Exception as err:
+        print(f'[feishu-paste] error: {err}', flush=True)
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/paste-feishu-batch-sessions':
+      try:
+        payload = self._read_json_body()
+        result = paste_feishu_batch_sessions(
+          payload.get('rows'),
+          delay_ms=int(payload.get('delay_ms') or 1200),
+        )
+        self._json(200, result)
+      except ValueError:
+        self._json(400, {'ok': False, 'error': 'delay_ms must be an integer'})
+      except Exception as err:
+        print(f'[feishu-batch-paste] error: {err}', flush=True)
         self._json(500, {'ok': False, 'error': str(err)})
       return
 

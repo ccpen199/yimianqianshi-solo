@@ -563,6 +563,60 @@
     },
     "prd_300_may_008_民宿营销活动系统": {
       "completed": true
+    },
+    "prd_300_may_003_网约车快车交易平台": {
+      "completed": true
+    },
+    "prd_300_may_002_校园即时配送平台": {
+      "completed": true
+    },
+    "prd_300_may_001_C端生鲜购物平台": {
+      "completed": true
+    },
+    "prd_300_may_012_品牌严选电商平台": {
+      "completed": true
+    },
+    "prd_300_may_009_综合出行叫车平台": {
+      "completed": true
+    },
+    "prd_300_may_010_餐饮点餐服务平台": {
+      "completed": true
+    },
+    "prd_300_may_011_会员制社交电商平台": {
+      "completed": true
+    },
+    "prd_300_may_007_机票搜索预订平台": {
+      "completed": true
+    },
+    "prd_300_may_006_新零售生鲜到家平台": {
+      "completed": true
+    },
+    "prd_300_may_005_外卖点餐与即时履约平台": {
+      "completed": true
+    },
+    "prd_300_may_016_商品榜单种草平台": {
+      "completed": true
+    },
+    "prd_300_may_013_综合电商购物平台": {
+      "completed": true
+    },
+    "prd_300_may_014_社交分销电商平台": {
+      "completed": true
+    },
+    "prd_300_may_015_严选商品内容导购平台": {
+      "completed": true
+    },
+    "prd_300_may_020_家居内容与家具选购平台": {
+      "completed": true
+    },
+    "prd_300_may_019_拼团电商交易平台": {
+      "completed": true
+    },
+    "prd_300_may_018_移动电商首页购物平台": {
+      "completed": true
+    },
+    "prd_300_may_017_优惠券发放策略系统": {
+      "completed": true
     }
   },
   "orders": {
@@ -870,24 +924,6 @@
     "prd_300_may_126_区块链价值共享平台": "may-4875"
   },
   "trae_groups": {
-    "may-979-may-982-第01组": [
-      "may-979",
-      "may-980",
-      "may-981",
-      "may-982"
-    ],
-    "may-983-may-986-第02组": [
-      "may-983",
-      "may-984",
-      "may-985",
-      "may-986"
-    ],
-    "may-987-may-990-第03组": [
-      "may-987",
-      "may-988",
-      "may-989",
-      "may-990"
-    ],
     "may-991-may-994-第04组": [
       "may-991",
       "may-992",
@@ -989,6 +1025,12 @@
       "may-4826",
       "may-4827",
       "may-4829"
+    ],
+    "may-979": [
+      "may-979",
+      "may-980",
+      "may-981",
+      "may-982"
     ]
   }
 }
