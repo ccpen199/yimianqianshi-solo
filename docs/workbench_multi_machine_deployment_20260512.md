@@ -47,21 +47,43 @@ codex-cli-pinai
   source=本机 Codex CLI 默认 pinAI 配置
 ```
 
-推荐环境变量：
+## 配置文件环境变量
+
+Workbench 不在前端录入大模型 KEY。后端启动时会自动读取以下配置文件，先出现的值优先生效，已经存在的系统环境变量不会被覆盖：
+
+```text
+<repo>/.env
+<repo>/.env.local
+<repo>/solo-coder/workbench/.env
+<repo>/solo-coder/workbench/.env.local
+```
+
+推荐每台机器复制 `.env.example` 为 `.env.local`，把真实 KEY 写在本机 `.env.local`。`.env` 和 `.env.local` 已被 `.gitignore` 排除，不能推送到远程仓库。
+
+具体环境变量名如下：
 
 ```bash
 DEEPSEEK_API_KEY=...
 DEEPSEEK_API_BASE=https://api.deepseek.com
 DEEPSEEK_TEXT_MODEL=deepseek-v4-pro
-CODEX_CLI=/path/to/codex
 TRAE_SESSION_ANNOTATION_PROVIDER=deepseek
 TRAE_SESSION_ANNOTATION_MODEL=deepseek-v4-pro
+TRAE_SESSION_ANNOTATION_MODELS=deepseek-v4-pro
+
+CODEX_CLI=/path/to/codex
+CODEX_CLI_PATH=/path/to/codex
 CODEX_DEEPSEEK_WIRE_API=chat
+
+MODELSCOPE_API_KEY=
+MODELSCOPE_API_BASE=https://api-inference.modelscope.cn/v1
+MODELSCOPE_TEXT_MODEL=Qwen/Qwen3-235B-A22B-Instruct-2507
 ```
 
 `CODEX_CLI` 或 `CODEX_CLI_PATH` 可显式指定 Codex CLI。未配置时会依次探测 PATH、nvm、npm global、Homebrew、Windows `%APPDATA%\npm` 等常见位置。
 
 Codex CLI / pinAI 不写入 `~/.codex/config.toml`，也不覆盖本机默认 provider。DeepSeek 只在显式选择相关链路时通过临时参数传入。
+
+仓库只提交 `.env.example`，不提交真实 `DEEPSEEK_API_KEY` 或 `MODELSCOPE_API_KEY`。文档中的“KEY”指环境变量名，不指真实密钥值。
 
 ## Windows 机器建议配置
 

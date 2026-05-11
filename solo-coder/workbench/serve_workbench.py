@@ -161,6 +161,55 @@ def codex_cli_path() -> str:
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.abspath(os.path.join(ROOT_DIR, '../..'))
+
+
+def _strip_env_value(value: str) -> str:
+  text = str(value or '').strip()
+  if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
+    text = text[1:-1]
+  return text
+
+
+def load_env_file(path: str, override: bool = False) -> int:
+  if not path or not os.path.isfile(path):
+    return 0
+  loaded = 0
+  try:
+    with open(path, 'r', encoding='utf-8') as file:
+      lines = file.readlines()
+  except OSError:
+    return 0
+  for raw_line in lines:
+    line = raw_line.strip()
+    if not line or line.startswith('#'):
+      continue
+    if line.startswith('export '):
+      line = line[len('export '):].strip()
+    if '=' not in line:
+      continue
+    key, value = line.split('=', 1)
+    key = key.strip()
+    if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', key or ''):
+      continue
+    if key in os.environ and not override:
+      continue
+    os.environ[key] = _strip_env_value(value)
+    loaded += 1
+  return loaded
+
+
+def load_workbench_env_files():
+  for path in (
+    os.path.join(PROJECT_DIR, '.env'),
+    os.path.join(PROJECT_DIR, '.env.local'),
+    os.path.join(ROOT_DIR, '.env'),
+    os.path.join(ROOT_DIR, '.env.local'),
+  ):
+    load_env_file(path, override=False)
+
+
+load_workbench_env_files()
+
 DOCS_DATA_DIR = os.path.join(PROJECT_DIR, 'docs', 'data')
 STATE_FILE = os.path.join(DOCS_DATA_DIR, 'generated', 'prompt_state.json')
 PROMPTS_FILE = os.path.join(DOCS_DATA_DIR, 'generated', 'generation_prompts.json')
@@ -247,7 +296,7 @@ SCENE_NAME_ALIASES = {
 }
 MODELSCOPE_API_BASE = os.environ.get('MODELSCOPE_API_BASE') or 'https://api-inference.modelscope.cn/v1'
 MODELSCOPE_CHAT_COMPLETIONS_URL = MODELSCOPE_API_BASE.rstrip('/') + '/chat/completions'
-MODELSCOPE_API_KEY = os.environ.get('MODELSCOPE_API_KEY') or 'ms-9ac400ad-d469-4b18-a792-077c5740e628'
+MODELSCOPE_API_KEY = os.environ.get('MODELSCOPE_API_KEY') or ''
 MODELSCOPE_TEXT_MODEL = os.environ.get('MODELSCOPE_TEXT_MODEL') or 'Qwen/Qwen3-235B-A22B-Instruct-2507'
 DEEPSEEK_API_BASE = os.environ.get('DEEPSEEK_API_BASE') or 'https://api.deepseek.com'
 DEEPSEEK_CHAT_COMPLETIONS_URL = DEEPSEEK_API_BASE.rstrip('/') + '/chat/completions'
@@ -1929,7 +1978,7 @@ def llm_annotation_model_catalog():
       'role': '不满意列双轴原因生成',
       'description': '接口生成不满意列双轴原因。',
       'available': bool(DEEPSEEK_API_KEY),
-      'statusLabel': '可调用' if DEEPSEEK_API_KEY else '需配置 KEY',
+      'statusLabel': '可调用' if DEEPSEEK_API_KEY else '需配置 .env',
       'default': active_provider in {'deepseek', 'deepseek-v4', 'deepseek-v4-pro'} and DEEPSEEK_TEXT_MODEL in active_models,
     },
     {
