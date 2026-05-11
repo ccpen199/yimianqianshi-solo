@@ -55,6 +55,7 @@ const autoBatchMinRowsInput = document.getElementById('autoBatchMinRows');
 const watchCurrentBatchGroupButton = document.getElementById('watchCurrentBatchGroup');
 const autoBatchWatchedGroupsEl = document.getElementById('autoBatchWatchedGroups');
 const llmAgentModelListEl = document.getElementById('llmAgentModelList');
+const runLlmDissatisfactionButton = document.getElementById('runLlmDissatisfaction');
 const llmAgentStatusEl = document.getElementById('llmAgentStatus');
 const copyNextBatchScreenshotButton = document.getElementById('copyNextBatchScreenshot');
 const pasteBatchScreenshotsToFeishuButton = document.getElementById('pasteBatchScreenshotsToFeishu');
@@ -191,6 +192,9 @@ function isCompleted(promptId) {
 }
 
 function orderPrefix(prompt) {
+  const explicitOrder = String(promptState.orders?.[prompt?.id] || prompt?.order_folder || '').trim();
+  const explicitMatch = explicitOrder.match(/^([a-zA-Z][a-zA-Z0-9]*)-\d+$/);
+  if (explicitMatch) return explicitMatch[1].toLowerCase();
   if (String(prompt?.id || '').startsWith('prd_300_may_')) return 'may';
   const domain = normalizeDomainName(prompt.business_domain);
   return scenePrefix[domain] || 'x';
@@ -204,7 +208,7 @@ function orderToken(prompt, value) {
   const text = String(value ?? '').trim();
   if (!text) return `${prefix}-${prompt.global_order}`;
   if (/^\d+$/.test(text)) return `${prefix}-${Number.parseInt(text, 10)}`;
-  const match = text.match(/^([a-zA-Z]+)-(\d+)$/);
+  const match = text.match(/^([a-zA-Z][a-zA-Z0-9]*)-(\d+)$/);
   if (match) return `${match[1].toLowerCase()}-${Number.parseInt(match[2], 10)}`;
   return text;
 }
@@ -269,7 +273,7 @@ function normalizeBatchOrders(items) {
     let text = String(item || '').trim();
     if (!text) continue;
     if (/^\d+$/.test(text)) text = `xm-${Number.parseInt(text, 10)}`;
-    const match = text.match(/^([a-zA-Z]+)-(\d+)$/);
+    const match = text.match(/^([a-zA-Z][a-zA-Z0-9]*)-(\d+)$/);
     if (match) text = `${match[1].toLowerCase()}-${Number.parseInt(match[2], 10)}`;
     if (!seen.has(text)) {
       seen.add(text);
@@ -352,11 +356,22 @@ function setLlmAgentStatus(text, isError = false) {
   llmAgentStatusEl.classList.toggle('error', Boolean(isError));
 }
 
+function updateLlmAnnotationAction() {
+  if (!runLlmDissatisfactionButton) return;
+  const current = selectedLlmAnnotationModel();
+  const canAnnotate = Boolean(current && current.supportsAnnotation && current.available !== false);
+  runLlmDissatisfactionButton.disabled = !canAnnotate;
+  runLlmDissatisfactionButton.title = canAnnotate
+    ? '用当前模型生成当前组的不满意原因'
+    : (current?.supportsAnnotation === false ? '该模型只用于本机复核，不直接写回不满意列' : '当前模型未配置完成');
+}
+
 function renderLlmAgentModels() {
   if (!llmAgentModelListEl) return;
   llmAgentModelListEl.innerHTML = '';
   if (!Array.isArray(llmAnnotationModels) || !llmAnnotationModels.length) {
     setLlmAgentStatus('暂无可用标注模型配置', true);
+    updateLlmAnnotationAction();
     return;
   }
   const active = selectedLlmAnnotationModel();
@@ -387,9 +402,10 @@ function renderLlmAgentModels() {
   }
   const current = selectedLlmAnnotationModel();
   const message = current
-    ? `当前用于不满意列：${current.name || current.model || current.id}`
+    ? `当前用于不满意列：${current.name || current.model || current.id}${current.supportsAnnotation === false ? '（复核入口，不直接写回）' : ''}`
     : '请选择标注模型';
   setLlmAgentStatus(message, current?.available === false);
+  updateLlmAnnotationAction();
 }
 
 function renderBatchGroups() {
@@ -1786,6 +1802,54 @@ async function openBatchSessions() {
   }
 }
 
+async function runLlmDissatisfactionForCurrentBatch() {
+  const currentModel = selectedLlmAnnotationModel();
+  if (!currentModel) {
+    setLlmAgentStatus('请选择标注模型', true);
+    return;
+  }
+  if (currentModel.supportsAnnotation === false) {
+    setLlmAgentStatus('Codex CLI / pinAI 作为本机复核入口，不直接写回不满意列', true);
+    return;
+  }
+  if (currentModel.available === false) {
+    setLlmAgentStatus(currentModel.provider === 'deepseek' ? '请先设置 DEEPSEEK_API_KEY' : '当前模型未配置完成', true);
+    return;
+  }
+  const { groupName, orders } = collectBatchOrders();
+  if (!orders.length) {
+    setLlmAgentStatus('当前组没有项目，请先选择项目', true);
+    return;
+  }
+  if (runLlmDissatisfactionButton) runLlmDissatisfactionButton.disabled = true;
+  setLlmAgentStatus(`LLM 标注中：${groupName || '-'} ${orders.join(',')}`);
+  try {
+    const response = await fetch('/api/annotate-dissatisfaction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orders,
+        model_id: currentModel.id,
+        force: true,
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    const results = Array.isArray(payload.results) ? payload.results : [];
+    const failed = results.filter((item) => item && !item.ok);
+    const failedText = failed.length ? `；失败 ${failed.length}：${failed.map((item) => `${item.order}${item.error ? `(${item.error})` : ''}`).join('，')}` : '';
+    setLlmAgentStatus(`LLM 已写回 ${payload.changed || 0}/${payload.rows || 0} 行${failedText}`, Boolean(failed.length));
+    if (batchSessionModal?.open) {
+      const refreshedRows = await fetchBatchRowsForOrders(groupName, orders);
+      renderBatchSessionRows({ groupName, orders, rows: refreshedRows });
+    }
+  } catch (error) {
+    setLlmAgentStatus(`LLM 标注失败：${error.message || error}`, true);
+  } finally {
+    updateLlmAnnotationAction();
+  }
+}
+
 async function moveSessionOrder(step) {
   const index = sessionOrderList.indexOf(activeSessionOrder);
   const nextOrder = sessionOrderList[index + step];
@@ -2618,6 +2682,11 @@ if (batchCloseTraeButton) {
 if (openBatchSessionsButton) {
   openBatchSessionsButton.addEventListener('click', async () => {
     await openBatchSessions();
+  });
+}
+if (runLlmDissatisfactionButton) {
+  runLlmDissatisfactionButton.addEventListener('click', async () => {
+    await runLlmDissatisfactionForCurrentBatch();
   });
 }
 }

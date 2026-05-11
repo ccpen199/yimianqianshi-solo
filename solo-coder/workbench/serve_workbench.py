@@ -89,6 +89,10 @@ def _candidate_trae_cli_paths():
       if not root:
         continue
       for rel in (
+        os.path.join('Programs', 'Trae CN', 'Trae CN.exe'),
+        os.path.join('Programs', 'Trae CN', 'trae-cn.exe'),
+        os.path.join('Programs', 'Trae', 'Trae.exe'),
+        os.path.join('Programs', 'Trae', 'trae.exe'),
         os.path.join('Trae CN', 'Trae CN.exe'),
         os.path.join('Trae CN', 'trae-cn.exe'),
         os.path.join('Trae', 'Trae.exe'),
@@ -210,11 +214,30 @@ def load_workbench_env_files():
 
 load_workbench_env_files()
 
+PROJECT_DATA_DIR = os.path.join(PROJECT_DIR, 'data')
 DOCS_DATA_DIR = os.path.join(PROJECT_DIR, 'docs', 'data')
-STATE_FILE = os.path.join(DOCS_DATA_DIR, 'generated', 'prompt_state.json')
-PROMPTS_FILE = os.path.join(DOCS_DATA_DIR, 'generated', 'generation_prompts.json')
-TRAE_SESSION_CACHE_DIR = os.path.join(DOCS_DATA_DIR, 'generated', 'trae_session_rounds')
-FEISHU_SCREENSHOT_PASTE_DIR = os.path.join(DOCS_DATA_DIR, 'generated', 'feishu_screenshot_paste')
+
+
+def _data_dir_has_prompt_seed(data_dir: str) -> bool:
+  generated_dir = os.path.join(data_dir, 'generated')
+  return (
+    os.path.isfile(os.path.join(generated_dir, 'generation_prompts.json'))
+    and os.path.isfile(os.path.join(generated_dir, 'prompt_state.json'))
+  )
+
+
+def _default_data_dir() -> str:
+  configured = _env_path('WORKBENCH_DATA_DIR') or _env_path('YMQS_DATA_DIR')
+  if configured:
+    return configured
+  return PROJECT_DATA_DIR
+
+
+DATA_DIR = _default_data_dir()
+STATE_FILE = os.path.join(DATA_DIR, 'generated', 'prompt_state.json')
+PROMPTS_FILE = os.path.join(DATA_DIR, 'generated', 'generation_prompts.json')
+TRAE_SESSION_CACHE_DIR = os.path.join(DATA_DIR, 'generated', 'trae_session_rounds')
+FEISHU_SCREENSHOT_PASTE_DIR = os.path.join(DATA_DIR, 'generated', 'feishu_screenshot_paste')
 FEISHU_PASTE_LOCK = threading.RLock()
 TRAE_ROOT = _default_trae_root()
 TRAE_APP_SUPPORT_DIR = _default_trae_app_support_dir()
@@ -313,7 +336,7 @@ TRAE_SESSION_ANNOTATION_MODELS = [
   if model.strip()
 ]
 TRAE_SESSION_ANNOTATION_PROVIDER = os.environ.get('TRAE_SESSION_ANNOTATION_PROVIDER') or 'deepseek'
-TRAE_SESSION_ANNOTATION_PROMPT_VERSION = '20260509_v10_detailed_permission_issue'
+TRAE_SESSION_ANNOTATION_PROMPT_VERSION = '20260512_v11_llm_dual_axis'
 TRAE_SESSION_ANNOTATION_TIMEOUT_SECONDS = 45
 TRAE_SESSION_ANNOTATION_MAX_CONVERSATION_CHARS = 2400
 RG_CANDIDATES = [
@@ -355,6 +378,25 @@ def write_json(path: str, payload):
     json.dump(payload, file, ensure_ascii=False, indent=2)
     file.write('\n')
   os.replace(tmp, path)
+
+
+def ensure_local_data_files():
+  os.makedirs(os.path.join(DATA_DIR, 'generated'), exist_ok=True)
+  if os.path.abspath(DATA_DIR) == os.path.abspath(DOCS_DATA_DIR):
+    return
+  seed_generated_dir = os.path.join(DOCS_DATA_DIR, 'generated')
+  for filename, fallback_payload in (
+    ('generation_prompts.json', []),
+    ('prompt_state.json', {'completed': {}, 'orders': {}, 'trae_groups': {}}),
+  ):
+    target = os.path.join(DATA_DIR, 'generated', filename)
+    if os.path.exists(target):
+      continue
+    seed = os.path.join(seed_generated_dir, filename)
+    if os.path.isfile(seed):
+      shutil.copy2(seed, target)
+    else:
+      write_json(target, fallback_payload)
 
 
 def safe_segment(value: str) -> str:
@@ -404,7 +446,7 @@ def normalize_order_token(prompt, order_value):
     return default_order_token(prompt)
   if re.fullmatch(r'\d+', text):
     return f'{prefix}-{int(text)}'
-  match = re.fullmatch(r'([A-Za-z]+)-(\d+)', text)
+  match = re.fullmatch(r'([A-Za-z][A-Za-z0-9]*)-(\d+)', text)
   if match:
     return f'{match.group(1).lower()}-{int(match.group(2))}'
   return text
@@ -414,7 +456,7 @@ def extract_order_number(order_value):
   text = str(order_value or '').strip()
   if re.fullmatch(r'\d+', text):
     return int(text)
-  match = re.fullmatch(r'[A-Za-z]+-(\d+)', text)
+  match = re.fullmatch(r'[A-Za-z][A-Za-z0-9]*-(\d+)', text)
   if match:
     return int(match.group(1))
   return None
@@ -711,8 +753,8 @@ def _call_deepseek_chat(messages, model: str = ''):
   return content
 
 
-def _call_annotation_chat(messages, model: str):
-  provider = str(TRAE_SESSION_ANNOTATION_PROVIDER or '').strip().lower()
+def _call_annotation_chat(messages, model: str, provider: str = ''):
+  provider = str(provider or TRAE_SESSION_ANNOTATION_PROVIDER or '').strip().lower()
   if provider in {'deepseek', 'deepseek-v4', 'deepseek-v4-pro'}:
     return _call_deepseek_chat(messages, model=model)
   if provider in {'modelscope', 'qwen'}:
@@ -722,7 +764,7 @@ def _call_annotation_chat(messages, model: str):
   return _call_modelscope_chat(messages, model=model)
 
 
-def _request_session_annotations(pending_rows):
+def _request_session_annotations(pending_rows, model_config=None):
   row_items = []
   for item in pending_rows:
     index, row = item[0], item[1]
@@ -764,10 +806,17 @@ def _request_session_annotations(pending_rows):
       'content': json.dumps(row_items, ensure_ascii=False),
     },
   ]
+  model_config = model_config if isinstance(model_config, dict) else {}
+  provider = str(model_config.get('provider') or TRAE_SESSION_ANNOTATION_PROVIDER or '').strip().lower()
+  model_names = [str(model_config.get('model') or '').strip()] if model_config.get('model') else []
+  if not model_names:
+    model_names = TRAE_SESSION_ANNOTATION_MODELS or [MODELSCOPE_TEXT_MODEL]
   last_error = None
-  for model in TRAE_SESSION_ANNOTATION_MODELS or [MODELSCOPE_TEXT_MODEL]:
+  used_model = ''
+  for model in model_names:
     try:
-      parsed = _extract_json_payload(_call_annotation_chat(messages, model=model))
+      used_model = model
+      parsed = _extract_json_payload(_call_annotation_chat(messages, model=model, provider=provider))
       break
     except Exception as exc:
       last_error = exc
@@ -788,14 +837,14 @@ def _request_session_annotations(pending_rows):
       continue
     mapped[index] = {
       'dissatisfactionReason': item.get('dissatisfactionReason'),
-      'annotationSource': f'{TRAE_SESSION_ANNOTATION_PROVIDER}:{TRAE_SESSION_ANNOTATION_MODELS[0] if TRAE_SESSION_ANNOTATION_MODELS else DEEPSEEK_TEXT_MODEL}',
+      'annotationSource': f'{provider or TRAE_SESSION_ANNOTATION_PROVIDER}:{used_model or (TRAE_SESSION_ANNOTATION_MODELS[0] if TRAE_SESSION_ANNOTATION_MODELS else DEEPSEEK_TEXT_MODEL)}',
     }
   return mapped
 
 
-def _annotate_session_rows(rows, use_model: bool = True):
+def _annotate_session_rows(rows, use_model: bool = True, model_config=None, force: bool = False, strict_model: bool = False):
   if not isinstance(rows, list) or not rows:
-    return False
+    return 0
   pending_rows = []
   for index, row in enumerate(rows):
     if not isinstance(row, dict):
@@ -816,25 +865,26 @@ def _annotate_session_rows(rows, use_model: bool = True):
     reason_conversation = str((rows[index + 1] or {}).get('conversation') or '') if index + 1 < len(rows) and isinstance(rows[index + 1], dict) else ''
     target_hash = _annotation_row_hash(row, reason_conversation)
     if (
-      row.get('annotationHash') == target_hash
+      not force
+      and row.get('annotationHash') == target_hash
       and (row.get('dissatisfactionReason') or row.get('annotationSource') == 'next-row-empty')
     ):
       continue
     pending_rows.append((index, row, reason_conversation))
   if not pending_rows:
-    return False
+    return 0
 
   annotations = {}
   model_pending_rows = []
   for index, row, reason_conversation in pending_rows:
+    if use_model:
+      model_pending_rows.append((index, row, reason_conversation))
+      continue
     if not reason_conversation.strip():
-      if use_model:
-        model_pending_rows.append((index, row, reason_conversation))
-      else:
-        annotations[index] = {
-          'dissatisfactionReason': _terminal_round_dissatisfaction_reason(row),
-          'annotationSource': 'terminal-round-fallback',
-        }
+      annotations[index] = {
+        'dissatisfactionReason': _terminal_round_dissatisfaction_reason(row),
+        'annotationSource': 'terminal-round-fallback',
+      }
       continue
     fallback_text = _fallback_dissatisfaction_reason(reason_conversation)
     if fallback_text:
@@ -842,21 +892,33 @@ def _annotate_session_rows(rows, use_model: bool = True):
         'dissatisfactionReason': fallback_text,
         'annotationSource': 'next-row-direct',
       }
-      continue
-    model_pending_rows.append((index, row, reason_conversation))
+    else:
+      model_pending_rows.append((index, row, reason_conversation))
 
   try:
     if model_pending_rows and use_model:
-      annotations.update(_request_session_annotations(model_pending_rows))
+      annotations.update(_request_session_annotations(model_pending_rows, model_config=model_config))
   except Exception as exc:
+    if strict_model:
+      raise
     print(f'[WARN] session annotation fallback: {exc}', file=sys.stderr)
+  if strict_model and model_pending_rows:
+    missing_indexes = [index for index, _, _ in model_pending_rows if index not in annotations]
+    if missing_indexes:
+      raise RuntimeError(f'LLM annotation missing rows: {missing_indexes}')
 
-  changed = False
+  changed_count = 0
   annotated_at = datetime.datetime.now().isoformat(timespec='seconds')
   for index, row, reason_conversation in pending_rows:
     target_hash = _annotation_row_hash(row, reason_conversation)
     annotation_row = dict(row)
     annotation_row['conversation'] = reason_conversation
+    before = (
+      row.get('dissatisfactionReason'),
+      row.get('annotationHash'),
+      row.get('annotationVersion'),
+      row.get('annotationSource'),
+    )
     if index in annotations:
       annotation = annotations[index]
     elif not reason_conversation.strip():
@@ -874,8 +936,15 @@ def _annotate_session_rows(rows, use_model: bool = True):
     row['annotationVersion'] = TRAE_SESSION_ANNOTATION_PROMPT_VERSION
     row['annotationUpdatedAt'] = annotated_at
     row['annotationSource'] = annotation.get('annotationSource') or 'fallback'
-    changed = True
-  return changed
+    after = (
+      row.get('dissatisfactionReason'),
+      row.get('annotationHash'),
+      row.get('annotationVersion'),
+      row.get('annotationSource'),
+    )
+    if after != before:
+      changed_count += 1
+  return changed_count
 
 
 def _persist_session_cache(path: str, payload: dict):
@@ -938,12 +1007,12 @@ def project_folder_for_order(order_token: str):
 
 
 def _is_order_token_name(value: str) -> bool:
-  return bool(re.fullmatch(r'[A-Za-z]+-\d+', str(value or '').strip()))
+  return bool(re.fullmatch(r'[A-Za-z][A-Za-z0-9]*-\d+', str(value or '').strip()))
 
 
 def _normalize_order_token_text(value: str) -> str:
   text = str(value or '').strip()
-  match = re.fullmatch(r'([A-Za-z]+)-(\d+)', text)
+  match = re.fullmatch(r'([A-Za-z][A-Za-z0-9]*)-(\d+)', text)
   if match:
     return f'{match.group(1).lower()}-{int(match.group(2))}'
   return text
@@ -1044,7 +1113,7 @@ def parse_order_tokens(raw_orders):
       continue
     if re.fullmatch(r'\d+', text):
       text = f'xm-{int(text)}'
-    match = re.fullmatch(r'([A-Za-z]+)-(\d+)', text)
+    match = re.fullmatch(r'([A-Za-z][A-Za-z0-9]*)-(\d+)', text)
     if match:
       text = f'{match.group(1).lower()}-{int(match.group(2))}'
     if text not in seen:
@@ -1958,6 +2027,11 @@ def workbench_defaults():
   return {
     'default_github_repo_url': DEFAULT_GITHUB_REPO_URL,
     'default_feishu_task_url': DEFAULT_FEISHU_TASK_URL,
+    'data_dir': DATA_DIR,
+    'seed_data_dir': DOCS_DATA_DIR,
+    'trae_root': TRAE_ROOT,
+    'trae_app_support_dir': TRAE_APP_SUPPORT_DIR,
+    'trae_workspace_storage_dir': TRAE_WORKSPACE_STORAGE_DIR,
     'default_llm_annotation_model_id': next((item['id'] for item in llm_models if item.get('default')), llm_models[0]['id'] if llm_models else ''),
     'llm_annotation_models': llm_models,
   }
@@ -1979,6 +2053,7 @@ def llm_annotation_model_catalog():
       'description': '接口生成不满意列双轴原因。',
       'available': bool(DEEPSEEK_API_KEY),
       'statusLabel': '可调用' if DEEPSEEK_API_KEY else '需配置 .env',
+      'supportsAnnotation': True,
       'default': active_provider in {'deepseek', 'deepseek-v4', 'deepseek-v4-pro'} and DEEPSEEK_TEXT_MODEL in active_models,
     },
     {
@@ -1992,9 +2067,66 @@ def llm_annotation_model_catalog():
       'description': '走本机 Codex CLI 默认 pinAI 链路。',
       'available': bool(codex_path),
       'statusLabel': '本机可用' if codex_path else '未找到 CLI',
+      'supportsAnnotation': False,
       'default': False,
     },
   ]
+
+
+def resolve_llm_annotation_model(model_id: str = '') -> dict:
+  models = llm_annotation_model_catalog()
+  requested = str(model_id or '').strip()
+  model = None
+  if requested:
+    model = next((item for item in models if item.get('id') == requested), None)
+  if model is None:
+    model = next((item for item in models if item.get('default')), None) or (models[0] if models else None)
+  if not model:
+    raise RuntimeError('未找到可用的 LLM 标注模型配置')
+  if not model.get('supportsAnnotation'):
+    raise RuntimeError(f"{model.get('name') or model.get('id')} 仅用于本机复核/启动，不支持直接写入不满意列")
+  if not model.get('available'):
+    if model.get('provider') == 'deepseek':
+      raise RuntimeError('DeepSeek 标注需要先设置 DEEPSEEK_API_KEY')
+    raise RuntimeError(f"{model.get('name') or model.get('id')} 当前不可用")
+  return model
+
+
+def annotate_dissatisfaction_for_orders(raw_orders, model_id: str = '', force: bool = True):
+  model = resolve_llm_annotation_model(model_id)
+  orders = parse_order_tokens(raw_orders)
+  if not orders:
+    raise RuntimeError('orders are required')
+  results = []
+  total_changed = 0
+  total_rows = 0
+  for order in orders:
+    path = _session_cache_path(order)
+    payload = read_trae_session_cache(order)
+    rows = payload.get('rows') if isinstance(payload, dict) else []
+    if not isinstance(rows, list) or not rows:
+      results.append({'order': order, 'ok': False, 'changed': 0, 'rows': 0, 'error': '暂无会话缓存，请先刷新会话轮次'})
+      continue
+    try:
+      changed = _annotate_session_rows(rows, use_model=True, model_config=model, force=force, strict_model=True)
+      payload['rows'] = sort_session_rows_by_time(rows)
+      payload['cached'] = True
+      payload['llmAnnotatedAt'] = datetime.datetime.now().isoformat(timespec='seconds')
+      payload['llmAnnotationModel'] = model.get('id') or model.get('model') or ''
+      _persist_session_cache(path, payload)
+      total_changed += int(changed or 0)
+      total_rows += len(rows)
+      results.append({'order': order, 'ok': True, 'changed': int(changed or 0), 'rows': len(rows)})
+    except Exception as err:
+      results.append({'order': order, 'ok': False, 'changed': 0, 'rows': len(rows), 'error': str(err)})
+  return {
+    'ok': True,
+    'model': model,
+    'orders': orders,
+    'changed': total_changed,
+    'rows': total_rows,
+    'results': results,
+  }
 
 
 def resolve_text_setting(payload, key: str, default_value: str, label: str) -> str:
@@ -6785,12 +6917,15 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
 class Handler(SimpleHTTPRequestHandler):
   def _docs_data_path(self, request_path: str):
     if request_path == '/data':
-      return DOCS_DATA_DIR
+      return DATA_DIR if os.path.isdir(DATA_DIR) else DOCS_DATA_DIR
     relative = str(request_path[len('/data'):]).lstrip('/')
     normalized = os.path.normpath(relative)
     if normalized in ('', '.'):
-      return DOCS_DATA_DIR
+      return DATA_DIR if os.path.isdir(DATA_DIR) else DOCS_DATA_DIR
     parts = [part for part in normalized.split(os.sep) if part not in ('', '.', '..')]
+    local_path = os.path.join(DATA_DIR, *parts)
+    if os.path.exists(local_path):
+      return local_path
     return os.path.join(DOCS_DATA_DIR, *parts)
 
   def _send_static_file(self, path: str):
@@ -6935,6 +7070,19 @@ class Handler(SimpleHTTPRequestHandler):
           payload.get('orders'),
           refresh_missing=bool(payload.get('refreshMissing')),
           limit=int(payload.get('limit') or 0),
+        )
+        self._json(200, result)
+      except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/annotate-dissatisfaction':
+      try:
+        payload = self._read_json_body()
+        result = annotate_dissatisfaction_for_orders(
+          payload.get('orders'),
+          model_id=payload.get('model_id') or payload.get('modelId') or '',
+          force=payload.get('force') is not False,
         )
         self._json(200, result)
       except Exception as err:
@@ -7190,6 +7338,7 @@ def main():
     host = str(sys.argv[2] or host)
 
   os.chdir(ROOT_DIR)
+  ensure_local_data_files()
   migrate_legacy_scene_dirs()
   ensure_all_prompt_folders()
   server = ThreadingHTTPServer((host, port), Handler)

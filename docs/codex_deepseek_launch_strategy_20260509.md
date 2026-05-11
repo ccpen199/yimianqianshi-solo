@@ -14,31 +14,31 @@
 
 ## 当前实现
 
+2026-05-12 更新：界面已从“执行引擎 + checkbox”压缩为 LLM-Agent 模型选择。`DeepSeek V4 Pro` 负责通过 `/api/annotate-dissatisfaction` 生成并写回当前批量组的不满意列双轴原因；`Codex CLI / pinAI` 保留为本机复核/启动入口，不直接批量写回不满意列。
+
 前端入口：
 
 ```text
 solo-coder/workbench/index.html
-  模型与策略
-  执行引擎：Trae IDE / Codex CLI
-  Codex CLI 接入 DeepSeek checkbox
+  LLM-Agent
+  DeepSeek V4 Pro / Codex CLI pinAI 模型选择
+  生成当前组
 ```
 
 前端状态：
 
 ```text
-localStorage.workbench.executionEngine
-localStorage.workbench.codexDeepseekLaunch
+localStorage.llmAnnotationModelId
 ```
 
 后端入口：
 
 ```text
-POST /api/batch-trae-projects
+POST /api/annotate-dissatisfaction
 body:
-  action: open
   orders: [...]
-  engine: codex-cli
-  codexDeepseek: true
+  model_id: deepseek-v4-pro
+  force: true
 ```
 
 默认旧流程：

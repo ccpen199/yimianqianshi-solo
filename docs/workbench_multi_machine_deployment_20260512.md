@@ -11,6 +11,7 @@
    - `Codex CLI / pinAI`：走本机 Codex CLI 默认 pinAI 链路，用于后续复核或生成。
 
 2. Trae 路径改为环境变量优先，不再绑定单台 Mac 的绝对路径：
+   - `WORKBENCH_DATA_DIR` / `YMQS_DATA_DIR`
    - `TRAE_ROOT`
    - `TRAE_APP_SUPPORT_DIR` / `TRAE_SUPPORT_DIR`
    - `TRAE_WORKSPACE_STORAGE_DIR`
@@ -18,6 +19,7 @@
    - `TRAE_CLI`
 
 3. 默认路径按系统推断：
+   - Workbench 运行数据：仓库根目录 `data/`，首次启动会从 `docs/data/generated/` 复制 `generation_prompts.json` 和 `prompt_state.json` 作为本机种子。
    - macOS：`~/Documents/trae_projects`，`~/Library/Application Support/Trae CN`
    - Windows：`%USERPROFILE%\Documents\trae_projects`，`%APPDATA%\Trae CN`
    - Linux：`~/trae_projects`，`~/.config/Trae CN`
@@ -85,16 +87,31 @@ Codex CLI / pinAI 不写入 `~/.codex/config.toml`，也不覆盖本机默认 pr
 
 仓库只提交 `.env.example`，不提交真实 `DEEPSEEK_API_KEY` 或 `MODELSCOPE_API_KEY`。文档中的“KEY”指环境变量名，不指真实密钥值。
 
+Workbench 侧已落地“不满意列双轴标注”写回按钮：在批量项目组中选择组，选择 `DeepSeek V4 Pro`，点击 `生成当前组`，服务端会调用 `/api/annotate-dissatisfaction` 并只写回各机器本地 `data/generated/trae_session_rounds/{order}.json` 内的 `dissatisfactionReason`、`annotationHash`、`annotationVersion`、`annotationUpdatedAt`、`annotationSource` 字段。`Codex CLI / pinAI` 只作为本机复核入口，不直接批量写回不满意列。
+
 ## Windows 机器建议配置
 
 PowerShell 示例：
 
 ```powershell
 $env:TRAE_ROOT="$env:USERPROFILE\Documents\trae_projects"
+$env:WORKBENCH_DATA_DIR="$PWD\data"
 $env:TRAE_APP_SUPPORT_DIR="$env:APPDATA\Trae CN"
 $env:TRAE_APP_NAME="Trae CN"
 $env:DEEPSEEK_API_KEY="你的 DeepSeek Key"
 python solo-coder\workbench\serve_workbench.py 8090
+```
+
+也可以直接使用 Windows 启动脚本：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File solo-coder\workbench\start_workbench.ps1 restart 8090
+```
+
+或双击/命令行运行：
+
+```bat
+solo-coder\workbench\start_workbench.bat restart 8090
 ```
 
 如果 Trae CLI 不在 PATH，需要显式设置：

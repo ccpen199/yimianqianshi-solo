@@ -108,6 +108,15 @@
 
 ## 后续 LLM-Agent 建议流程
 
+2026-05-12 已落地到 Workbench：
+
+```text
+批量项目组 -> LLM-Agent -> 选择 DeepSeek V4 Pro -> 生成当前组
+POST /api/annotate-dissatisfaction
+```
+
+服务端只写回本机 `data/generated/trae_session_rounds/{order}.json` 的不满意列相关字段，不改会话、截图和日志轨迹。没有 `DEEPSEEK_API_KEY` 时按钮会显示不可用，避免误以为已经走了大模型。
+
 1. 输入一个批量组名或序号列表。
 2. 读取 `prompt_state.json` 找到组内序号。
 3. 逐个读取 `trae_session_rounds/{order}.json`。

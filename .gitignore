@@ -6,11 +6,14 @@ __pycache__/
 # Local runtime logs and temporary server state
 .logs/
 *.log
-docs/data/generated/feishu_screenshot_paste/
-docs/data/generated/generation_prompts.json
-docs/data/generated/prompt_state.json
-docs/data/generated/trae_session_rounds/
-docs/data-bak/
+
+# Local machine data/cache. Do not sync generated Workbench state between machines.
+/data/
+/docs/data/generated/
+/docs/data-bak/
+/solo-coder/workbench/.workbench*.url
+/solo-coder/workbench/.workbench*.pid
+/solo-coder/workbench/.workbench*.log
 
 # Dependency/build outputs if any are created locally
 node_modules/
