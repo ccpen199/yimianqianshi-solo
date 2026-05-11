@@ -2124,6 +2124,37 @@ body {
   background: #0b56d9;
 }
 
+.prompt-preview-toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin: 4px 0 8px;
+}
+
+.prompt-preview-toggle {
+  min-width: 118px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  color: #1d4ed8;
+  background: #eff6ff;
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: none;
+}
+
+.prompt-preview-toggle:hover {
+  color: #ffffff;
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.prompt-preview-toggle.is-off {
+  color: #475569;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
 .workbench-grid {
   display: grid;
   grid-template-columns: minmax(760px, 1fr) 340px;
@@ -2284,6 +2315,224 @@ body {
   box-shadow: 0 13px 24px rgba(15, 23, 42, .18);
 }
 
+.batch-auto-card {
+  margin-top: 10px;
+  padding: 9px;
+  border: 1px solid rgba(37, 99, 235, .18);
+  border-radius: 16px;
+  background: rgba(239, 246, 255, .76);
+}
+
+.batch-auto-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #1e3a8a;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.batch-auto-threshold {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #334155;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.batch-auto-threshold input {
+  width: 54px;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid #bfdbfe;
+  border-radius: 7px;
+  color: #0f172a;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.batch-auto-actions {
+  margin-top: 7px;
+}
+
+.batch-auto-refresh-button,
+.batch-auto-watch-button {
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.batch-auto-refresh-button.is-on,
+.batch-auto-watch-button.is-on {
+  border-color: #16a34a;
+  color: #ffffff;
+  background: #16a34a;
+}
+
+.batch-auto-status {
+  min-height: 22px;
+  margin-top: 7px;
+  padding: 5px 7px;
+  border-radius: 10px;
+  color: #1e40af;
+  background: rgba(219, 234, 254, .72);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.batch-auto-status.error {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.llm-agent-card {
+  margin-top: 8px;
+  padding: 7px;
+  border: 1px solid rgba(124, 58, 237, .20);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(250, 245, 255, .72), rgba(239, 246, 255, .58));
+}
+
+.llm-agent-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+
+.llm-agent-head span {
+  display: block;
+  color: #4c1d95;
+  font-size: 10px;
+  font-weight: 950;
+}
+
+.llm-agent-head small {
+  display: block;
+  margin-top: 0;
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.llm-agent-head a {
+  flex: none;
+  padding: 1px 5px;
+  border: 1px solid rgba(124, 58, 237, .22);
+  border-radius: 999px;
+  color: #6d28d9;
+  background: rgba(255, 255, 255, .78);
+  font-size: 9px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.llm-agent-model-list {
+  display: grid;
+  gap: 4px;
+}
+
+.llm-agent-model-button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 5px;
+  width: 100%;
+  min-height: 38px;
+  padding: 5px 6px;
+  border: 1px solid rgba(124, 58, 237, .16);
+  border-radius: 9px;
+  color: #312e81;
+  background: rgba(255, 255, 255, .74);
+  text-align: left;
+  box-shadow: none;
+}
+
+.llm-agent-model-button.is-active {
+  border-color: #7c3aed;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, .12);
+}
+
+.llm-agent-model-button.is-disabled {
+  opacity: .72;
+}
+
+.llm-model-main {
+  min-width: 0;
+}
+
+.llm-model-main b,
+.llm-model-main em,
+.llm-model-desc {
+  display: block;
+}
+
+.llm-model-main b {
+  color: #1e1b4b;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 950;
+  line-height: 1.15;
+}
+
+.llm-model-main em {
+  margin-top: 1px;
+  color: #64748b;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+.llm-model-badge {
+  align-self: start;
+  padding: 1px 5px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #7c3aed;
+  font-size: 9px;
+  font-weight: 950;
+  line-height: 1.15;
+}
+
+.llm-agent-model-button.is-disabled .llm-model-badge {
+  background: #94a3b8;
+}
+
+.llm-model-desc {
+  grid-column: 1 / -1;
+  color: #475569;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.llm-agent-status {
+  min-height: 16px;
+  margin-top: 5px;
+  padding: 3px 5px;
+  border-radius: 8px;
+  color: #4c1d95;
+  background: rgba(237, 233, 254, .78);
+  font-size: 9px;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.llm-agent-status.error {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
 .batch-trae-status {
   min-height: 24px;
   margin: 8px 0;
@@ -2319,7 +2568,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  max-height: calc(100vh - 390px);
+  max-height: calc(100vh - 520px);
   overflow: auto;
   padding: 2px 4px 2px 0;
 }
@@ -2480,6 +2729,10 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+.detail-panel[hidden] {
+  display: none !important;
+}
+
 .detail-panel.dragging {
   cursor: grabbing;
 }
@@ -2619,7 +2872,7 @@ body {
 /* Current prompt list: order, name, actions */
 table.large-table,
 .large-table table {
-  width: min(960px, 100%) !important;
+  width: min(720px, 100%) !important;
   min-width: 0 !important;
   margin: 0 auto;
   table-layout: fixed;
@@ -2637,7 +2890,7 @@ table.large-table,
 
 .large-table th:first-child,
 .large-table td:first-child {
-  width: 360px !important;
+  width: 120px !important;
 }
 
 .large-table th:nth-child(2),
@@ -2895,6 +3148,27 @@ table.large-table,
 
 .batch-session-refresh-button:hover {
   background: #1d4ed8;
+}
+
+.batch-auto-refresh-button {
+  border-color: #cbd5e1;
+  color: #334155;
+  background: #f1f5f9;
+}
+
+.batch-auto-refresh-button:hover {
+  color: #ffffff;
+  background: #64748b;
+}
+
+.batch-auto-refresh-button.is-on {
+  border-color: #16a34a;
+  color: #ffffff;
+  background: #16a34a;
+}
+
+.batch-auto-refresh-button.is-on:hover {
+  background: #15803d;
 }
 
 #pasteBatchScreenshotsToFeishu.batch-session-image-paste-button {

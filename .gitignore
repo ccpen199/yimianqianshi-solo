@@ -7,6 +7,10 @@ __pycache__/
 .logs/
 *.log
 docs/data/generated/feishu_screenshot_paste/
+docs/data/generated/generation_prompts.json
+docs/data/generated/prompt_state.json
+docs/data/generated/trae_session_rounds/
+docs/data-bak/
 
 # Dependency/build outputs if any are created locally
 node_modules/

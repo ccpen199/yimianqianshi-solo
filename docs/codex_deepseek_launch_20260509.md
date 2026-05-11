@@ -18,6 +18,15 @@ BASE URL = https://api.deepseek.com
 执行引擎 = Codex CLI，但不勾选 DeepSeek -> 使用当前 ~/.codex/config.toml
 ```
 
+2026-05-12 补充：LLM-Agent 首页模型列表保留两条核心链路，界面压缩为小型选择项：
+
+```text
+DeepSeek V4 Pro       用于不满意列双轴原因生成
+Codex CLI / pinAI     使用本机 Codex CLI 默认 pinAI provider 做复核或生成
+```
+
+`Codex CLI / pinAI` 不修改 `~/.codex/config.toml`，只是把本机 Codex CLI 作为可选模型入口暴露出来。服务进程会探测 PATH、nvm、npm global、Homebrew 和 Windows npm 目录，也可以用 `CODEX_CLI` / `CODEX_CLI_PATH` 显式指定。DeepSeek V4 Pro 仍通过环境变量和临时参数接入。
+
 ## 参考来源
 
 调研的 MCP 仓库：
@@ -83,7 +92,10 @@ body:
 如果 `engine == codex-cli`：
 
 ```text
-打开 macOS Terminal
+按系统打开交互终端
+  macOS -> Terminal
+  Windows -> cmd /k
+  Linux -> x-terminal-emulator/gnome-terminal/konsole/xterm
 cd <项目目录>
 codex -C <项目目录> ...
 ```

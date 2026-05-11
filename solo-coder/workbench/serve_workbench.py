@@ -2,6 +2,7 @@
 import base64
 import concurrent.futures
 import datetime
+import glob
 import hashlib
 import json
 import fnmatch
@@ -27,6 +28,137 @@ except ImportError:
     daemon_threads = True
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
+
+def _expand_local_path(value: str) -> str:
+  return os.path.abspath(os.path.expandvars(os.path.expanduser(str(value or '').strip())))
+
+
+def _env_path(name: str) -> str:
+  value = os.environ.get(name)
+  return _expand_local_path(value) if value else ''
+
+
+def _default_trae_root() -> str:
+  configured = _env_path('TRAE_ROOT')
+  if configured:
+    return configured
+  home = os.path.expanduser('~')
+  documents = os.path.join(home, 'Documents')
+  base = documents if os.path.isdir(documents) or sys.platform == 'darwin' or os.name == 'nt' else home
+  return os.path.join(base, 'trae_projects')
+
+
+def _default_trae_app_support_dir() -> str:
+  configured = _env_path('TRAE_APP_SUPPORT_DIR') or _env_path('TRAE_SUPPORT_DIR')
+  if configured:
+    return configured
+  home = os.path.expanduser('~')
+  if sys.platform == 'darwin':
+    return os.path.join(home, 'Library', 'Application Support', 'Trae CN')
+  if os.name == 'nt':
+    appdata = os.environ.get('APPDATA') or os.path.join(home, 'AppData', 'Roaming')
+    return os.path.join(appdata, 'Trae CN')
+  xdg_config = os.environ.get('XDG_CONFIG_HOME') or os.path.join(home, '.config')
+  return os.path.join(xdg_config, 'Trae CN')
+
+
+def _candidate_trae_cli_paths():
+  yielded = set()
+
+  def _yield(path):
+    text = _expand_local_path(path) if path else ''
+    if text and text not in yielded:
+      yielded.add(text)
+      yield text
+
+  for binary in ('trae-cn', 'trae'):
+    found = shutil.which(binary)
+    if found:
+      yield from _yield(found)
+
+  if sys.platform == 'darwin':
+    yield from _yield('/Applications/Trae CN.app/Contents/Resources/app/bin/trae-cn')
+    yield from _yield('/Applications/Trae.app/Contents/Resources/app/bin/trae')
+  elif os.name == 'nt':
+    roots = [
+      os.environ.get('LOCALAPPDATA'),
+      os.environ.get('ProgramFiles'),
+      os.environ.get('ProgramFiles(x86)'),
+    ]
+    for root in roots:
+      if not root:
+        continue
+      for rel in (
+        os.path.join('Trae CN', 'Trae CN.exe'),
+        os.path.join('Trae CN', 'trae-cn.exe'),
+        os.path.join('Trae', 'Trae.exe'),
+        os.path.join('Trae', 'trae.exe'),
+      ):
+        yield from _yield(os.path.join(root, rel))
+
+
+def _default_trae_cli() -> str:
+  configured = _env_path('TRAE_CLI')
+  if configured:
+    return configured
+  for path in _candidate_trae_cli_paths():
+    if os.path.isfile(path):
+      return path
+  return ''
+
+
+def _candidate_codex_cli_paths():
+  yielded = set()
+
+  def _add(path):
+    text = _expand_local_path(path) if path else ''
+    if text and text not in yielded:
+      yielded.add(text)
+      return text
+    return ''
+
+  for name in ('CODEX_CLI', 'CODEX_CLI_PATH'):
+    configured = _env_path(name)
+    if configured:
+      value = _add(configured)
+      if value:
+        yield value
+
+  found = shutil.which('codex')
+  if found:
+    value = _add(found)
+    if value:
+      yield value
+
+  home = os.path.expanduser('~')
+  patterns = [
+    os.path.join(home, '.nvm', 'versions', 'node', '*', 'bin', 'codex'),
+    os.path.join(home, '.npm-global', 'bin', 'codex'),
+    os.path.join(home, '.local', 'bin', 'codex'),
+    '/opt/homebrew/bin/codex',
+    '/usr/local/bin/codex',
+  ]
+  if os.name == 'nt':
+    appdata = os.environ.get('APPDATA') or os.path.join(home, 'AppData', 'Roaming')
+    patterns.extend([
+      os.path.join(appdata, 'npm', 'codex.cmd'),
+      os.path.join(appdata, 'npm', 'codex.ps1'),
+      os.path.join(appdata, 'npm', 'codex'),
+    ])
+  for pattern in patterns:
+    for path in glob.glob(pattern):
+      value = _add(path)
+      if value:
+        yield value
+
+
+def codex_cli_path() -> str:
+  for path in _candidate_codex_cli_paths():
+    if os.path.isfile(path) and os.access(path, os.X_OK):
+      return path
+  return ''
+
+
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.abspath(os.path.join(ROOT_DIR, '../..'))
 DOCS_DATA_DIR = os.path.join(PROJECT_DIR, 'docs', 'data')
@@ -34,11 +166,12 @@ STATE_FILE = os.path.join(DOCS_DATA_DIR, 'generated', 'prompt_state.json')
 PROMPTS_FILE = os.path.join(DOCS_DATA_DIR, 'generated', 'generation_prompts.json')
 TRAE_SESSION_CACHE_DIR = os.path.join(DOCS_DATA_DIR, 'generated', 'trae_session_rounds')
 FEISHU_SCREENSHOT_PASTE_DIR = os.path.join(DOCS_DATA_DIR, 'generated', 'feishu_screenshot_paste')
-TRAE_ROOT = '/Users/chen/Documents/trae_projects'
-TRAE_APP_SUPPORT_DIR = '/Users/chen/Library/Application Support/Trae CN'
-TRAE_WORKSPACE_STORAGE_DIR = os.path.join(TRAE_APP_SUPPORT_DIR, 'User', 'workspaceStorage')
-TRAE_APP_NAME = 'Trae CN'
-TRAE_CLI = '/Applications/Trae CN.app/Contents/Resources/app/bin/trae-cn'
+FEISHU_PASTE_LOCK = threading.RLock()
+TRAE_ROOT = _default_trae_root()
+TRAE_APP_SUPPORT_DIR = _default_trae_app_support_dir()
+TRAE_WORKSPACE_STORAGE_DIR = _env_path('TRAE_WORKSPACE_STORAGE_DIR') or os.path.join(TRAE_APP_SUPPORT_DIR, 'User', 'workspaceStorage')
+TRAE_APP_NAME = os.environ.get('TRAE_APP_NAME') or 'Trae CN'
+TRAE_CLI = _default_trae_cli()
 TRAE_LOG_SCAN_LIMIT = 128
 TRAE_REFRESH_LOG_SCAN_LIMIT = 24
 TRAE_LOG_TAIL_BYTES = 8 * 1024 * 1024
@@ -64,7 +197,7 @@ TRAE_REFRESH_MAX_WORKERS = 3
 TRAE_REFRESH_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=TRAE_REFRESH_MAX_WORKERS)
 TRAE_REFRESH_TASKS = {}
 TRAE_REFRESH_TASKS_LOCK = threading.Lock()
-DEFAULT_GITHUB_REPO_URL = 'git@github.com:ccpen199/Trae-solo.git'
+DEFAULT_GITHUB_REPO_URL = os.environ.get('YIMIANQIANSHI_GITHUB_REPO_URL') or 'git@github.com:ccpen199/yimianqianshi-solo.git'
 GITHUB_MIRROR_ROOT = os.path.join(TRAE_ROOT, '_github_sync_mirrors')
 SYNC_EXCLUDES = [
   '.git/',
@@ -276,18 +409,57 @@ def _annotation_row_hash(row: dict, reason_conversation: str = None) -> str:
 
 
 def _normalize_dissatisfaction_reason(value: str) -> str:
-  text = _single_line_text(value, limit=96)
-  text = re.sub(r'^产物不满意[:：]?\s*', '', text)
+  text = _single_line_text(value, limit=320)
   text = re.sub(r'^不满意原因[:：]?\s*', '', text)
   text = re.sub(r'^(用户|客户)(表示|提出|认为|觉得|反馈|抱怨|指出|说)?[:：]?\s*', '', text)
-  text = re.sub(r'(用户|客户)', '', text)
+  text = re.sub(r'(用户|客户)(表示|提出|认为|觉得|反馈|抱怨|指出|说|要求|强调|再次强调)?', '', text)
   text = re.sub(r'(抱怨|反馈)', '', text)
+  text = re.sub(r'未见新的?具体?(页面|功能)?缺陷?', '', text)
+  text = re.sub(r'暂无明确的?新的?(页面|功能)?缺陷?', '', text)
+  text = re.sub(r'暂无下一轮确认|暂无下一轮|下一轮确认|下一轮反馈', '', text)
+  text = re.sub(r'当前诉求集中在|当前诉求是|主要问题转为', '', text)
   text = re.sub(r'(第[一二三四五六七八九十0-9]+轮|最后一轮)[，,。；;:\s]*(请|麻烦|继续|务必).*$' , '', text)
   text = re.sub(r'(请|麻烦)(继续|尽快|直接|优先)?(完成|修复|处理|解决|保证|注意).*$' , '', text)
   text = re.sub(r'\s+', ' ', text).strip(' ，,。；;：:')
-  if text in {'无', '暂无', '无明显不满意反馈', '无明显问题', '未发现明显不满意反馈', '暂无明显不满意'}:
+  if text in {'无', '暂无', '无明显不满意反馈', '无明显问题', '未发现明显不满意反馈', '暂无明显不满意', '产物不满意', '过程不满意'}:
     text = ''
   return text
+
+
+def _terminal_round_dissatisfaction_reason(row: dict) -> str:
+  current = str((row or {}).get('conversation') or '').strip()
+  trace = str((row or {}).get('logTrace') or '').strip()
+  screenshots = row.get('screenshots') if isinstance(row, dict) else []
+  has_trace = bool(trace and not trace.startswith('未找到真实日志轨迹'))
+  has_start = bool(re.search(r'启动|端口|localhost|http://|https://|npm run|nohup|uvicorn|vite', trace, re.IGNORECASE))
+  has_browser = bool(re.search(r'open_preview|截图|浏览器|Playwright|页面.*验证|点击.*验证', trace, re.IGNORECASE) or screenshots)
+  has_api = bool(re.search(r'curl|接口|api/|health|请求', trace, re.IGNORECASE))
+  if not has_trace:
+    return (
+      '产物不满意：当前轮交付缺少可追溯的页面、接口和主流程验收依据，业务功能是否稳定可用无法形成可靠结论。'
+      '过程不满意：日志轨迹缺失，无法核对文件修改、启动命令、端口归属、浏览器验收和异常处理闭环。'
+    )
+  if has_start and has_api and not has_browser:
+    return (
+      '产物不满意：当前轮交付仍需要用浏览器页面和核心 API 共同确认，主流程可访问性、关键交互和视觉资源加载没有形成完整证据。'
+      '过程不满意：日志偏向启动命令和接口请求，缺少页面级点击、刷新、空数据和异常场景验收，不能只用服务已启动替代业务闭环。'
+    )
+  if has_start and not has_api:
+    return (
+      '产物不满意：当前轮重点停留在服务启动，业务页面、接口数据和关键操作是否真正打通仍缺少直接证据。'
+      '过程不满意：日志缺少核心 API 请求、前后端联通检查和页面操作验收，启动地址打印不能替代主链路验证。'
+    )
+  if current:
+    issue = _conversation_core_issue(current)
+    if issue:
+      return (
+        f'产物不满意：{issue}，该问题仍需要结合当前页面、接口和截图完成闭环确认。'
+        '过程不满意：当前轮需要把修复文件、启动状态、复现路径和验收结果串起来，避免只给完成结论而缺少可核对证据。'
+      )
+  return (
+    '产物不满意：当前轮交付还需要围绕页面完整性、核心 API、关键交互和数据一致性做最终验收，业务闭环证据不够充分。'
+    '过程不满意：日志需要明确修改范围、启动方式、端口安全、页面操作和失败场景处理，不能只停留在完成说明。'
+  )
 
 
 def _looks_like_detailed_issue(text: str) -> bool:
@@ -505,26 +677,37 @@ def _request_session_annotations(pending_rows):
   row_items = []
   for item in pending_rows:
     index, row = item[0], item[1]
-    conversation = str(item[2] if len(item) > 2 else (row or {}).get('conversation') or '').strip()
+    next_conversation = str(item[2] if len(item) > 2 else '').strip()
+    current_conversation = str((row or {}).get('conversation') or '').strip()
+    current_trace = str((row or {}).get('logTrace') or '').strip()
+    screenshots = row.get('screenshots') if isinstance(row, dict) else []
     row_items.append({
       'index': index,
-      'conversation': conversation[:TRAE_SESSION_ANNOTATION_MAX_CONVERSATION_CHARS],
+      'currentConversation': current_conversation[:1200],
+      'nextConversation': next_conversation[:TRAE_SESSION_ANNOTATION_MAX_CONVERSATION_CHARS],
+      'currentLogTrace': current_trace[:2400],
+      'hasScreenshots': bool(screenshots),
     })
   messages = [
     {
       'role': 'system',
       'content': (
-        '你是 Trae 会话标注助手。'
-        '当前每条 conversation 都是上一轮产物对应的下一轮会话反馈。'
-        '请只根据每条 conversation 提炼不满意原因，只输出 JSON 对象，不要输出解释。'
-        '字段要求：'
-        'dissatisfactionReason：用 12 到 60 个汉字总结问题，但必须全面保留原句里明确列出的所有问题点。'
+        '你是 Trae 产物验收标注助手，输出要像人工质检结论，不要像模型在解释证据是否存在。'
+        '每条数据包含 currentConversation、nextConversation、currentLogTrace、hasScreenshots。'
+        'nextConversation 是下一轮验收输入，可用于判断上一轮产物缺陷；如果 nextConversation 为空，必须直接根据 currentConversation、currentLogTrace 和截图状态总结当前仍需验收或未闭环的问题。'
+        '请只输出 JSON 对象，不要输出解释。'
+        '字段要求：dissatisfactionReason 必须是“产物不满意：...。过程不满意：...。”双轴结构。'
+        '产物不满意要写页面/接口/模块/按钮/数据/业务规则的具体问题、影响和需求偏差。'
+        '过程不满意要写执行过程的问题，例如只验证接口未看页面、启动证据不足、端口归属不清、缺少截图、没有复现路径、反复试错、日志缺失、没有异常场景验收。'
+        '禁止出现“暂无”“未见”“暂无下一轮反馈”“没有下一轮反馈”“暂无明确的新功能缺陷反馈”“未见新的具体页面功能缺陷反馈”“当前诉求”“用户要求”“用户再次强调”“用户反馈”“用户指出”等表达。'
+        '不要把证据缺失写成“没有反馈”，而要根据已有信息直接判断产物和过程问题。'
+        '不要使用“用户”作为叙述主体；需要指代时写“业务要求”“验收要求”“页面表现”“交付过程”。'
         '如果同一句包含多个问题，用“、”“而且”“同时”等连接，不要只抽取第一个问题，也不要压缩成过短标签。'
-        '例如原句是“点击加入购物车没有任何反应，也没有报错，而且商品图片没有显示”，输出应为“点击加入购物车没有任何反应，也没有报错，而且商品图片没有显示”，不要输出“加入购物车无响应”。'
-        '例如原句是“个人中心点击我的订单、优惠券、行程收藏等都没反应”，输出应为“个人中心我的订单、优惠券、行程收藏等入口均无响应”。'
-        '例如原句是“需求一明确表示游客是可以接单的，但是点击接单后却要求登录，理解存在问题”，输出应为“需求明确表示游客可以接单，但点击接单后却要求登录”，不要输出“游客接单权限错误”。'
-        '可以去掉“你/我/用户/客户/抱怨/反馈/产物不满意/麻烦继续修复”等话术，但不能丢掉具体故障现象、页面、按钮、报错、缺失项。'
-        '返回格式固定为 {"items":[{"index":0,"dissatisfactionReason":"点击加入购物车没有任何反应，也没有报错，而且商品图片没有显示"}]}。'
+        '例如原句是“点击加入购物车没有任何反应，也没有报错，而且商品图片没有显示”，产物不满意部分应完整保留为“点击加入购物车没有任何反应，也没有报错，而且商品图片没有显示”，不要写成“加入购物车无响应”。'
+        '例如原句是“个人中心点击我的订单、优惠券、行程收藏等都没反应”，产物不满意部分应写成“个人中心我的订单、优惠券、行程收藏等入口均无响应”。'
+        '例如原句是“需求一明确表示游客是可以接单的，但是点击接单后却要求登录，理解存在问题”，产物不满意部分应写成“业务要求明确支持游客接单，但点击接单后却要求登录”，不要写成“游客接单权限错误”。'
+        '可以去掉“你/我/用户/客户/抱怨/反馈/麻烦继续修复”等话术，但不能丢掉具体故障现象、页面、按钮、报错、缺失项。'
+        '返回格式固定为 {"items":[{"index":0,"dissatisfactionReason":"产物不满意：点击加入购物车没有任何反应，也没有报错，而且商品图片没有显示。过程不满意：日志缺少对购物车按钮、Toast 引入和图片资源加载的浏览器级验收，导致交互和视觉问题同时遗漏。"}]}。'
       ),
     },
     {
@@ -569,6 +752,12 @@ def _annotate_session_rows(rows, use_model: bool = True):
     if not isinstance(row, dict):
       continue
     if (
+      row.get('annotationSource') == 'manual-dual-axis-audit'
+      and str(row.get('dissatisfactionReason') or '').strip().startswith('产物不满意：')
+      and '过程不满意：' in str(row.get('dissatisfactionReason') or '')
+    ):
+      continue
+    if (
       not str(row.get('rawSessionId') or '').strip()
       and row.get('officialCopiedLogTrace')
       and str(row.get('logTrace') or '').strip()
@@ -590,10 +779,13 @@ def _annotate_session_rows(rows, use_model: bool = True):
   model_pending_rows = []
   for index, row, reason_conversation in pending_rows:
     if not reason_conversation.strip():
-      annotations[index] = {
-        'dissatisfactionReason': '',
-        'annotationSource': 'next-row-empty',
-      }
+      if use_model:
+        model_pending_rows.append((index, row, reason_conversation))
+      else:
+        annotations[index] = {
+          'dissatisfactionReason': _terminal_round_dissatisfaction_reason(row),
+          'annotationSource': 'terminal-round-fallback',
+        }
       continue
     fallback_text = _fallback_dissatisfaction_reason(reason_conversation)
     if fallback_text:
@@ -616,7 +808,15 @@ def _annotate_session_rows(rows, use_model: bool = True):
     target_hash = _annotation_row_hash(row, reason_conversation)
     annotation_row = dict(row)
     annotation_row['conversation'] = reason_conversation
-    annotation = annotations.get(index) or _fallback_session_annotation(annotation_row)
+    if index in annotations:
+      annotation = annotations[index]
+    elif not reason_conversation.strip():
+      annotation = {
+        'dissatisfactionReason': _terminal_round_dissatisfaction_reason(row),
+        'annotationSource': 'terminal-round-fallback',
+      }
+    else:
+      annotation = _fallback_session_annotation(annotation_row)
     row.pop('taskType', None)
     row.pop('taskSolution', None)
     normalized_reason = _normalize_dissatisfaction_reason(annotation.get('dissatisfactionReason'))
@@ -851,22 +1051,47 @@ def delete_trae_group(name: str):
   return {'ok': True, 'groups': load_trae_groups()}
 
 
+def open_path_with_default_app(path: str):
+  target = _expand_local_path(path)
+  if os.name == 'nt':
+    os.startfile(target)  # type: ignore[attr-defined]
+    return subprocess.CompletedProcess(['start', target], 0, '', '')
+  if sys.platform == 'darwin':
+    return run_cmd(['open', target], check=True)
+  xdg_open = shutil.which('xdg-open')
+  if xdg_open:
+    return run_cmd([xdg_open, target], check=True)
+  gio = shutil.which('gio')
+  if gio:
+    return run_cmd([gio, 'open', target], check=True)
+  raise RuntimeError('当前系统未找到可用的打开目录命令，请手动打开该路径')
+
+
 def open_trae_project(order_token: str):
   project_path = project_folder_for_order(order_token)
-  if os.path.isfile(TRAE_CLI):
+  launch_mode = 'system-open-folder'
+  if TRAE_CLI and os.path.isfile(TRAE_CLI):
     cmd = [TRAE_CLI, '--new-window', project_path]
-  else:
+    launch_mode = 'trae-cli'
+    completed = run_cmd(cmd, check=True)
+  elif sys.platform == 'darwin':
     cmd = ['open', '-a', TRAE_APP_NAME, project_path]
-  completed = run_cmd(cmd, check=True)
-  try:
-    run_cmd(['osascript', '-e', f'tell application "{TRAE_APP_NAME}" to activate'], check=False)
-  except Exception:
-    pass
+    launch_mode = 'mac-app'
+    completed = run_cmd(cmd, check=True)
+  else:
+    completed = open_path_with_default_app(project_path)
+    cmd = list(completed.args) if isinstance(completed.args, (list, tuple)) else [str(completed.args)]
+  if sys.platform == 'darwin':
+    try:
+      run_cmd(['osascript', '-e', f'tell application "{TRAE_APP_NAME}" to activate'], check=False)
+    except Exception:
+      pass
   return {
     'ok': True,
     'order': order_token,
     'folder': project_path,
     'command': cmd,
+    'launchMode': launch_mode,
     'stdout': (completed.stdout or '').strip(),
     'stderr': (completed.stderr or '').strip(),
   }
@@ -893,24 +1118,27 @@ def _codex_deepseek_config_args():
   ]
 
 
-def _open_terminal_with_command(shell_command: str):
-  if sys.platform != 'darwin':
-    raise RuntimeError('Codex CLI launcher currently supports macOS Terminal only')
-  script = f'''
-tell application "Terminal"
-  activate
-  do script {json.dumps(shell_command)}
-end tell
-'''
-  return run_cmd(['osascript', '-e', script], check=True)
+def _shell_join(cmd):
+  if os.name == 'nt':
+    return subprocess.list2cmdline([str(part) for part in cmd])
+  return ' '.join(shlex.quote(str(part)) for part in cmd)
 
 
-def open_codex_cli_project(order_token: str, use_deepseek: bool = False):
-  project_path = project_folder_for_order(order_token)
-  cmd = ['codex', '-C', project_path]
-  if use_deepseek:
-    cmd.extend(_codex_deepseek_config_args())
-  quoted_cmd = ' '.join(shlex.quote(part) for part in cmd)
+def _codex_shell_command(cmd, project_path: str, use_deepseek: bool = False):
+  quoted_cmd = _shell_join(cmd)
+  if os.name == 'nt':
+    shell_parts = [
+      f'cd /d {subprocess.list2cmdline([project_path])}',
+    ]
+    if use_deepseek:
+      if DEEPSEEK_API_KEY:
+        shell_parts.append(f'set "DEEPSEEK_API_KEY={DEEPSEEK_API_KEY}"')
+      else:
+        shell_parts.append('if "%DEEPSEEK_API_KEY%"=="" (echo 请先设置 DEEPSEEK_API_KEY 后再启动 Codex DeepSeek && exit /b 1)')
+      shell_parts.append(f'set "DEEPSEEK_API_BASE={DEEPSEEK_API_BASE}"')
+    shell_parts.append(quoted_cmd)
+    return ' && '.join(shell_parts)
+
   shell_parts = [
     f'cd {shlex.quote(project_path)}',
   ]
@@ -921,7 +1149,45 @@ def open_codex_cli_project(order_token: str, use_deepseek: bool = False):
       shell_parts.append(': "${DEEPSEEK_API_KEY:?请先 export DEEPSEEK_API_KEY=你的DeepSeekKey 后再启动 Codex DeepSeek}"')
     shell_parts.append(f'export DEEPSEEK_API_BASE={shlex.quote(DEEPSEEK_API_BASE)}')
   shell_parts.append(quoted_cmd)
-  shell_command = '; '.join(shell_parts)
+  return '; '.join(shell_parts)
+
+
+def _open_terminal_with_command(shell_command: str):
+  if sys.platform == 'darwin':
+    script = f'''
+tell application "Terminal"
+  activate
+  do script {json.dumps(shell_command)}
+end tell
+'''
+    return run_cmd(['osascript', '-e', script], check=True)
+
+  if os.name == 'nt':
+    launcher = ['cmd', '/c', 'start', 'Codex CLI', 'cmd', '/k', shell_command]
+    subprocess.Popen(launcher, cwd=ROOT_DIR, close_fds=True)
+    return subprocess.CompletedProcess(launcher, 0, '', '')
+
+  terminals = [
+    (shutil.which('x-terminal-emulator'), ['-e', 'sh', '-lc', shell_command]),
+    (shutil.which('gnome-terminal'), ['--', 'sh', '-lc', shell_command]),
+    (shutil.which('konsole'), ['-e', 'sh', '-lc', shell_command]),
+    (shutil.which('xterm'), ['-e', 'sh', '-lc', shell_command]),
+  ]
+  for binary, args in terminals:
+    if not binary:
+      continue
+    subprocess.Popen([binary, *args], cwd=ROOT_DIR, close_fds=True)
+    return subprocess.CompletedProcess([binary, *args], 0, '', '')
+  raise RuntimeError('未找到可打开交互终端的命令，请在该项目目录手动执行 Codex CLI')
+
+
+def open_codex_cli_project(order_token: str, use_deepseek: bool = False):
+  project_path = project_folder_for_order(order_token)
+  codex_path = codex_cli_path() or 'codex'
+  cmd = [codex_path, '-C', project_path]
+  if use_deepseek:
+    cmd.extend(_codex_deepseek_config_args())
+  shell_command = _codex_shell_command(cmd, project_path, use_deepseek=use_deepseek)
   completed = _open_terminal_with_command(shell_command)
   return {
     'ok': True,
@@ -950,6 +1216,17 @@ def close_trae_project(order_token: str):
   closed_windows = 0
   matched_windows = []
   killed_pids = []
+
+  if sys.platform != 'darwin':
+    return {
+      'ok': True,
+      'order': order_token,
+      'folder': project_path,
+      'closed_windows': 0,
+      'matched_windows': [],
+      'killed_pids': [],
+      'note': '非 macOS 环境不执行窗口级关闭，也不会批量终止 Trae/Node 进程；请手动关闭对应项目窗口。',
+    }
 
   close_script = '''
 on run argv
@@ -1024,6 +1301,8 @@ def trae_window_action(order_token: str, action: str):
   action = str(action or 'focus').strip().lower()
   if not order_token:
     raise RuntimeError('order is required')
+  if sys.platform != 'darwin':
+    raise RuntimeError('Trae 窗口定位/滚动依赖 macOS 辅助功能；Windows/Linux 请使用数据库和日志文件刷新链路')
   if action not in {'focus', 'scroll-up', 'scroll-down'}:
     raise RuntimeError('unsupported action')
 
@@ -1502,11 +1781,50 @@ def batch_trae_projects(action: str, raw_orders, options=None):
 
 
 def pick_folder(start_path: str) -> str:
-  if sys.platform != 'darwin':
-    raise RuntimeError('folder picker currently supports macOS only')
-
   prompt = '请选择项目仓库文件夹'
   start_path = (start_path or '').strip()
+
+  if os.name == 'nt':
+    powershell = shutil.which('powershell') or shutil.which('pwsh')
+    if not powershell:
+      raise RuntimeError('未找到 PowerShell，无法打开 Windows 目录选择器')
+    safe_start = start_path.replace("'", "''") if start_path and os.path.isdir(start_path) else ''
+    script = f'''
+Add-Type -AssemblyName System.Windows.Forms
+$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+$dialog.Description = '{prompt}'
+$dialog.ShowNewFolderButton = $true
+if ('{safe_start}' -ne '') {{ $dialog.SelectedPath = '{safe_start}' }}
+$result = $dialog.ShowDialog()
+if ($result -eq [System.Windows.Forms.DialogResult]::OK) {{
+  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+  Write-Output $dialog.SelectedPath
+}} else {{
+  exit 2
+}}
+'''
+    completed = run_cmd([powershell, '-NoProfile', '-STA', '-Command', script], check=False)
+    if completed.returncode == 0 and (completed.stdout or '').strip():
+      return (completed.stdout or '').strip()
+    if completed.returncode == 2:
+      raise RuntimeError('user canceled')
+    raise RuntimeError((completed.stderr or completed.stdout or '').strip() or 'failed to pick folder')
+
+  if sys.platform != 'darwin':
+    code = (
+      'import sys, tkinter as tk\n'
+      'from tkinter import filedialog\n'
+      'root=tk.Tk(); root.withdraw(); root.update()\n'
+      f'path=filedialog.askdirectory(title={json.dumps(prompt)}, initialdir={json.dumps(start_path if os.path.isdir(start_path) else "")})\n'
+      'print(path) if path else sys.exit(2)\n'
+    )
+    completed = run_cmd([sys.executable, '-c', code], check=False)
+    if completed.returncode == 0 and (completed.stdout or '').strip():
+      return (completed.stdout or '').strip()
+    if completed.returncode == 2:
+      raise RuntimeError('user canceled')
+    raise RuntimeError((completed.stderr or completed.stdout or '').strip() or 'failed to pick folder')
+
   script_lines = [f'set promptText to "{prompt}"']
 
   if start_path and os.path.isdir(start_path):
@@ -1564,6 +1882,8 @@ def run_applescript(lines):
 
 
 def chrome_execute_js(script: str):
+  if sys.platform != 'darwin':
+    raise RuntimeError('Chrome 页面注入自动化当前仅在 macOS Apple Events 下可用；Windows/Linux 请使用页面内复制粘贴链路，或后续配置独立浏览器驱动')
   js_literal = json.dumps(script, ensure_ascii=False)
   try:
     output = run_applescript([
@@ -1585,10 +1905,47 @@ def chrome_execute_js(script: str):
 
 
 def workbench_defaults():
+  llm_models = llm_annotation_model_catalog()
   return {
     'default_github_repo_url': DEFAULT_GITHUB_REPO_URL,
     'default_feishu_task_url': DEFAULT_FEISHU_TASK_URL,
+    'default_llm_annotation_model_id': next((item['id'] for item in llm_models if item.get('default')), llm_models[0]['id'] if llm_models else ''),
+    'llm_annotation_models': llm_models,
   }
+
+
+def llm_annotation_model_catalog():
+  active_provider = str(TRAE_SESSION_ANNOTATION_PROVIDER or '').strip().lower()
+  active_models = set(TRAE_SESSION_ANNOTATION_MODELS or [])
+  codex_path = codex_cli_path()
+  return [
+    {
+      'id': 'deepseek-v4-pro',
+      'name': 'DeepSeek V4 Pro',
+      'vendor': 'DeepSeek',
+      'provider': 'deepseek',
+      'model': DEEPSEEK_TEXT_MODEL,
+      'baseUrl': DEEPSEEK_API_BASE,
+      'role': '不满意列双轴原因生成',
+      'description': '接口生成不满意列双轴原因。',
+      'available': bool(DEEPSEEK_API_KEY),
+      'statusLabel': '可调用' if DEEPSEEK_API_KEY else '需配置 KEY',
+      'default': active_provider in {'deepseek', 'deepseek-v4', 'deepseek-v4-pro'} and DEEPSEEK_TEXT_MODEL in active_models,
+    },
+    {
+      'id': 'codex-cli-pinai',
+      'name': 'Codex CLI / pinAI',
+      'vendor': 'pinAI',
+      'provider': 'codex-cli',
+      'model': 'codex-cli',
+      'baseUrl': '',
+      'role': '本机协作式标注与复核',
+      'description': '走本机 Codex CLI 默认 pinAI 链路。',
+      'available': bool(codex_path),
+      'statusLabel': '本机可用' if codex_path else '未找到 CLI',
+      'default': False,
+    },
+  ]
 
 
 def resolve_text_setting(payload, key: str, default_value: str, label: str) -> str:
@@ -1663,7 +2020,35 @@ def focus_existing_feishu_tab():
     'if (count of windows) is 0 then error "没有打开 Chrome 窗口"',
     'set foundTab to false',
     'set foundUrl to ""',
+    'set frontWindow to front window',
+    'set activeIndex to active tab index of frontWindow',
+    'set tabCount to count of tabs of frontWindow',
+    'repeat with delta from 0 to tabCount - 1',
+    'set leftIndex to activeIndex - delta',
+    'if leftIndex >= 1 then',
+    'set tabUrl to URL of tab leftIndex of frontWindow',
+    'if (tabUrl contains "feishu.cn") or (tabUrl contains "larksuite.com") then',
+    'set active tab index of frontWindow to leftIndex',
+    'set index of frontWindow to 1',
+    'set foundTab to true',
+    'set foundUrl to tabUrl',
+    'exit repeat',
+    'end if',
+    'end if',
+    'set rightIndex to activeIndex + delta',
+    'if rightIndex <= tabCount and rightIndex is not equal to leftIndex then',
+    'set tabUrl to URL of tab rightIndex of frontWindow',
+    'if (tabUrl contains "feishu.cn") or (tabUrl contains "larksuite.com") then',
+    'set active tab index of frontWindow to rightIndex',
+    'set index of frontWindow to 1',
+    'set foundTab to true',
+    'set foundUrl to tabUrl',
+    'exit repeat',
+    'end if',
+    'end if',
+    'end repeat',
     'repeat with w in windows',
+    'if foundTab then exit repeat',
     'repeat with i from 1 to count of tabs of w',
     'set tabUrl to URL of tab i of w',
     'if (tabUrl contains "feishu.cn") or (tabUrl contains "larksuite.com") then',
@@ -2023,6 +2408,18 @@ def _feishu_paste_current_clipboard(delay_seconds: float):
   ])
 
 
+def _feishu_text_paste_delay(key: str, chars: int, rows: int, requested_delay: float) -> float:
+  base = max(0.35, float(requested_delay or 0))
+  size_delay = max(0.0, int(chars or 0) / 7500.0)
+  row_delay = min(4.0, max(0, int(rows or 0)) * 0.08)
+  delay = base + size_delay + row_delay
+  if key == 'logTrace':
+    return max(base, min(45.0, delay))
+  if key == 'conversation':
+    return max(base, min(12.0, delay))
+  return max(base, min(5.0, delay))
+
+
 def _feishu_move_horizontal(steps: int, delay_seconds: float = 0.08):
   count = abs(int(steps or 0))
   if count <= 0:
@@ -2051,12 +2448,18 @@ def _feishu_text_column(rows, key: str):
 
 def _feishu_paste_text_column(rows, key: str, label: str, delay_seconds: float):
   text = _feishu_text_column(rows, key)
+  paste_delay = _feishu_text_paste_delay(key, len(text), len(rows), delay_seconds)
+  print(
+    f'[feishu-batch-paste] paste text label={label} rows={len(rows)} chars={len(text)} delay={paste_delay:.2f}s',
+    flush=True,
+  )
   _copy_text_to_macos_clipboard(text)
-  _feishu_paste_current_clipboard(delay_seconds)
-  return {'label': label, 'key': key, 'rows': len(rows), 'chars': len(text)}
+  _feishu_paste_current_clipboard(paste_delay)
+  print(f'[feishu-batch-paste] text done label={label}', flush=True)
+  return {'label': label, 'key': key, 'rows': len(rows), 'chars': len(text), 'delaySeconds': paste_delay}
 
 
-def paste_feishu_screenshots(rows, task_url: str, delay_ms: int = 850):
+def paste_feishu_screenshots(rows, task_url: str, delay_ms: int = 850, focus_tab: bool = True):
   if sys.platform != 'darwin':
     raise RuntimeError('自动粘贴截图当前只支持 macOS + Google Chrome')
   if not isinstance(rows, list) or not rows:
@@ -2064,8 +2467,10 @@ def paste_feishu_screenshots(rows, task_url: str, delay_ms: int = 850):
   if len(rows) > 300:
     raise RuntimeError('一次最多粘贴 300 行')
   print(f'[feishu-paste] start rows={len(rows)} delay_ms={delay_ms}', flush=True)
-  focused_tab = focus_existing_feishu_tab()
-  time.sleep(0.8)
+  focused_tab = ''
+  if focus_tab:
+    focused_tab = focus_existing_feishu_tab()
+    time.sleep(0.8)
   delay_seconds = max(0.25, min(3.0, int(delay_ms or 850) / 1000.0))
   pasted = 0
   empty = 0
@@ -2138,15 +2543,20 @@ def paste_feishu_batch_sessions(rows, delay_ms: int = 1200):
   # -> 截图(-1)。截图最后逐行粘贴，因为图片粘贴会向下移动光标。
   # Trae Session ID 暂不纳入总按钮。
   events.append(_feishu_paste_text_column(rows, 'conversation', 'User Prompt', delay_seconds))
-  _feishu_move_horizontal(6)
+  _feishu_move_horizontal(6, delay_seconds=0.16)
   events.append(_feishu_paste_text_column(rows, 'dissatisfactionReason', '不满意原因', delay_seconds))
-  _feishu_move_horizontal(2)
+  _feishu_move_horizontal(2, delay_seconds=0.16)
   events.append(_feishu_paste_text_column(rows, 'order', '分支/文件夹', delay_seconds))
-  _feishu_move_horizontal(2)
+  _feishu_move_horizontal(2, delay_seconds=0.16)
   events.append(_feishu_paste_text_column(rows, 'logTrace', '日志轨迹', delay_seconds))
-  _feishu_move_horizontal(-1)
+  _feishu_move_horizontal(-1, delay_seconds=0.16)
 
-  screenshot_result = paste_feishu_screenshots(rows, '', delay_ms=max(1200, int(delay_ms or 1200)))
+  screenshot_result = paste_feishu_screenshots(
+    rows,
+    '',
+    delay_ms=max(1200, int(delay_ms or 1200)),
+    focus_tab=False,
+  )
   result = {
     'ok': True,
     'total': len(rows),
@@ -5064,27 +5474,48 @@ def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
   refresh_deadline = time.monotonic() + (
     TRAE_DEEP_REFRESH_TIMEOUT_SECONDS if deep_scan else TRAE_REFRESH_TIMEOUT_SECONDS
   )
-  payload = extract_trae_session_rounds(
-    order_token,
-    include_trace=True,
-    deadline=refresh_deadline,
-    allow_full_scan=deep_scan,
-  )
+  payload = None
+  fast_precise_refresh = False
+  if deep_scan:
+    try:
+      precise_payload = extract_trae_session_rounds_precise(order_token)
+      precise_rows, _ = strip_source_only_log_trace_rows(normalize_trae_session_rows(precise_payload.get('rows') or []))
+      precise_payload['rows'] = sort_session_rows_by_time(precise_rows)
+      expected_count = _expected_trae_session_round_count(order_token)
+      if expected_count and len(precise_payload.get('rows') or []) >= expected_count:
+        payload = precise_payload
+        fast_precise_refresh = True
+    except Exception as exc:
+      print(f'[WARN] fast precise session refresh skipped for {order_token}: {exc}', file=sys.stderr)
+  if payload is None:
+    payload = extract_trae_session_rounds(
+      order_token,
+      include_trace=True,
+      deadline=refresh_deadline,
+      allow_full_scan=deep_scan,
+    )
   if deep_scan:
     payload['deepScan'] = True
+  if fast_precise_refresh:
+    payload['fastPreciseRefresh'] = True
   payload_rows, _ = strip_source_only_log_trace_rows(normalize_trae_session_rows(payload.get('rows') or []))
   payload['rows'] = sort_session_rows_by_time(payload_rows)
   refresh_full_row_count = len(payload.get('rows') or [])
   refresh_precise_row_count = None
-  try:
-    precise_payload = extract_trae_session_rounds_precise(order_token)
-    precise_rows, _ = strip_source_only_log_trace_rows(normalize_trae_session_rows(precise_payload.get('rows') or []))
-    precise_payload['rows'] = sort_session_rows_by_time(precise_rows)
-    refresh_precise_row_count = len(precise_payload.get('rows') or [])
-    if _session_rows_quality(precise_payload.get('rows') or []) > _session_rows_quality(payload.get('rows') or []):
-      payload = precise_payload
-  except Exception as exc:
-    print(f'[WARN] precise session refresh fallback skipped for {order_token}: {exc}', file=sys.stderr)
+  if not fast_precise_refresh:
+    try:
+      precise_payload = extract_trae_session_rounds_precise(order_token)
+      precise_rows, _ = strip_source_only_log_trace_rows(normalize_trae_session_rows(precise_payload.get('rows') or []))
+      precise_payload['rows'] = sort_session_rows_by_time(precise_rows)
+      refresh_precise_row_count = len(precise_payload.get('rows') or [])
+      if _session_rows_quality(precise_payload.get('rows') or []) > _session_rows_quality(payload.get('rows') or []):
+        payload = precise_payload
+    except Exception as exc:
+      print(f'[WARN] precise session refresh fallback skipped for {order_token}: {exc}', file=sys.stderr)
+  if deep_scan:
+    payload['deepScan'] = True
+  if fast_precise_refresh:
+    payload['fastPreciseRefresh'] = True
   fill_official_copied_log_traces(order_token, payload.get('rows') or [], db_path=payload.get('db_path') or '')
   mark_missing_real_log_traces(order_token, payload.get('rows') or [], db_path=payload.get('db_path') or '')
   path = _session_cache_path(order_token)
@@ -6565,6 +6996,10 @@ class Handler(SimpleHTTPRequestHandler):
       return
 
     if parsed.path == '/api/paste-feishu-screenshots':
+      locked = FEISHU_PASTE_LOCK.acquire(blocking=False)
+      if not locked:
+        self._json(409, {'ok': False, 'error': '已有飞书粘贴任务正在执行，请等待完成'})
+        return
       try:
         payload = self._read_json_body()
         task_url = str(payload.get('task_url') or '').strip()
@@ -6579,9 +7014,15 @@ class Handler(SimpleHTTPRequestHandler):
       except Exception as err:
         print(f'[feishu-paste] error: {err}', flush=True)
         self._json(500, {'ok': False, 'error': str(err)})
+      finally:
+        FEISHU_PASTE_LOCK.release()
       return
 
     if parsed.path == '/api/paste-feishu-batch-sessions':
+      locked = FEISHU_PASTE_LOCK.acquire(blocking=False)
+      if not locked:
+        self._json(409, {'ok': False, 'error': '已有飞书粘贴任务正在执行，请等待完成'})
+        return
       try:
         payload = self._read_json_body()
         result = paste_feishu_batch_sessions(
@@ -6594,6 +7035,8 @@ class Handler(SimpleHTTPRequestHandler):
       except Exception as err:
         print(f'[feishu-batch-paste] error: {err}', flush=True)
         self._json(500, {'ok': False, 'error': str(err)})
+      finally:
+        FEISHU_PASTE_LOCK.release()
       return
 
     if parsed.path == '/api/project-map-image':
@@ -6657,7 +7100,7 @@ class Handler(SimpleHTTPRequestHandler):
           return
         maps_path = os.path.join(TRAE_ROOT, scene_segment(scene), order, 'maps')
         os.makedirs(maps_path, exist_ok=True)
-        run_cmd(['open', maps_path], check=True)
+        open_path_with_default_app(maps_path)
         self._json(200, {'ok': True, 'folder': maps_path})
       except Exception as err:
         self._json(500, {'ok': False, 'error': str(err)})

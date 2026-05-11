@@ -54,7 +54,7 @@ engine 未传或 engine=trae
 ```text
 engine=codex-cli
   -> open_codex_cli_project
-  -> macOS Terminal 中启动 codex
+  -> 按系统打开交互终端启动 codex（macOS Terminal / Windows cmd / Linux 常见 terminal）
 ```
 
 ## DeepSeek 配置

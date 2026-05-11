@@ -39,27 +39,29 @@
 - 页面缓存版本：`solo-coder/workbench/index.html`
 - 回归脚本：`scripts/check_trae_session_rounds.py`
 - 统一启动脚本：`solo-coder/workbench/start_workbench.sh`
-- 缓存目录：`data/generated/trae_session_rounds/`
+- 缓存目录：`data/generated/trae_session_rounds/`，该目录是机器本地数据，不提交到 Git。
 
 ## 本机数据来源
 
-默认配置在 `solo-coder/workbench/serve_workbench.py` 顶部：
+配置采用“环境变量优先、系统默认兜底”的方式，避免绑定单台 Mac 的绝对路径：
 
-```python
-TRAE_ROOT = '/Users/chen/Documents/trae_projects'
-TRAE_APP_SUPPORT_DIR = '/Users/chen/Library/Application Support/Trae CN'
-TRAE_WORKSPACE_STORAGE_DIR = os.path.join(TRAE_APP_SUPPORT_DIR, 'User', 'workspaceStorage')
-TRAE_APP_NAME = 'Trae CN'
-TRAE_CLI = '/Applications/Trae CN.app/Contents/Resources/app/bin/trae-cn'
+```text
+TRAE_ROOT                  项目根目录，默认 macOS/Windows 为 ~/Documents/trae_projects
+TRAE_APP_SUPPORT_DIR        Trae 本机数据目录，默认 macOS 为 ~/Library/Application Support/Trae CN，Windows 为 %APPDATA%\Trae CN
+TRAE_WORKSPACE_STORAGE_DIR  默认为 TRAE_APP_SUPPORT_DIR/User/workspaceStorage
+TRAE_APP_NAME               默认 Trae CN
+TRAE_CLI                    Trae CLI 或可执行文件路径；未配置时从 PATH 和常见安装目录探测
 ```
+
+每台机器只需要把这些变量指到本机真实目录即可。不要把某台机器的 `docs/data/generated` 缓存复制到另一台机器使用。
 
 Trae 的关键本地数据：
 
-- 工作区数据库：`~/Library/Application Support/Trae CN/User/workspaceStorage/*/state.vscdb`
+- 工作区数据库：`TRAE_WORKSPACE_STORAGE_DIR/*/state.vscdb`
 - 工作区映射：`workspace.json`，用于从 `local_projects/<序号>` 找到对应 `state.vscdb`
 - 数据库表：`ItemTable`
 - 数据库 key：`memento/icube-ai-agent-storage`、`icube-ai-agent-storage-input-history`、`ChatStore`
-- 日志目录：`~/Library/Application Support/Trae CN/logs/**/`
+- 日志目录：`TRAE_APP_SUPPORT_DIR/logs/**/`
 - 优先日志：`Modular/ai-agent*.log`
 - 辅助日志：`renderer*.log`
 
@@ -131,14 +133,14 @@ node --check solo-coder/workbench/app.js
 
 ## 其他电脑构建链路
 
-在另一台 Mac 上复用时，需要先确认环境和路径：
+在另一台 Mac 或 Windows 上复用时，需要先确认环境和路径：
 
 1. 安装并登录 Trae CN。
 2. 用 Trae 打开过目标项目，确保生成 `workspaceStorage/*/state.vscdb`。
 3. 本地项目路径要能和 Workbench 序号对应，例如 `TRAE_ROOT/local_projects/xm-12175`。
 4. 安装 Python 3；Node 只用于 `node --check` 前端语法检查。
-5. macOS 系统命令需要可用：`lsof`、`curl`、`launchctl`、`open`。
-6. 按新电脑实际路径调整 `serve_workbench.py` 顶部常量：
+5. 安装 `rg` 更好；没有 `rg` 时会降级为较慢的文件扫描。
+6. 按新电脑实际路径设置环境变量：
    - `TRAE_ROOT`
    - `TRAE_APP_SUPPORT_DIR`
    - `TRAE_WORKSPACE_STORAGE_DIR`
@@ -146,10 +148,33 @@ node --check solo-coder/workbench/app.js
    - `TRAE_CLI`
 7. 启动 Workbench 后先跑一个已知序号，确认接口返回完整复合轨迹。
 
+PowerShell 示例：
+
+```powershell
+$env:TRAE_ROOT="$env:USERPROFILE\Documents\trae_projects"
+$env:TRAE_APP_SUPPORT_DIR="$env:APPDATA\Trae CN"
+$env:TRAE_APP_NAME="Trae CN"
+python solo-coder\workbench\serve_workbench.py 8090
+```
+
 如果新电脑不是 `Trae CN`，而是英文版 Trae 或安装目录不同，重点检查两类路径：
 
-- 应用数据目录是否仍在 `~/Library/Application Support/<AppName>/`
-- 启动命令是否仍存在于 `/Applications/<AppName>.app/Contents/Resources/app/bin/`
+- 应用数据目录是否包含 `User/workspaceStorage` 和 `logs`
+- 启动命令是否能通过 `TRAE_CLI` 或 PATH 找到
+
+## 机器本地数据不要同步
+
+以下路径只代表当前电脑的运行状态、批量组、轮次缓存和截图缓存：
+
+```text
+docs/data/generated/generation_prompts.json
+docs/data/generated/prompt_state.json
+docs/data/generated/trae_session_rounds/
+docs/data/generated/feishu_screenshot_paste/
+docs/data-bak/
+```
+
+`prompt_state.json` 内含批量组 `trae_groups`，不同机器必须独立维护。提交远程仓库时只提交代码和文档，不提交这些数据文件。
 
 ## 已知坑位
 

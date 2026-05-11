@@ -10,6 +10,7 @@ const platformFilter = document.getElementById('platformFilter');
 const scenarioFilter = document.getElementById('scenarioFilter');
 const searchInput = document.getElementById('searchInput');
 const sceneButtons = document.getElementById('sceneButtons');
+const promptPreviewToggleButton = document.getElementById('togglePromptPreview');
 const syncGithubAllButton = document.getElementById('syncGithubAll');
 const githubRepoUrlInput = document.getElementById('githubRepoUrl');
 const syncGithubStatus = document.getElementById('syncGithubStatus');
@@ -49,6 +50,12 @@ const copyBatchScreenshotColumnButton = document.getElementById('copyBatchScreen
 const copyBatchLogTraceColumnButton = document.getElementById('copyBatchLogTraceColumn');
 const batchSessionMinRowsInput = document.getElementById('batchSessionMinRows');
 const refreshBatchMissingSessionsButton = document.getElementById('refreshBatchMissingSessions');
+const autoBatchMissingSessionsButton = document.getElementById('toggleAutoBatchMissingSessions');
+const autoBatchMinRowsInput = document.getElementById('autoBatchMinRows');
+const watchCurrentBatchGroupButton = document.getElementById('watchCurrentBatchGroup');
+const autoBatchWatchedGroupsEl = document.getElementById('autoBatchWatchedGroups');
+const llmAgentModelListEl = document.getElementById('llmAgentModelList');
+const llmAgentStatusEl = document.getElementById('llmAgentStatus');
 const copyNextBatchScreenshotButton = document.getElementById('copyNextBatchScreenshot');
 const pasteBatchScreenshotsToFeishuButton = document.getElementById('pasteBatchScreenshotsToFeishu');
 const pasteBatchAllToFeishuButton = document.getElementById('pasteBatchAllToFeishu');
@@ -78,6 +85,14 @@ const sessionRefreshTimeoutMs = 42000;
 let activeSessionFetchController = null;
 let batchScreenshotCopyQueue = [];
 let batchScreenshotCopyIndex = 0;
+let promptPreviewVisible = localStorage.getItem('promptPreviewVisible') !== 'false';
+let batchMissingRefreshInProgress = false;
+let batchPasteInProgress = false;
+let autoBatchMissingEnabled = localStorage.getItem('autoBatchMissingSessions') === 'true';
+let autoBatchMissingTimer = null;
+let autoBatchWatchedGroups = new Set(loadStoredStringList('autoBatchWatchedGroups'));
+let llmAnnotationModels = [];
+let selectedLlmAnnotationModelId = localStorage.getItem('llmAnnotationModelId') || '';
 const scenePrefix = {
   shopping: 'g',
   social: 's',
@@ -120,6 +135,19 @@ const domainDisplayNames = {
   local_projects: '本机项目',
 };
 
+function loadStoredStringList(key) {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(value) ? value.map((item) => String(item || '').trim()).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredStringList(key, values) {
+  localStorage.setItem(key, JSON.stringify(Array.from(values || []).map((item) => String(item || '').trim()).filter(Boolean)));
+}
+
 function normalizeDomainName(domain) {
   return domainAliases[domain] || domain || '';
 }
@@ -140,6 +168,22 @@ function shortList(items, limit = 3) {
   if (!Array.isArray(items)) return '';
   const head = items.slice(0, limit).join(' / ');
   return items.length > limit ? `${head} / +${items.length - limit}` : head;
+}
+
+async function runWithConcurrency(items, limit, worker) {
+  const list = Array.isArray(items) ? items : [];
+  const size = Math.max(1, Math.min(Number.parseInt(String(limit || 1), 10) || 1, list.length || 1));
+  const results = new Array(list.length);
+  let nextIndex = 0;
+  const runners = Array.from({ length: size }, async () => {
+    while (nextIndex < list.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await worker(list[index], index);
+    }
+  });
+  await Promise.all(runners);
+  return results;
 }
 
 function isCompleted(promptId) {
@@ -241,12 +285,116 @@ function setBatchStatus(text, isError = false) {
   batchTraeStatus.classList.toggle('error', Boolean(isError));
 }
 
+function setAutoBatchStatus(text, isError = false) {
+  if (!autoBatchWatchedGroupsEl) return;
+  autoBatchWatchedGroupsEl.textContent = text || '';
+  autoBatchWatchedGroupsEl.classList.toggle('error', Boolean(isError));
+}
+
 function currentBatchGroupName() {
   return String(batchGroupNameInput?.value || activeBatchGroup || '').trim();
 }
 
+function persistAutoBatchWatchedGroups() {
+  saveStoredStringList('autoBatchWatchedGroups', autoBatchWatchedGroups);
+}
+
+function pruneAutoBatchWatchedGroups() {
+  const validNames = new Set(Object.keys(batchGroups || {}));
+  let changed = false;
+  for (const name of Array.from(autoBatchWatchedGroups)) {
+    if (!validNames.has(name)) {
+      autoBatchWatchedGroups.delete(name);
+      changed = true;
+    }
+  }
+  if (changed) persistAutoBatchWatchedGroups();
+}
+
+function autoBatchThreshold() {
+  const value = Number.parseInt(String(autoBatchMinRowsInput?.value || batchSessionMinRowsInput?.value || ''), 10);
+  return Number.isInteger(value) && value > 0 ? value : 5;
+}
+
+function updateWatchCurrentBatchGroupButton() {
+  if (!watchCurrentBatchGroupButton) return;
+  const groupName = currentBatchGroupName();
+  const watched = groupName && autoBatchWatchedGroups.has(groupName);
+  watchCurrentBatchGroupButton.textContent = watched ? '取消当前组' : '纳入当前组';
+  watchCurrentBatchGroupButton.classList.toggle('is-on', Boolean(watched));
+  watchCurrentBatchGroupButton.disabled = !groupName;
+}
+
+function renderAutoBatchWatchedGroups() {
+  pruneAutoBatchWatchedGroups();
+  updateWatchCurrentBatchGroupButton();
+  const names = Array.from(autoBatchWatchedGroups).sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }));
+  if (!names.length) {
+    setAutoBatchStatus(autoBatchMissingEnabled ? '自动检测已开，但还没有纳入任何组' : '未开启自动检测；先把已开始的组纳入检测');
+    return;
+  }
+  const summary = names.map((name) => `${name}(${normalizeBatchOrders(batchGroups[name] || []).length})`).join('，');
+  setAutoBatchStatus(`检测组：${summary}`);
+}
+
+function selectedLlmAnnotationModel() {
+  if (!Array.isArray(llmAnnotationModels) || !llmAnnotationModels.length) return null;
+  return (
+    llmAnnotationModels.find((model) => model.id === selectedLlmAnnotationModelId)
+    || llmAnnotationModels.find((model) => model.default)
+    || llmAnnotationModels[0]
+  );
+}
+
+function setLlmAgentStatus(text, isError = false) {
+  if (!llmAgentStatusEl) return;
+  llmAgentStatusEl.textContent = text || '';
+  llmAgentStatusEl.classList.toggle('error', Boolean(isError));
+}
+
+function renderLlmAgentModels() {
+  if (!llmAgentModelListEl) return;
+  llmAgentModelListEl.innerHTML = '';
+  if (!Array.isArray(llmAnnotationModels) || !llmAnnotationModels.length) {
+    setLlmAgentStatus('暂无可用标注模型配置', true);
+    return;
+  }
+  const active = selectedLlmAnnotationModel();
+  selectedLlmAnnotationModelId = active?.id || '';
+  if (selectedLlmAnnotationModelId) localStorage.setItem('llmAnnotationModelId', selectedLlmAnnotationModelId);
+  for (const model of llmAnnotationModels) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'llm-agent-model-button';
+    button.classList.toggle('is-active', model.id === selectedLlmAnnotationModelId);
+    button.classList.toggle('is-disabled', model.available === false);
+    button.dataset.modelId = model.id || '';
+    const statusLabel = model.available === false ? (model.statusLabel || '待配置') : (model.statusLabel || '可用');
+    button.innerHTML = `
+      <span class="llm-model-main">
+        <b>${model.name || model.model || model.id || '未命名模型'}</b>
+        <em>${model.vendor || model.provider || 'provider'} · ${model.model || '-'}</em>
+      </span>
+      <span class="llm-model-badge">${statusLabel}</span>
+      <span class="llm-model-desc">${model.description || model.role || ''}</span>
+    `;
+    button.addEventListener('click', () => {
+      selectedLlmAnnotationModelId = model.id || '';
+      localStorage.setItem('llmAnnotationModelId', selectedLlmAnnotationModelId);
+      renderLlmAgentModels();
+    });
+    llmAgentModelListEl.appendChild(button);
+  }
+  const current = selectedLlmAnnotationModel();
+  const message = current
+    ? `当前用于不满意列：${current.name || current.model || current.id}`
+    : '请选择标注模型';
+  setLlmAgentStatus(message, current?.available === false);
+}
+
 function renderBatchGroups() {
   if (!batchGroupSelect) return;
+  pruneAutoBatchWatchedGroups();
   const previous = activeBatchGroup || batchGroupSelect.value;
   batchGroupSelect.innerHTML = '';
   const names = Object.keys(batchGroups).sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }));
@@ -257,7 +405,8 @@ function renderBatchGroups() {
   for (const name of names) {
     const option = document.createElement('option');
     option.value = name;
-    option.textContent = `${name} (${normalizeBatchOrders(batchGroups[name]).length})`;
+    const watchedPrefix = autoBatchWatchedGroups.has(name) ? '● ' : '';
+    option.textContent = `${watchedPrefix}${name} (${normalizeBatchOrders(batchGroups[name]).length})`;
     batchGroupSelect.appendChild(option);
   }
   if (previous && names.includes(previous)) {
@@ -267,6 +416,7 @@ function renderBatchGroups() {
     batchGroupSelect.value = names[0];
     activeBatchGroup = names[0];
   }
+  renderAutoBatchWatchedGroups();
 }
 
 function loadBatchGroup(name) {
@@ -276,6 +426,7 @@ function loadBatchGroup(name) {
   if (batchTraeInput) batchTraeInput.value = normalizeBatchOrders(batchGroups[activeBatchGroup] || []).join(',');
   selectedBatchOrders = new Set();
   renderBatchProjectList();
+  renderAutoBatchWatchedGroups();
 }
 
 async function fetchBatchGroups() {
@@ -318,6 +469,7 @@ async function saveBatchGroup(name, orders) {
   activeBatchGroup = payload.active || groupName;
   renderBatchGroups();
   loadBatchGroup(activeBatchGroup);
+  renderAutoBatchWatchedGroups();
   setBatchStatus(`已保存组 ${activeBatchGroup}：${normalizedOrders.length} 个项目`);
   return true;
 }
@@ -336,6 +488,8 @@ async function deleteActiveBatchGroup() {
   const payload = await response.json();
   if (!payload.ok) throw new Error(payload.error || '删除组失败');
   batchGroups = payload.groups || {};
+  autoBatchWatchedGroups.delete(groupName);
+  persistAutoBatchWatchedGroups();
   activeBatchGroup = '';
   renderBatchGroups();
   if (Object.keys(batchGroups).length) {
@@ -363,6 +517,34 @@ async function addSelectionToActiveGroup() {
   await saveBatchGroup(groupName, merged);
   selectedBatchOrders = new Set();
   renderBatchProjectList();
+}
+
+async function toggleCurrentBatchGroupWatch() {
+  const groupName = currentBatchGroupName();
+  if (!groupName) {
+    setAutoBatchStatus('请先选择或保存一个组', true);
+    return;
+  }
+  if (autoBatchWatchedGroups.has(groupName)) {
+    autoBatchWatchedGroups.delete(groupName);
+    persistAutoBatchWatchedGroups();
+    renderBatchGroups();
+    setAutoBatchStatus(`已取消检测：${groupName}`);
+    return;
+  }
+  const orders = normalizeBatchOrders(parseBatchOrders());
+  if (!orders.length) {
+    setAutoBatchStatus('当前组没有项目，不能纳入自动检测', true);
+    return;
+  }
+  if (!batchGroups[groupName] || normalizeBatchOrders(batchGroups[groupName]).join(',') !== orders.join(',')) {
+    await saveBatchGroup(groupName, orders);
+  }
+  autoBatchWatchedGroups.add(groupName);
+  persistAutoBatchWatchedGroups();
+  renderBatchGroups();
+  setAutoBatchStatus(`已纳入自动检测：${groupName}`);
+  scheduleAutoBatchMissingCheck(autoBatchMissingEnabled ? 1000 : 0);
 }
 
 function syncBatchInputFromSelection() {
@@ -551,6 +733,15 @@ function applyFilters() {
     selectedPromptId = '';
     detailPanel.hidden = true;
   }
+}
+
+function updatePromptPreviewVisibility() {
+  if (promptPreviewToggleButton) {
+    promptPreviewToggleButton.textContent = promptPreviewVisible ? '隐藏提示词预览' : '显示提示词预览';
+    promptPreviewToggleButton.classList.toggle('is-off', !promptPreviewVisible);
+    promptPreviewToggleButton.setAttribute('aria-pressed', promptPreviewVisible ? 'true' : 'false');
+  }
+  if (detailPanel) detailPanel.hidden = !promptPreviewVisible || !selectedPromptId;
 }
 
 function actionButton(label, className) {
@@ -1104,6 +1295,7 @@ async function pasteBatchScreenshotsToFeishu() {
     setBatchSessionRefreshStatus('当前批量列表没有可粘贴行', true);
     return;
   }
+  batchPasteInProgress = true;
   pasteBatchScreenshotsToFeishuButton.disabled = true;
   pasteBatchScreenshotsToFeishuButton.dataset.originalLabel = pasteBatchScreenshotsToFeishuButton.dataset.originalLabel || pasteBatchScreenshotsToFeishuButton.textContent;
   pasteBatchScreenshotsToFeishuButton.textContent = '准备图片';
@@ -1131,7 +1323,9 @@ async function pasteBatchScreenshotsToFeishu() {
     window.alert(`自动粘贴截图列失败：${error.message || error}`);
     markCopied(pasteBatchScreenshotsToFeishuButton, '失败');
   } finally {
+    batchPasteInProgress = false;
     pasteBatchScreenshotsToFeishuButton.disabled = false;
+    scheduleAutoBatchMissingCheck(autoBatchMissingEnabled ? 3000 : 0);
   }
 }
 
@@ -1142,6 +1336,7 @@ async function pasteBatchAllToFeishu() {
     setBatchSessionRefreshStatus('当前批量列表没有可粘贴行', true);
     return;
   }
+  batchPasteInProgress = true;
   pasteBatchAllToFeishuButton.disabled = true;
   pasteBatchAllToFeishuButton.dataset.originalLabel = pasteBatchAllToFeishuButton.dataset.originalLabel || pasteBatchAllToFeishuButton.textContent;
   pasteBatchAllToFeishuButton.textContent = '粘贴中';
@@ -1168,7 +1363,9 @@ async function pasteBatchAllToFeishu() {
     window.alert(`自动粘贴主要列失败：${error.message || error}`);
     markCopied(pasteBatchAllToFeishuButton, '失败');
   } finally {
+    batchPasteInProgress = false;
     pasteBatchAllToFeishuButton.disabled = false;
+    scheduleAutoBatchMissingCheck(autoBatchMissingEnabled ? 3000 : 0);
   }
 }
 
@@ -1395,39 +1592,71 @@ function batchRowsForColumnCopy(rows = currentBatchSessionRows) {
   return selected;
 }
 
-async function fetchBatchRowsForOrders(groupName, orders) {
-  const results = [];
-  for (const order of orders) {
+async function fetchSessionRowsForOrder(order) {
+  try {
     const response = await fetchWithTimeout(`/api/trae-session-rounds?order=${encodeURIComponent(order)}`, { cache: 'no-store' });
     const payload = await response.json();
     if (payload.ok) {
-      for (const row of Array.isArray(payload.rows) ? payload.rows : []) {
-        results.push({
-          order,
-          sessionId: row.sessionId || payload.sessionId || '-',
-          rawSessionId: row.rawSessionId || '',
-          logTraceId: row.logTraceId || '',
-          sessionComposite: row.sessionComposite || '',
-          dissatisfactionReason: row.dissatisfactionReason || '-',
-          conversation: row.conversation || '',
-          logTrace: row.logTrace || '',
-          screenshots: Array.isArray(row.screenshots) ? row.screenshots : [],
-        });
-      }
-    } else {
-      results.push({
+      return (Array.isArray(payload.rows) ? payload.rows : []).map((row) => ({
         order,
-        sessionId: '-',
-        rawSessionId: '',
-        dissatisfactionReason: '-',
-        conversation: `读取失败: ${payload.error || 'unknown'}`,
-        logTrace: '',
-        screenshots: [],
-      });
+        sessionId: row.sessionId || payload.sessionId || '-',
+        rawSessionId: row.rawSessionId || '',
+        logTraceId: row.logTraceId || '',
+        sessionComposite: row.sessionComposite || '',
+        dissatisfactionReason: row.dissatisfactionReason || '-',
+        conversation: row.conversation || '',
+        logTrace: row.logTrace || '',
+        screenshots: Array.isArray(row.screenshots) ? row.screenshots : [],
+      }));
     }
-    renderBatchSessionRows({ groupName, orders, rows: results });
+    return [{
+      order,
+      sessionId: '-',
+      rawSessionId: '',
+      dissatisfactionReason: '-',
+      conversation: `读取失败: ${payload.error || 'unknown'}`,
+      logTrace: '',
+      screenshots: [],
+    }];
+  } catch (error) {
+    return [{
+      order,
+      sessionId: '-',
+      rawSessionId: '',
+      dissatisfactionReason: '-',
+      conversation: `读取失败: ${error.message || error}`,
+      logTrace: '',
+      screenshots: [],
+    }];
   }
-  return results;
+}
+
+async function fetchBatchRowsForOrders(groupName, orders) {
+  const orderResults = new Array((orders || []).length).fill(null);
+  const flattenResults = () => orderResults.flatMap((item) => Array.isArray(item) ? item : []);
+  await runWithConcurrency(orders || [], 6, async (order, index) => {
+    const rowsForOrder = await fetchSessionRowsForOrder(order);
+    orderResults[index] = rowsForOrder;
+    renderBatchSessionRows({ groupName, orders, rows: flattenResults() });
+    return rowsForOrder;
+  });
+  return flattenResults();
+}
+
+async function reloadBatchSessionsIfOrderVisible(order) {
+  const targetOrder = String(order || '').trim();
+  if (!targetOrder || !batchSessionModal?.open || !currentBatchSessionOrders.length) return;
+  if (!currentBatchSessionOrders.includes(targetOrder)) return;
+  const groupName = currentBatchSessionGroupName || currentBatchGroupName();
+  setBatchSessionRefreshStatus(`正在同步批量列表：${targetOrder}`);
+  try {
+    const results = await fetchBatchRowsForOrders(groupName, currentBatchSessionOrders);
+    renderBatchSessionRows({ groupName, orders: currentBatchSessionOrders, rows: results });
+    setBatchSessionRefreshStatus(`批量列表已同步：${targetOrder}`);
+  } catch (error) {
+    console.warn('同步批量会话列表失败:', error);
+    setBatchSessionRefreshStatus(`批量列表同步失败：${error.message || error}`, true);
+  }
 }
 
 function updateSessionNavState() {
@@ -1656,6 +1885,7 @@ async function refreshSessionCache(order, button, options = {}) {
       renderSessionRows({ ...payload, justRefreshed: true });
       updateSessionNavState();
     }
+    await reloadBatchSessionsIfOrderVisible(targetOrder);
     clearSessionRefreshPoll(targetOrder);
     let rowCount = Array.isArray(payload.rows) ? payload.rows.length : 0;
     if (payload.refreshNoNewRows) {
@@ -1677,6 +1907,7 @@ async function refreshSessionCache(order, button, options = {}) {
             renderSessionRows({ ...verifyPayload, justRefreshed: true });
             updateSessionNavState();
           }
+          await reloadBatchSessionsIfOrderVisible(targetOrder);
         }
       } catch (verifyError) {
         console.warn('刷新后复核会话缓存失败:', verifyError);
@@ -1708,6 +1939,10 @@ async function refreshSessionCache(order, button, options = {}) {
 
 function sessionPayloadRowCount(payload) {
   const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+  return sessionRowsValidCount(rows);
+}
+
+function sessionRowsValidCount(rows) {
   let count = 0;
   for (const row of rows) {
     const sessionId = String(row?.sessionId || '').trim();
@@ -1718,11 +1953,15 @@ function sessionPayloadRowCount(payload) {
   return count;
 }
 
-async function refreshMissingSessionOrder(order, threshold) {
+async function refreshMissingSessionOrder(order, threshold, options = {}) {
   const targetOrder = String(order || '').trim();
   const startedAt = Date.now();
   const maxWaitMs = 420000;
   let lastPayload = null;
+  const report = (text) => {
+    if (typeof options.onProgress === 'function') options.onProgress(targetOrder, text);
+    else setBatchSessionRefreshStatus(text);
+  };
   setSessionRefreshButtonState(targetOrder, 'loading');
   refreshingSessionOrders.add(targetOrder);
   try {
@@ -1738,7 +1977,7 @@ async function refreshMissingSessionOrder(order, threshold) {
       const rowCount = sessionPayloadRowCount(payload);
       if (payload.refreshPending) {
         const expectedText = payload.expectedRows ? `，预计 ${payload.expectedRows}` : '';
-        setBatchSessionRefreshStatus(`后台发现轮次中：${targetOrder} 当前 ${rowCount}/${threshold}${expectedText}`);
+        report(`后台发现轮次中：${targetOrder} 当前 ${rowCount}/${threshold}${expectedText}`);
         await sleep(2500);
         continue;
       }
@@ -1750,7 +1989,7 @@ async function refreshMissingSessionOrder(order, threshold) {
         setSessionRefreshButtonState(targetOrder, rowCount > 0 ? 'success' : 'empty');
         return { payload, rowCount, complete: true };
       }
-      setBatchSessionRefreshStatus(`继续发现轮次：${targetOrder} 当前 ${rowCount}/${threshold}`);
+      report(`继续发现轮次：${targetOrder} 当前 ${rowCount}/${threshold}`);
       await sleep(700);
     }
     setSessionRefreshButtonState(targetOrder, 'empty');
@@ -1761,8 +2000,12 @@ async function refreshMissingSessionOrder(order, threshold) {
   }
 }
 
-async function refreshBatchMissingSessions() {
+async function refreshBatchMissingSessions(options = {}) {
   if (!refreshBatchMissingSessionsButton) return;
+  if (batchMissingRefreshInProgress) {
+    if (!options.auto) setBatchSessionRefreshStatus('已有未达标刷新正在进行中');
+    return false;
+  }
   const threshold = Number.parseInt(String(batchSessionMinRowsInput?.value || ''), 10);
   if (!Number.isInteger(threshold) || threshold <= 0) {
     setBatchSessionRefreshStatus('请输入大于 0 的最低记录数', true);
@@ -1781,16 +2024,43 @@ async function refreshBatchMissingSessions() {
     return;
   }
 
+  batchMissingRefreshInProgress = true;
   refreshBatchMissingSessionsButton.disabled = true;
-  setBatchSessionRefreshStatus(`待刷新 ${missingOrders.length} 项：${missingOrders.join(', ')}`);
+  if (autoBatchMissingSessionsButton) autoBatchMissingSessionsButton.disabled = true;
+  const progress = new Map(missingOrders.map((order) => [order, '等待']));
+  const summarizeProgress = () => {
+    const finished = Array.from(progress.values()).filter((value) => value.startsWith('完成') || value.startsWith('失败')).length;
+    const running = missingOrders
+      .filter((order) => {
+        const value = progress.get(order) || '';
+        return value && !value.startsWith('等待') && !value.startsWith('完成') && !value.startsWith('失败');
+      })
+      .slice(0, 3);
+    const runningText = running.length ? `；进行中：${running.join(', ')}` : '';
+    setBatchSessionRefreshStatus(`${options.auto ? '自动检测' : '并行刷新'} ${finished}/${missingOrders.length}${runningText}`);
+  };
+  setBatchSessionRefreshStatus(`待刷新 ${missingOrders.length} 项，并行上限 3：${missingOrders.join(', ')}`);
   try {
-    for (let index = 0; index < missingOrders.length; index += 1) {
-      const order = missingOrders[index];
+    await runWithConcurrency(missingOrders, 3, async (order) => {
       const beforeCount = counts.get(order) || 0;
-      setBatchSessionRefreshStatus(`刷新 ${index + 1}/${missingOrders.length}：${order} 当前 ${beforeCount}/${threshold}`);
-      const result = await refreshMissingSessionOrder(order, threshold);
-      setBatchSessionRefreshStatus(`刷新 ${index + 1}/${missingOrders.length}：${order} 完成 ${result.rowCount}/${threshold}`);
-    }
+      progress.set(order, `启动 ${beforeCount}/${threshold}`);
+      summarizeProgress();
+      try {
+        const result = await refreshMissingSessionOrder(order, threshold, {
+          onProgress: (_, text) => {
+            progress.set(order, text);
+            summarizeProgress();
+          },
+        });
+        progress.set(order, `完成 ${result.rowCount}/${threshold}`);
+        summarizeProgress();
+        return result;
+      } catch (error) {
+        progress.set(order, `失败 ${error.message || error}`);
+        summarizeProgress();
+        throw error;
+      }
+    });
     setBatchSessionRefreshStatus('已发起未达标项目刷新，正在重新读取批量会话...');
     const results = await fetchBatchRowsForOrders(currentBatchSessionGroupName || groupName, orders);
     renderBatchSessionRows({ groupName: currentBatchSessionGroupName || groupName, orders, rows: results });
@@ -1805,7 +2075,121 @@ async function refreshBatchMissingSessions() {
   } catch (error) {
     setBatchSessionRefreshStatus(`批量刷新失败：${error.message || error}`, true);
   } finally {
+    batchMissingRefreshInProgress = false;
     refreshBatchMissingSessionsButton.disabled = false;
+    if (autoBatchMissingSessionsButton) autoBatchMissingSessionsButton.disabled = false;
+  }
+  return true;
+}
+
+function updateAutoBatchMissingButton() {
+  if (!autoBatchMissingSessionsButton) return;
+  autoBatchMissingSessionsButton.textContent = autoBatchMissingEnabled ? '自动检测开' : '自动检测关';
+  autoBatchMissingSessionsButton.classList.toggle('is-on', autoBatchMissingEnabled);
+  autoBatchMissingSessionsButton.setAttribute('aria-pressed', autoBatchMissingEnabled ? 'true' : 'false');
+  renderAutoBatchWatchedGroups();
+}
+
+function scheduleAutoBatchMissingCheck(delayMs = 30000) {
+  if (autoBatchMissingTimer) {
+    window.clearTimeout(autoBatchMissingTimer);
+    autoBatchMissingTimer = null;
+  }
+  if (!autoBatchMissingEnabled) return;
+  autoBatchMissingTimer = window.setTimeout(runAutoBatchMissingCheck, delayMs);
+}
+
+async function runAutoBatchMissingCheck() {
+  autoBatchMissingTimer = null;
+  if (!autoBatchMissingEnabled) return;
+  let startedRefresh = false;
+  try {
+    if (batchPasteInProgress) {
+      setAutoBatchStatus('自动检测暂停：正在执行一键粘贴');
+      return;
+    }
+    if (batchMissingRefreshInProgress) return;
+    const watchedGroups = Array.from(autoBatchWatchedGroups)
+      .filter((name) => normalizeBatchOrders(batchGroups[name] || []).length > 0)
+      .sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }));
+    if (!watchedGroups.length) {
+      setAutoBatchStatus('自动检测已开，但还没有纳入任何组');
+      return;
+    }
+    const threshold = autoBatchThreshold();
+    if (autoBatchMinRowsInput) autoBatchMinRowsInput.value = String(threshold);
+    const orders = normalizeBatchOrders(watchedGroups.flatMap((name) => batchGroups[name] || []));
+    if (!orders.length) {
+      setAutoBatchStatus('自动检测暂停：检测组里没有项目', true);
+      return;
+    }
+    batchMissingRefreshInProgress = true;
+    startedRefresh = true;
+    if (refreshBatchMissingSessionsButton) refreshBatchMissingSessionsButton.disabled = true;
+    if (autoBatchMissingSessionsButton) autoBatchMissingSessionsButton.disabled = true;
+    setAutoBatchStatus(`自动检测 ${watchedGroups.length} 组，读取 ${orders.length} 个项目...`);
+
+    const rowsByOrder = new Map();
+    await runWithConcurrency(orders, 6, async (order) => {
+      const rows = await fetchSessionRowsForOrder(order);
+      rowsByOrder.set(order, rows);
+      return rows;
+    });
+
+    const missingOrders = orders.filter((order) => sessionRowsValidCount(rowsByOrder.get(order) || []) < threshold);
+    if (!missingOrders.length) {
+      setAutoBatchStatus(`自动检测通过：${watchedGroups.length} 组全部达到 ${threshold} 轮`);
+      return;
+    }
+
+    const progress = new Map(missingOrders.map((order) => [order, '等待']));
+    const summarize = () => {
+      const finished = Array.from(progress.values()).filter((value) => value.startsWith('完成') || value.startsWith('失败')).length;
+      const running = missingOrders
+        .filter((order) => {
+          const value = progress.get(order) || '';
+          return value && !value.startsWith('等待') && !value.startsWith('完成') && !value.startsWith('失败');
+        })
+        .slice(0, 4);
+      setAutoBatchStatus(`自动拉取 ${finished}/${missingOrders.length}${running.length ? `；进行中：${running.join(', ')}` : ''}`);
+    };
+
+    await runWithConcurrency(missingOrders, 3, async (order) => {
+      progress.set(order, `启动 ${sessionRowsValidCount(rowsByOrder.get(order) || [])}/${threshold}`);
+      summarize();
+      try {
+        const result = await refreshMissingSessionOrder(order, threshold, {
+          onProgress: (_, text) => {
+            progress.set(order, text);
+            summarize();
+          },
+        });
+        progress.set(order, `完成 ${result.rowCount}/${threshold}`);
+        summarize();
+        return result;
+      } catch (error) {
+        progress.set(order, `失败 ${error.message || error}`);
+        summarize();
+        return null;
+      }
+    });
+
+    setAutoBatchStatus(`自动检测完成：本轮处理 ${missingOrders.length} 个未达标项目`);
+    if (batchSessionModal?.open && currentBatchSessionOrders.length) {
+      const results = await fetchBatchRowsForOrders(currentBatchSessionGroupName || currentBatchGroupName(), currentBatchSessionOrders);
+      renderBatchSessionRows({
+        groupName: currentBatchSessionGroupName || currentBatchGroupName(),
+        orders: currentBatchSessionOrders,
+        rows: results,
+      });
+    }
+  } finally {
+    if (startedRefresh) {
+      batchMissingRefreshInProgress = false;
+      if (refreshBatchMissingSessionsButton) refreshBatchMissingSessionsButton.disabled = false;
+      if (autoBatchMissingSessionsButton) autoBatchMissingSessionsButton.disabled = false;
+    }
+    scheduleAutoBatchMissingCheck();
   }
 }
 
@@ -2137,10 +2521,10 @@ function selectPrompt(promptId) {
   selectedPromptId = promptId;
   const prompt = prompts.find((item) => item.id === promptId);
   selectedParts = splitPrompt(prompt?.prompt || '未找到 Prompt，请先重新生成方案数据。');
-  detailPanel.hidden = false;
   promptBackground.textContent = selectedParts.background;
   promptFeatures.textContent = selectedParts.features;
   promptDelivery.textContent = selectedParts.delivery;
+  updatePromptPreviewVisibility();
   renderRows();
 }
 
@@ -2167,9 +2551,16 @@ async function loadWorkbenchConfig() {
     if (!payload.ok) throw new Error(payload.error || '读取配置失败');
     if (githubRepoUrlInput) githubRepoUrlInput.value = String(payload.default_github_repo_url || '').trim();
     if (feishuTaskUrlInput) feishuTaskUrlInput.value = String(payload.default_feishu_task_url || '').trim();
+    llmAnnotationModels = Array.isArray(payload.llm_annotation_models) ? payload.llm_annotation_models : [];
+    if (!selectedLlmAnnotationModelId) {
+      selectedLlmAnnotationModelId = String(payload.default_llm_annotation_model_id || '').trim();
+      if (selectedLlmAnnotationModelId) localStorage.setItem('llmAnnotationModelId', selectedLlmAnnotationModelId);
+    }
+    renderLlmAgentModels();
   } catch (error) {
     if (githubRepoUrlInput && !githubRepoUrlInput.value) githubRepoUrlInput.placeholder = `配置读取失败：${error.message}`;
     if (feishuTaskUrlInput && !feishuTaskUrlInput.value) feishuTaskUrlInput.placeholder = `配置读取失败：${error.message}`;
+    setLlmAgentStatus(`模型配置读取失败：${error.message}`, true);
   }
 }
 
@@ -2181,7 +2572,11 @@ function bindBatchTraeControls() {
       if (activeBatchGroup && batchGroups[activeBatchGroup]) {
         batchGroups[activeBatchGroup] = normalizeBatchOrders(parseBatchOrders());
       }
+      renderAutoBatchWatchedGroups();
     });
+  }
+  if (batchGroupNameInput) {
+    batchGroupNameInput.addEventListener('input', updateWatchCurrentBatchGroupButton);
   }
   if (batchGroupSelect) {
     batchGroupSelect.addEventListener('change', () => loadBatchGroup(batchGroupSelect.value));
@@ -2413,6 +2808,15 @@ function initDraggableDetailPanel() {
 
 initDraggableDetailPanel();
 
+if (promptPreviewToggleButton) {
+  updatePromptPreviewVisibility();
+  promptPreviewToggleButton.addEventListener('click', () => {
+    promptPreviewVisible = !promptPreviewVisible;
+    localStorage.setItem('promptPreviewVisible', promptPreviewVisible ? 'true' : 'false');
+    updatePromptPreviewVisibility();
+  });
+}
+
 if (syncGithubAllButton) {
   syncGithubAllButton.addEventListener('click', syncCompletedToGithub);
 }
@@ -2487,6 +2891,44 @@ if (refreshBatchMissingSessionsButton) {
   refreshBatchMissingSessionsButton.addEventListener('click', async (event) => {
     event.stopPropagation();
     await refreshBatchMissingSessions();
+  });
+}
+
+if (autoBatchMissingSessionsButton) {
+  updateAutoBatchMissingButton();
+  scheduleAutoBatchMissingCheck(5000);
+  autoBatchMissingSessionsButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    autoBatchMissingEnabled = !autoBatchMissingEnabled;
+    localStorage.setItem('autoBatchMissingSessions', autoBatchMissingEnabled ? 'true' : 'false');
+    updateAutoBatchMissingButton();
+    setAutoBatchStatus(autoBatchMissingEnabled ? '自动检测已开启' : '自动检测已关闭');
+    scheduleAutoBatchMissingCheck(autoBatchMissingEnabled ? 1000 : 0);
+  });
+}
+
+if (watchCurrentBatchGroupButton) {
+  watchCurrentBatchGroupButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    try {
+      await toggleCurrentBatchGroupWatch();
+    } catch (error) {
+      setAutoBatchStatus(`检测组设置失败：${error.message || error}`, true);
+    }
+  });
+}
+
+if (autoBatchMinRowsInput) {
+  const storedAutoThreshold = Number.parseInt(String(localStorage.getItem('autoBatchMinRows') || ''), 10);
+  if (Number.isInteger(storedAutoThreshold) && storedAutoThreshold > 0) {
+    autoBatchMinRowsInput.value = String(storedAutoThreshold);
+  }
+  autoBatchMinRowsInput.addEventListener('change', () => {
+    const threshold = autoBatchThreshold();
+    autoBatchMinRowsInput.value = String(threshold);
+    localStorage.setItem('autoBatchMinRows', String(threshold));
+    setAutoBatchStatus(`自动检测目标已设为 ${threshold} 轮`);
+    scheduleAutoBatchMissingCheck(autoBatchMissingEnabled ? 1000 : 0);
   });
 }
 

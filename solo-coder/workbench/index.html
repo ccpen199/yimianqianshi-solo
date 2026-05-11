@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PromptHub</title>
-  <link rel="stylesheet" href="./styles.css?v=50" />
+  <link rel="stylesheet" href="./styles.css?v=57" />
 </head>
 <body>
   <main class="page">
@@ -44,6 +44,9 @@
       </details>
 
       <div id="sceneButtons" class="scene-buttons"></div>
+      <div class="prompt-preview-toolbar">
+        <button id="togglePromptPreview" type="button" class="prompt-preview-toggle">隐藏提示词预览</button>
+      </div>
 
       <div class="workbench-grid">
         <div class="table-wrap large-table">
@@ -91,6 +94,31 @@
           <div class="batch-trae-actions primary-actions">
             <button id="batchOpenTrae" type="button">开启 Trae</button>
             <button id="batchCloseTrae" type="button">关闭项目</button>
+          </div>
+          <div class="batch-auto-card">
+            <div class="batch-auto-head">
+              <span>自动检测</span>
+              <label class="batch-auto-threshold">
+                <span>目标轮次</span>
+                <input id="autoBatchMinRows" type="number" min="1" max="99" step="1" value="5" />
+              </label>
+            </div>
+            <div class="batch-trae-actions batch-auto-actions">
+              <button id="toggleAutoBatchMissingSessions" type="button" class="batch-auto-refresh-button">自动检测关</button>
+              <button id="watchCurrentBatchGroup" type="button" class="batch-auto-watch-button">纳入当前组</button>
+            </div>
+            <div id="autoBatchWatchedGroups" class="batch-auto-status"></div>
+          </div>
+          <div class="llm-agent-card">
+            <div class="llm-agent-head">
+              <div>
+                <span>LLM-Agent</span>
+                <small>不满意列双轴标注</small>
+              </div>
+              <a href="/docs/trae_dissatisfaction_dual_axis_annotation_20260511.md" target="_blank" rel="noreferrer">方法文档</a>
+            </div>
+            <div id="llmAgentModelList" class="llm-agent-model-list"></div>
+            <div id="llmAgentStatus" class="llm-agent-status"></div>
           </div>
           <div class="batch-trae-actions batch-view-actions">
             <button id="openBatchSessions" type="button">查看批量会话</button>
@@ -169,6 +197,6 @@
       </table>
     </div>
   </dialog>
-  <script src="./app.js?v=93"></script>
+  <script src="./app.js?v=101"></script>
 </body>
 </html>
