@@ -20,7 +20,7 @@
 1. Codex CLI 支持通过 `~/.codex/config.toml` 或 `-c key=value` 覆盖 `model_provider`、`model` 和 `model_providers.<id>` 配置。
 2. 本机当前 Codex 默认 provider 是 `PinAI`，配置在 `~/.codex/config.toml`，旧流程不能直接覆盖它。
 3. DeepSeek 文档给出的 OpenAI 格式 base URL 是 `https://api.deepseek.com`，目标模型为 `deepseek-v4-pro`。
-4. OpenAI Codex 官方配置文档目前把自定义 provider 的 `wire_api` 标为 `responses`；DeepSeek 公开文档强调的是 OpenAI 兼容接口。两者是否完全兼容需要点击启动后由 Codex 终端真实验证。
+4. OpenAI Codex 官方配置文档中自定义 provider 可配置 `wire_api`；DeepSeek 公开文档强调的是 OpenAI 兼容接口。当前默认使用 `chat`，仍保留 `CODEX_DEEPSEEK_WIRE_API` 给每台机器按本机 Codex 版本覆盖。
 5. `deepseek-claude-code-worker-mcp` 的价值更像“让主 Agent 把重活委派给 DeepSeek worker”，不是直接替换 Codex CLI provider。本轮先落地 Codex 直连 provider 启动选项，MCP 适合作为第二阶段降本方案。
 
 ## 实现策略
@@ -37,7 +37,7 @@ codex -C <project_path> \
   -c 'model_providers.deepseek.name="DeepSeek"' \
   -c 'model_providers.deepseek.base_url="https://api.deepseek.com"' \
   -c 'model_providers.deepseek.env_key="DEEPSEEK_API_KEY"' \
-  -c 'model_providers.deepseek.wire_api="responses"' \
+  -c 'model_providers.deepseek.wire_api="chat"' \
   -c 'model_providers.deepseek.requires_openai_auth=false'
 ```
 
@@ -47,14 +47,16 @@ codex -C <project_path> \
 DEEPSEEK_API_KEY=...
 DEEPSEEK_API_BASE=https://api.deepseek.com
 DEEPSEEK_TEXT_MODEL=deepseek-v4-pro
+CODEX_DEEPSEEK_WIRE_API=chat
+```
+
+`CODEX_DEEPSEEK_WIRE_API` 保留为可覆盖项。如果某台机器的 Codex 版本需要 responses wire，可以在不改代码的情况下改为：
+
+```bash
 CODEX_DEEPSEEK_WIRE_API=responses
 ```
 
-`CODEX_DEEPSEEK_WIRE_API` 保留为可覆盖项。如果后续确认当前 Codex 版本支持 chat-completions wire，可以在不改代码的情况下改为：
-
-```bash
-CODEX_DEEPSEEK_WIRE_API=chat
-```
+Codex CLI 路径默认自动探测。不要把其他机器的 `CODEX_CLI` / `CODEX_CLI_PATH` 复制进当前机器的 `.env`；Windows 会优先使用 PATH 中的 `codex` 无扩展 shim 或同目录无扩展变体，再 fallback 到 `.cmd/.bat/.exe`，其他系统遗留路径会被服务端忽略。
 
 ## UI 行为
 

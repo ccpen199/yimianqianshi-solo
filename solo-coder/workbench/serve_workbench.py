@@ -13,6 +13,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -29,17 +30,61 @@ except ImportError:
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
 
+IGNORED_ENV_PATHS = []
+
+
+def _record_ignored_env_path(name: str, value: str, reason: str):
+  item = {'name': name, 'value': str(value), 'reason': reason}
+  if item not in IGNORED_ENV_PATHS:
+    IGNORED_ENV_PATHS.append(item)
+
+
+def _strip_wrapping_quotes(value: str) -> str:
+  text = str(value or '').strip()
+  if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
+    return text[1:-1]
+  return text
+
+
+def _is_foreign_platform_path(value: str) -> bool:
+  text = _strip_wrapping_quotes(value)
+  if not text:
+    return False
+  normalized = text.replace('\\', '/')
+  if os.name == 'nt':
+    return normalized.startswith((
+      '/Applications/',
+      '/Library/',
+      '/Users/',
+      '/home/',
+      '/opt/',
+      '/usr/',
+      '/var/',
+      '/etc/',
+    ))
+  return bool(re.match(r'^[A-Za-z]:[\\/]', text) or text.startswith('\\\\'))
+
+
 def _expand_local_path(value: str) -> str:
-  return os.path.abspath(os.path.expandvars(os.path.expanduser(str(value or '').strip())))
+  return os.path.abspath(os.path.expandvars(os.path.expanduser(_strip_wrapping_quotes(value))))
 
 
-def _env_path(name: str) -> str:
+def _env_path(name: str, must_exist: bool = False) -> str:
   value = os.environ.get(name)
-  return _expand_local_path(value) if value else ''
+  if not value:
+    return ''
+  if _is_foreign_platform_path(value):
+    _record_ignored_env_path(name, value, 'foreign-platform-path')
+    return ''
+  path = _expand_local_path(value)
+  if must_exist and not os.path.exists(path):
+    _record_ignored_env_path(name, path, 'path-not-found')
+    return ''
+  return path
 
 
 def _default_trae_root() -> str:
-  configured = _env_path('TRAE_ROOT')
+  configured = _env_path('TRAE_ROOT') or _env_path('TRAE_PROJECTS_ROOT')
   if configured:
     return configured
   home = os.path.expanduser('~')
@@ -102,7 +147,7 @@ def _candidate_trae_cli_paths():
 
 
 def _default_trae_cli() -> str:
-  configured = _env_path('TRAE_CLI')
+  configured = _env_path('TRAE_CLI', must_exist=True)
   if configured:
     return configured
   for path in _candidate_trae_cli_paths():
@@ -114,6 +159,22 @@ def _default_trae_cli() -> str:
 def _candidate_codex_cli_paths():
   yielded = set()
 
+  def _variants(path):
+    text = _expand_local_path(path) if path else ''
+    if not text:
+      return []
+    if os.name != 'nt':
+      return [text]
+    root, ext = os.path.splitext(text)
+    lower_ext = ext.lower()
+    if lower_ext == '.ps1':
+      return [root, root + '.cmd', root + '.bat', root + '.exe', text]
+    if lower_ext in {'.cmd', '.bat', '.exe'}:
+      return [root, text]
+    if not lower_ext:
+      return [text, text + '.cmd', text + '.bat', text + '.exe']
+    return [text]
+
   def _add(path):
     text = _expand_local_path(path) if path else ''
     if text and text not in yielded:
@@ -122,17 +183,20 @@ def _candidate_codex_cli_paths():
     return ''
 
   for name in ('CODEX_CLI', 'CODEX_CLI_PATH'):
-    configured = _env_path(name)
+    configured = _env_path(name, must_exist=True)
     if configured:
-      value = _add(configured)
-      if value:
-        yield value
+      for candidate in _variants(configured):
+        value = _add(candidate)
+        if value:
+          yield value
 
-  found = shutil.which('codex')
-  if found:
-    value = _add(found)
-    if value:
-      yield value
+  for binary in (('codex', 'codex.cmd') if os.name == 'nt' else ('codex',)):
+    found = shutil.which(binary)
+    if found:
+      for candidate in _variants(found):
+        value = _add(candidate)
+        if value:
+          yield value
 
   home = os.path.expanduser('~')
   patterns = [
@@ -151,13 +215,16 @@ def _candidate_codex_cli_paths():
     ])
   for pattern in patterns:
     for path in glob.glob(pattern):
-      value = _add(path)
-      if value:
-        yield value
+      for candidate in _variants(path):
+        value = _add(candidate)
+        if value:
+          yield value
 
 
 def codex_cli_path() -> str:
   for path in _candidate_codex_cli_paths():
+    if os.name == 'nt' and os.path.splitext(path)[1].lower() == '.ps1':
+      continue
     if os.path.isfile(path) and os.access(path, os.X_OK):
       return path
   return ''
@@ -168,10 +235,7 @@ PROJECT_DIR = os.path.abspath(os.path.join(ROOT_DIR, '../..'))
 
 
 def _strip_env_value(value: str) -> str:
-  text = str(value or '').strip()
-  if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
-    text = text[1:-1]
-  return text
+  return _strip_wrapping_quotes(value)
 
 
 def load_env_file(path: str, override: bool = False, protected_keys=None) -> int:
@@ -205,13 +269,16 @@ def load_env_file(path: str, override: bool = False, protected_keys=None) -> int
   return loaded
 
 
-def _split_env_file_list(value: str):
+def _split_env_file_list(value: str, env_name: str):
   if not value:
     return []
   paths = []
   for part in str(value).split(os.pathsep):
     text = part.strip()
     if text:
+      if _is_foreign_platform_path(text):
+        _record_ignored_env_path(env_name, text, 'foreign-platform-path')
+        continue
       paths.append(_expand_local_path(text))
   return paths
 
@@ -220,7 +287,7 @@ def load_workbench_env_files():
   protected_keys = set(os.environ.keys())
   explicit_env_files = []
   for name in ('WORKBENCH_ENV_FILE', 'YMQS_ENV_FILE'):
-    explicit_env_files.extend(_split_env_file_list(os.environ.get(name) or ''))
+    explicit_env_files.extend(_split_env_file_list(os.environ.get(name) or '', name))
 
   loaded_paths = set()
   for path in (
@@ -1274,10 +1341,7 @@ def _codex_shell_command(cmd, project_path: str, use_deepseek: bool = False):
       f'cd /d {subprocess.list2cmdline([project_path])}',
     ]
     if use_deepseek:
-      if DEEPSEEK_API_KEY:
-        shell_parts.append(f'set "DEEPSEEK_API_KEY={DEEPSEEK_API_KEY}"')
-      else:
-        shell_parts.append('if "%DEEPSEEK_API_KEY%"=="" (echo 请先设置 DEEPSEEK_API_KEY 后再启动 Codex DeepSeek && exit /b 1)')
+      shell_parts.append('if "%DEEPSEEK_API_KEY%"=="" (echo 请先设置 DEEPSEEK_API_KEY 后再启动 Codex DeepSeek && exit /b 1)')
       shell_parts.append(f'set "DEEPSEEK_API_BASE={DEEPSEEK_API_BASE}"')
     shell_parts.append(quoted_cmd)
     return ' && '.join(shell_parts)
@@ -1295,7 +1359,7 @@ def _codex_shell_command(cmd, project_path: str, use_deepseek: bool = False):
   return '; '.join(shell_parts)
 
 
-def _open_terminal_with_command(shell_command: str):
+def _open_terminal_with_command(shell_command: str, extra_env=None):
   if sys.platform == 'darwin':
     script = f'''
 tell application "Terminal"
@@ -1306,8 +1370,18 @@ end tell
     return run_cmd(['osascript', '-e', script], check=True)
 
   if os.name == 'nt':
-    launcher = ['cmd', '/c', 'start', 'Codex CLI', 'cmd', '/k', shell_command]
-    subprocess.Popen(launcher, cwd=ROOT_DIR, close_fds=True)
+    script_dir = os.path.join(tempfile.gettempdir(), 'ymqs-workbench')
+    os.makedirs(script_dir, exist_ok=True)
+    script_path = os.path.join(script_dir, f'codex-launch-{os.getpid()}-{int(time.time() * 1000)}.cmd')
+    with open(script_path, 'w', encoding='utf-8') as file:
+      file.write('@echo off\r\n')
+      file.write(shell_command)
+      file.write('\r\n')
+    env = os.environ.copy()
+    if extra_env:
+      env.update({str(key): str(value) for key, value in extra_env.items() if value is not None})
+    launcher = ['cmd.exe', '/c', 'start', 'Codex CLI', 'cmd.exe', '/k', 'call', script_path]
+    subprocess.Popen(launcher, cwd=ROOT_DIR, close_fds=True, env=env)
     return subprocess.CompletedProcess(launcher, 0, '', '')
 
   terminals = [
@@ -1331,7 +1405,12 @@ def open_codex_cli_project(order_token: str, use_deepseek: bool = False):
   if use_deepseek:
     cmd.extend(_codex_deepseek_config_args())
   shell_command = _codex_shell_command(cmd, project_path, use_deepseek=use_deepseek)
-  completed = _open_terminal_with_command(shell_command)
+  extra_env = {}
+  if use_deepseek:
+    if DEEPSEEK_API_KEY:
+      extra_env['DEEPSEEK_API_KEY'] = DEEPSEEK_API_KEY
+    extra_env['DEEPSEEK_API_BASE'] = DEEPSEEK_API_BASE
+  completed = _open_terminal_with_command(shell_command, extra_env=extra_env)
   return {
     'ok': True,
     'order': order_token,
@@ -2049,6 +2128,7 @@ def chrome_execute_js(script: str):
 
 def workbench_defaults():
   llm_models = llm_annotation_model_catalog()
+  codex_path = codex_cli_path()
   return {
     'default_github_repo_url': DEFAULT_GITHUB_REPO_URL,
     'default_feishu_task_url': DEFAULT_FEISHU_TASK_URL,
@@ -2057,6 +2137,9 @@ def workbench_defaults():
     'trae_root': TRAE_ROOT,
     'trae_app_support_dir': TRAE_APP_SUPPORT_DIR,
     'trae_workspace_storage_dir': TRAE_WORKSPACE_STORAGE_DIR,
+    'trae_cli': TRAE_CLI,
+    'codex_cli_path': codex_path,
+    'ignored_env_paths': IGNORED_ENV_PATHS,
     'default_llm_annotation_model_id': next((item['id'] for item in llm_models if item.get('default')), llm_models[0]['id'] if llm_models else ''),
     'llm_annotation_models': llm_models,
   }

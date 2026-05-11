@@ -57,6 +57,8 @@ engine=codex-cli
   -> 按系统打开交互终端启动 codex（macOS Terminal / Windows cmd / Linux 常见 terminal）
 ```
 
+Codex CLI 路径优先自动探测，不要求在 `.env` 写死。Windows 会优先使用 PATH 中的 `codex` 无扩展 shim 或同目录无扩展变体，再 fallback 到 `.cmd/.bat/.exe`；如果 `.env` 里遗留了其他机器的 `/Users/...`、`/Applications/...` 或 `C:\...` 路径，服务端会忽略并在 `/api/workbench-config.ignored_env_paths` 暴露原因。
+
 ## DeepSeek 配置
 
 默认模型与 Base URL：
@@ -82,7 +84,7 @@ codex -C <project_path> \
   -c 'model_providers.deepseek.name="DeepSeek"' \
   -c 'model_providers.deepseek.base_url="https://api.deepseek.com"' \
   -c 'model_providers.deepseek.env_key="DEEPSEEK_API_KEY"' \
-  -c 'model_providers.deepseek.wire_api="responses"' \
+  -c 'model_providers.deepseek.wire_api="chat"' \
   -c 'model_providers.deepseek.requires_openai_auth=false'
 ```
 
@@ -105,6 +107,7 @@ DeepSeek 文档提供的是 OpenAI 格式 `https://api.deepseek.com`，模型为
 
 ```bash
 export CODEX_DEEPSEEK_WIRE_API=responses
+export CODEX_DEEPSEEK_WIRE_API=chat
 ```
 
 ## MCP 方案参考

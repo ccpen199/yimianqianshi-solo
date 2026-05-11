@@ -25,9 +25,9 @@ DeepSeek V4 Pro       用于不满意列双轴原因生成
 Codex CLI / pinAI     使用本机 Codex CLI 默认 pinAI provider 做复核或生成
 ```
 
-`Codex CLI / pinAI` 不修改 `~/.codex/config.toml`，只是把本机 Codex CLI 作为可选模型入口暴露出来。服务进程会探测 PATH、nvm、npm global、Homebrew 和 Windows npm 目录，也可以用 `CODEX_CLI` / `CODEX_CLI_PATH` 显式指定。DeepSeek V4 Pro 仍通过环境变量和临时参数接入。
+`Codex CLI / pinAI` 不修改 `~/.codex/config.toml`，只是把本机 Codex CLI 作为可选模型入口暴露出来。服务进程会探测 PATH、nvm、npm global、Homebrew 和 Windows npm 目录；Windows 会优先使用同目录无扩展 shim，再 fallback 到 `.cmd/.bat/.exe`，避免从 `cmd /k` 直接启动 `.ps1`。只有自动探测失败时才需要用 `CODEX_CLI` / `CODEX_CLI_PATH` 显式指定。DeepSeek V4 Pro 仍通过环境变量和临时参数接入。
 
-Workbench 不在前端配置大模型 KEY。后端启动时读取 `<repo>/.env`、`<repo>/.env.local`、`solo-coder/workbench/.env`、`solo-coder/workbench/.env.local`。真实密钥只放本机 `.env.local`，仓库只提交 `.env.example`。
+Workbench 不在前端配置大模型 KEY。后端启动时读取 `<repo>/.env`、`solo-coder/workbench/.env`、`<repo>/.env.local`、`solo-coder/workbench/.env.local`，以及 `WORKBENCH_ENV_FILE` / `YMQS_ENV_FILE` 指向的外部 env 文件。系统环境变量最高优先级，`.local` 覆盖普通 `.env`；其他机器遗留的绝对路径会被忽略并写入 `/api/workbench-config.ignored_env_paths`。真实密钥只放本机 `.env.local`，仓库只提交 `.env.example`。
 
 2026-05-12 落地补充：Workbench 的 LLM-Agent 卡片已新增 `生成当前组` 按钮。选择 `DeepSeek V4 Pro` 后会调用服务端 `/api/annotate-dissatisfaction`，按当前批量组读取本机 `data/generated/trae_session_rounds/{order}.json`，用 DeepSeek 生成并写回不满意列双轴原因。`Codex CLI / pinAI` 作为本机复核/启动入口，不直接批量写回不满意列。
 
