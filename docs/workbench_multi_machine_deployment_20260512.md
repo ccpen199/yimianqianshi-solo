@@ -51,16 +51,17 @@ codex-cli-pinai
 
 ## 配置文件环境变量
 
-Workbench 不在前端录入大模型 KEY。后端启动时会自动读取以下配置文件，先出现的值优先生效，已经存在的系统环境变量不会被覆盖：
+Workbench 不在前端录入大模型 KEY。后端启动时会自动读取以下配置文件，后面的本机配置会覆盖前面的通用配置，已经存在的系统环境变量始终优先生效、不会被文件覆盖：
 
 ```text
 <repo>/.env
-<repo>/.env.local
 <repo>/solo-coder/workbench/.env
+<repo>/.env.local
 <repo>/solo-coder/workbench/.env.local
+WORKBENCH_ENV_FILE / YMQS_ENV_FILE 指向的外部 env 文件
 ```
 
-推荐每台机器复制 `.env.example` 为 `.env.local`，把真实 KEY 写在本机 `.env.local`。`.env` 和 `.env.local` 已被 `.gitignore` 排除，不能推送到远程仓库。
+推荐每台机器复制 `.env.example` 为 `.env.local`，把真实 KEY 写在本机 `.env.local`。如果一台机器用多个工作树，也可以把真实配置放在固定位置，再通过 `WORKBENCH_ENV_FILE` 或 `YMQS_ENV_FILE` 指向该文件。`.env` 和 `.env.local` 已被 `.gitignore` 排除，不能推送到远程仓库。
 
 具体环境变量名如下：
 
@@ -75,6 +76,15 @@ TRAE_SESSION_ANNOTATION_MODELS=deepseek-v4-pro
 CODEX_CLI=/path/to/codex
 CODEX_CLI_PATH=/path/to/codex
 CODEX_DEEPSEEK_WIRE_API=chat
+
+WORKBENCH_ENV_FILE=/absolute/path/to/local.env
+WORKBENCH_DATA_DIR=/path/to/local/data
+YMQS_DATA_DIR=/path/to/local/data
+TRAE_ROOT=/path/to/trae_projects
+TRAE_APP_SUPPORT_DIR=/path/to/Trae CN
+TRAE_WORKSPACE_STORAGE_DIR=/path/to/Trae CN/User/workspaceStorage
+TRAE_APP_NAME=Trae CN
+TRAE_CLI=/path/to/trae-cli
 
 MODELSCOPE_API_KEY=
 MODELSCOPE_API_BASE=https://api-inference.modelscope.cn/v1

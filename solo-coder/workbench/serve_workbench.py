@@ -174,9 +174,10 @@ def _strip_env_value(value: str) -> str:
   return text
 
 
-def load_env_file(path: str, override: bool = False) -> int:
+def load_env_file(path: str, override: bool = False, protected_keys=None) -> int:
   if not path or not os.path.isfile(path):
     return 0
+  protected = protected_keys or set()
   loaded = 0
   try:
     with open(path, 'r', encoding='utf-8') as file:
@@ -195,6 +196,8 @@ def load_env_file(path: str, override: bool = False) -> int:
     key = key.strip()
     if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', key or ''):
       continue
+    if key in protected:
+      continue
     if key in os.environ and not override:
       continue
     os.environ[key] = _strip_env_value(value)
@@ -202,14 +205,36 @@ def load_env_file(path: str, override: bool = False) -> int:
   return loaded
 
 
+def _split_env_file_list(value: str):
+  if not value:
+    return []
+  paths = []
+  for part in str(value).split(os.pathsep):
+    text = part.strip()
+    if text:
+      paths.append(_expand_local_path(text))
+  return paths
+
+
 def load_workbench_env_files():
+  protected_keys = set(os.environ.keys())
+  explicit_env_files = []
+  for name in ('WORKBENCH_ENV_FILE', 'YMQS_ENV_FILE'):
+    explicit_env_files.extend(_split_env_file_list(os.environ.get(name) or ''))
+
+  loaded_paths = set()
   for path in (
     os.path.join(PROJECT_DIR, '.env'),
-    os.path.join(PROJECT_DIR, '.env.local'),
     os.path.join(ROOT_DIR, '.env'),
+    os.path.join(PROJECT_DIR, '.env.local'),
     os.path.join(ROOT_DIR, '.env.local'),
+    *explicit_env_files,
   ):
-    load_env_file(path, override=False)
+    normalized = os.path.normcase(os.path.abspath(path))
+    if normalized in loaded_paths:
+      continue
+    loaded_paths.add(normalized)
+    load_env_file(path, override=True, protected_keys=protected_keys)
 
 
 load_workbench_env_files()
