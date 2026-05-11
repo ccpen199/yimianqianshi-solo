@@ -238,6 +238,30 @@ def _strip_env_value(value: str) -> str:
   return _strip_wrapping_quotes(value)
 
 
+def _env_secret(name: str) -> str:
+  value = _strip_env_value(os.environ.get(name) or '')
+  placeholder_values = {
+    '...',
+    '<key>',
+    '<api-key>',
+    'api-key',
+    'changeme',
+    'change-me',
+    'replace-me',
+    'replace-with-your-local-deepseek-key',
+    'your-key',
+    'your-api-key',
+    '你的key',
+    '你的deepseekkey',
+  }
+  compact = re.sub(r'\s+', '', value).strip().lower()
+  if not compact or compact in placeholder_values:
+    return ''
+  if compact.startswith('replace-with-') or compact.startswith('your-'):
+    return ''
+  return value
+
+
 def load_env_file(path: str, override: bool = False, protected_keys=None) -> int:
   if not path or not os.path.isfile(path):
     return 0
@@ -411,11 +435,11 @@ SCENE_NAME_ALIASES = {
 }
 MODELSCOPE_API_BASE = os.environ.get('MODELSCOPE_API_BASE') or 'https://api-inference.modelscope.cn/v1'
 MODELSCOPE_CHAT_COMPLETIONS_URL = MODELSCOPE_API_BASE.rstrip('/') + '/chat/completions'
-MODELSCOPE_API_KEY = os.environ.get('MODELSCOPE_API_KEY') or ''
+MODELSCOPE_API_KEY = _env_secret('MODELSCOPE_API_KEY')
 MODELSCOPE_TEXT_MODEL = os.environ.get('MODELSCOPE_TEXT_MODEL') or 'Qwen/Qwen3-235B-A22B-Instruct-2507'
 DEEPSEEK_API_BASE = os.environ.get('DEEPSEEK_API_BASE') or 'https://api.deepseek.com'
 DEEPSEEK_CHAT_COMPLETIONS_URL = DEEPSEEK_API_BASE.rstrip('/') + '/chat/completions'
-DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY') or ''
+DEEPSEEK_API_KEY = _env_secret('DEEPSEEK_API_KEY')
 DEEPSEEK_TEXT_MODEL = os.environ.get('DEEPSEEK_TEXT_MODEL') or 'deepseek-v4-pro'
 CODEX_DEEPSEEK_WIRE_API = os.environ.get('CODEX_DEEPSEEK_WIRE_API') or 'chat'
 TRAE_SESSION_ANNOTATION_MODELS = [
