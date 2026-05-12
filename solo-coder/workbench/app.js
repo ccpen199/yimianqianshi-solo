@@ -577,6 +577,7 @@ function renderBatchProjectList() {
   if (!batchProjectList) return;
   syncBatchSelectionFromInput();
   batchProjectList.innerHTML = '';
+  const fragment = document.createDocumentFragment();
   const sorted = [...prompts].sort(comparePromptOrder);
   for (const prompt of sorted) {
     const order = getOrder(prompt);
@@ -597,8 +598,9 @@ function renderBatchProjectList() {
     const text = document.createElement('span');
     text.textContent = `${order} ${prompt.name || ''}`;
     label.append(checkbox, text);
-    batchProjectList.appendChild(label);
+    fragment.appendChild(label);
   }
+  batchProjectList.appendChild(fragment);
 }
 
 async function runBatchTrae(action) {
@@ -687,6 +689,25 @@ function fillSelect(select, values, label, formatValue = (value) => value) {
     option.value = value;
     option.textContent = formatValue(value);
     select.appendChild(option);
+  }
+}
+
+function cssEscape(value) {
+  if (window.CSS && typeof window.CSS.escape === 'function') {
+    return window.CSS.escape(String(value ?? ''));
+  }
+  return String(value ?? '').replace(/["\\]/g, '\\$&');
+}
+
+function updateSelectedRowHighlight(previousId, nextId) {
+  if (!rowsEl) return;
+  if (previousId && previousId !== nextId) {
+    const previousRow = rowsEl.querySelector(`tr[data-id="${cssEscape(previousId)}"]`);
+    if (previousRow) previousRow.classList.remove('selected-row');
+  }
+  if (nextId) {
+    const nextRow = rowsEl.querySelector(`tr[data-id="${cssEscape(nextId)}"]`);
+    if (nextRow) nextRow.classList.add('selected-row');
   }
 }
 
@@ -2448,6 +2469,7 @@ function mapInputCell(row) {
 
 function renderRows() {
   rowsEl.innerHTML = '';
+  const fragment = document.createDocumentFragment();
   for (const [index, row] of filteredPrompts.entries()) {
     const tr = document.createElement('tr');
     tr.dataset.id = row.id;
@@ -2577,11 +2599,13 @@ function renderRows() {
     tr.appendChild(actionTd);
 
     tr.addEventListener('click', () => selectPrompt(row.id));
-    rowsEl.appendChild(tr);
+    fragment.appendChild(tr);
   }
+  rowsEl.appendChild(fragment);
 }
 
 function selectPrompt(promptId) {
+  const previousPromptId = selectedPromptId;
   selectedPromptId = promptId;
   const prompt = prompts.find((item) => item.id === promptId);
   selectedParts = splitPrompt(prompt?.prompt || '未找到 Prompt，请先重新生成方案数据。');
@@ -2589,7 +2613,7 @@ function selectPrompt(promptId) {
   promptFeatures.textContent = selectedParts.features;
   promptDelivery.textContent = selectedParts.delivery;
   updatePromptPreviewVisibility();
-  renderRows();
+  updateSelectedRowHighlight(previousPromptId, selectedPromptId);
 }
 
 async function loadJson(path, fallback) {
@@ -2625,6 +2649,26 @@ async function loadWorkbenchConfig() {
     if (githubRepoUrlInput && !githubRepoUrlInput.value) githubRepoUrlInput.placeholder = `配置读取失败：${error.message}`;
     if (feishuTaskUrlInput && !feishuTaskUrlInput.value) feishuTaskUrlInput.placeholder = `配置读取失败：${error.message}`;
     setLlmAgentStatus(`模型配置读取失败：${error.message}`, true);
+  }
+}
+
+async function loadAuxiliaryStatsData() {
+  try {
+    const [loadedCandidates, loadedAtoms] = await Promise.all([
+      loadJson('./data/generated/zero_to_one_candidates.json', []),
+      loadJson('./data/normalized/product_atoms.json', []),
+    ]);
+    candidates = loadedCandidates.map((candidate) => ({
+      ...candidate,
+      business_domain: normalizeDomainName(candidate.business_domain),
+    }));
+    atoms = loadedAtoms.map((atom) => ({
+      ...atom,
+      business_domain: normalizeDomainName(atom.business_domain),
+    }));
+    renderStats();
+  } catch (error) {
+    console.warn('辅助统计数据加载失败:', error);
   }
 }
 
@@ -2798,30 +2842,26 @@ async function syncCompletedToGithub() {
 }
 
 async function loadPromptFactory() {
-  await loadWorkbenchConfig();
-  candidates = await loadJson('./data/generated/zero_to_one_candidates.json', []);
-  prompts = await loadJson('./data/generated/generation_prompts.json', []);
-  atoms = await loadJson('./data/normalized/product_atoms.json', []);
+  const [, , loadedPrompts] = await Promise.all([
+    loadWorkbenchConfig(),
+    loadPromptState(),
+    loadJson('./data/generated/generation_prompts.json', []),
+  ]);
+  prompts = loadedPrompts;
   prompts = prompts.map((prompt) => ({
     ...prompt,
     business_domain: normalizeDomainName(prompt.business_domain),
   }));
-  candidates = candidates.map((candidate) => ({
-    ...candidate,
-    business_domain: normalizeDomainName(candidate.business_domain),
-  }));
-  atoms = atoms.map((atom) => ({
-    ...atom,
-    business_domain: normalizeDomainName(atom.business_domain),
-  }));
-  await loadPromptState();
-  await fetchBatchGroups();
   bindFilters();
   bindBatchTraeControls();
   if ([...domainFilter.options].some((option) => option.value === 'shopping')) domainFilter.value = 'shopping';
   renderSceneButtons();
-  renderBatchProjectList();
   applyFilters();
+  window.setTimeout(async () => {
+    await fetchBatchGroups();
+    if (!Object.keys(batchGroups).length) renderBatchProjectList();
+    loadAuxiliaryStatsData();
+  }, 0);
 }
 
 
