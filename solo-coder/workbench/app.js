@@ -57,6 +57,7 @@ const autoBatchWatchedGroupsEl = document.getElementById('autoBatchWatchedGroups
 const llmAgentModelListEl = document.getElementById('llmAgentModelList');
 const runLlmDissatisfactionButton = document.getElementById('runLlmDissatisfaction');
 const llmAgentStatusEl = document.getElementById('llmAgentStatus');
+const runLlmDissatisfactionAnnotationButton = document.getElementById('runLlmDissatisfactionAnnotation');
 const copyNextBatchScreenshotButton = document.getElementById('copyNextBatchScreenshot');
 const pasteBatchScreenshotsToFeishuButton = document.getElementById('pasteBatchScreenshotsToFeishu');
 const pasteBatchAllToFeishuButton = document.getElementById('pasteBatchAllToFeishu');
@@ -406,6 +407,50 @@ function renderLlmAgentModels() {
     : '请选择标注模型';
   setLlmAgentStatus(message, current?.available === false);
   updateLlmAnnotationAction();
+}
+
+async function runCurrentGroupDissatisfactionAnnotation() {
+  if (!runLlmDissatisfactionAnnotationButton) return;
+  const model = selectedLlmAnnotationModel();
+  if (!model || model.available === false) {
+    setLlmAgentStatus('当前模型不可用，不能重跑不满意列', true);
+    return;
+  }
+  const { groupName, orders: collectedOrders } = collectBatchOrders();
+  const orders = normalizeBatchOrders(currentBatchSessionOrders.length ? currentBatchSessionOrders : collectedOrders);
+  if (!orders.length) {
+    setLlmAgentStatus('当前组没有可标注项目', true);
+    return;
+  }
+  runLlmDissatisfactionAnnotationButton.disabled = true;
+  runLlmDissatisfactionAnnotationButton.dataset.originalLabel = runLlmDissatisfactionAnnotationButton.dataset.originalLabel || runLlmDissatisfactionAnnotationButton.textContent;
+  runLlmDissatisfactionAnnotationButton.textContent = '标注中';
+  setLlmAgentStatus(`正在使用 ${model.name || model.id} 重跑 ${orders.length} 个项目的不满意列`);
+  try {
+    const response = await fetchWithTimeout('/api/annotate-dissatisfaction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orders,
+        model_id: model.id || '',
+        force: true,
+      }),
+    }, 0);
+    const payload = await response.json();
+    if (!payload.ok) throw new Error(payload.error || '标注失败');
+    const failedOrders = Array.isArray(payload.failedOrders) ? payload.failedOrders : [];
+    const failedText = failedOrders.length ? `，失败 ${failedOrders.length} 个：${failedOrders.join(', ')}` : '';
+    setLlmAgentStatus(`已写回不满意列：${payload.changedRows || 0}/${payload.totalRows || 0} 行，模型 ${payload.modelId || model.id}${failedText}`);
+    if (batchSessionModal?.open || currentBatchSessionRows.length) {
+      const refreshedRows = await fetchBatchRowsForOrders(currentBatchSessionGroupName || groupName, orders);
+      renderBatchSessionRows({ groupName: currentBatchSessionGroupName || groupName, orders, rows: refreshedRows });
+    }
+  } catch (error) {
+    setLlmAgentStatus(`不满意列标注失败：${error.message || error}`, true);
+  } finally {
+    runLlmDissatisfactionAnnotationButton.disabled = false;
+    runLlmDissatisfactionAnnotationButton.textContent = runLlmDissatisfactionAnnotationButton.dataset.originalLabel || '重跑当前组不满意列';
+  }
 }
 
 function renderBatchGroups() {
@@ -1417,28 +1462,24 @@ function makeScreenshotCell(row) {
     td.appendChild(textEl);
   } else {
     const imageWrap = document.createElement('div');
-    imageWrap.className = 'session-screenshot-wrap';
-    const first = screenshots[0];
-    if (first.url) {
-      const img = document.createElement('img');
-      img.className = 'session-screenshot-thumb';
-      img.src = first.url;
-      img.alt = '截图';
-      img.loading = 'lazy';
-      img.title = first.resourceId || first.path || '截图';
-      imageWrap.appendChild(img);
-    } else {
-      const badge = document.createElement('span');
-      badge.className = 'session-screenshot-badge';
-      badge.textContent = '已找到ID';
-      badge.title = first.resourceId || '';
-      imageWrap.appendChild(badge);
-    }
-    if (screenshots.length > 1) {
-      const count = document.createElement('span');
-      count.className = 'session-screenshot-count';
-      count.textContent = `+${screenshots.length - 1}`;
-      imageWrap.appendChild(count);
+    imageWrap.className = `session-screenshot-wrap${screenshots.length > 1 ? ' is-multiple' : ''}`;
+    imageWrap.title = screenshots.length > 1 ? `共 ${screenshots.length} 张截图` : '';
+    for (const [index, screenshot] of screenshots.entries()) {
+      if (screenshot.url) {
+        const img = document.createElement('img');
+        img.className = 'session-screenshot-thumb';
+        img.src = screenshot.url;
+        img.alt = `截图 ${index + 1}`;
+        img.loading = 'lazy';
+        img.title = screenshot.resourceId || screenshot.path || `截图 ${index + 1}`;
+        imageWrap.appendChild(img);
+      } else {
+        const badge = document.createElement('span');
+        badge.className = 'session-screenshot-badge';
+        badge.textContent = `图${index + 1}`;
+        badge.title = screenshot.resourceId || '';
+        imageWrap.appendChild(badge);
+      }
     }
     td.appendChild(imageWrap);
   }
@@ -3059,6 +3100,13 @@ if (pasteBatchAllToFeishuButton) {
   pasteBatchAllToFeishuButton.addEventListener('click', async (event) => {
     event.stopPropagation();
     await pasteBatchAllToFeishu();
+  });
+}
+
+if (runLlmDissatisfactionAnnotationButton) {
+  runLlmDissatisfactionAnnotationButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await runCurrentGroupDissatisfactionAnnotation();
   });
 }
 

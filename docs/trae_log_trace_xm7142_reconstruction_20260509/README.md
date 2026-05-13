@@ -1644,17 +1644,37 @@ workspaceStorage 中：
 
 规则：
   只统计 dict item
-  连续重复 inputText 且无 multiMedia 的记录去重
-  带 multiMedia 的记录保留，因为它可能对应独立轮次
+  用 inputText + multiMedia/images 资源 ID 组成轮次签名
+  连续重复签名视为同一轮重试，保留最后一次
+  后续不同签名继续顺序往下排，不能因为前面有重试就吞掉后面的真实轮次
 
 这个计数只用于决定是否需要 deepScan，
 不直接生成前三列内容。
 ```
 
+`may-1267` 的边界：
+
+```text
+raw input_history = 9
+有效轮次 = 4
+
+第 3-7 条：
+  inputText 相同：“问题已解决，新的问题，秒杀页没有任何内容。”
+  multiMedia 相同：同一张截图
+  结论：这是连续重试，只保留最后一次
+
+第 8-9 条：
+  inputText 相同：“产品和直播图渲染太慢，也没有显示两秒的logo.”
+  multiMedia 相同：同一张截图
+  结论：同样折叠为最后一次，并作为下一轮继续保留
+```
+
 边界要求保持不变：
 
 ```text
-deepScan 只在“缓存行数少于 workspace 有效轮次”时触发。
+deepScan 在“缓存行数少于或多于 workspace 有效轮次”时触发。
+  少于：说明缺轮次，需要补拉
+  多于：说明旧缓存保留了重复重试轮次，需要收缩
 已有行的前三列语义仍保持：
   Session       = row.sessionId 复合 ID
   会话          = row.conversation

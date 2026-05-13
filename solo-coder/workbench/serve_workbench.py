@@ -452,8 +452,9 @@ TRAE_SESSION_ANNOTATION_MODELS = [
   if model.strip()
 ]
 TRAE_SESSION_ANNOTATION_PROVIDER = os.environ.get('TRAE_SESSION_ANNOTATION_PROVIDER') or 'deepseek'
-TRAE_SESSION_ANNOTATION_PROMPT_VERSION = '20260512_v11_llm_dual_axis'
-TRAE_SESSION_ANNOTATION_TIMEOUT_SECONDS = 45
+TRAE_SESSION_ANNOTATION_PROMPT_VERSION = '20260513_v13_single_dual_axis_block'
+TRAE_SESSION_ANNOTATION_TIMEOUT_SECONDS = int(os.environ.get('TRAE_SESSION_ANNOTATION_TIMEOUT_SECONDS') or '120')
+TRAE_SESSION_CODEX_ANNOTATION_TIMEOUT_SECONDS = int(os.environ.get('TRAE_SESSION_CODEX_ANNOTATION_TIMEOUT_SECONDS') or '240')
 TRAE_SESSION_ANNOTATION_MAX_CONVERSATION_CHARS = 2400
 RG_CANDIDATES = [
   shutil.which('rg'),
@@ -615,8 +616,8 @@ def _annotation_row_hash(row: dict, reason_conversation: str = None) -> str:
   return hashlib.sha1(raw.encode('utf-8')).hexdigest()
 
 
-def _normalize_dissatisfaction_reason(value: str) -> str:
-  text = _single_line_text(value, limit=320)
+def _normalize_dissatisfaction_reason(value: str, limit: int = 900) -> str:
+  text = _single_line_text(value, limit=limit)
   text = re.sub(r'^不满意原因[:：]?\s*', '', text)
   text = re.sub(r'^(用户|客户)(表示|提出|认为|觉得|反馈|抱怨|指出|说)?[:：]?\s*', '', text)
   text = re.sub(r'(用户|客户)(表示|提出|认为|觉得|反馈|抱怨|指出|说|要求|强调|再次强调)?', '', text)
@@ -630,7 +631,43 @@ def _normalize_dissatisfaction_reason(value: str) -> str:
   text = re.sub(r'\s+', ' ', text).strip(' ，,。；;：:')
   if text in {'无', '暂无', '无明显不满意反馈', '无明显问题', '未发现明显不满意反馈', '暂无明显不满意', '产物不满意', '过程不满意'}:
     text = ''
+  text = _dedupe_dissatisfaction_reason_blocks(text)
   return text
+
+
+def _dedupe_dissatisfaction_reason_blocks(text: str) -> str:
+  value = str(text or '').strip()
+  if value.count('产物不满意：') <= 1:
+    return value
+  blocks = [part.strip() for part in re.split(r'(?=产物不满意：)', value) if part.strip()]
+  if len(blocks) <= 1:
+    return value
+  unique_blocks = []
+  seen = set()
+  for block in blocks:
+    key = re.sub(r'\s+', '', block).strip('。；;，, ')
+    if key in seen:
+      continue
+    seen.add(key)
+    unique_blocks.append(block.strip(' ；;，,'))
+  if len(unique_blocks) == 1:
+    return unique_blocks[0]
+  # A single table row should contain one dual-axis conclusion. If the model
+  # returns multiple candidates, keep the first complete one instead of pasting
+  # repeated sections into Feishu.
+  return unique_blocks[0]
+
+
+def _dual_axis_fallback_reason(issue: str) -> str:
+  core = _normalize_dissatisfaction_reason(issue, limit=420)
+  if not core:
+    core = '当前轮交付缺少足够的页面、接口和数据闭环证据，业务功能是否稳定可用无法形成可靠结论'
+  if core.startswith('产物不满意：') and '过程不满意：' in core:
+    return core
+  return (
+    f'产物不满意：{core}。'
+    '过程不满意：上一轮交付缺少围绕该问题的复现路径、文件修改、接口请求、浏览器操作、截图对照和回归结果，问题没有被完整闭环验证。'
+  )
 
 
 def _terminal_round_dissatisfaction_reason(row: dict) -> str:
@@ -740,7 +777,7 @@ def _fallback_dissatisfaction_reason(conversation: str) -> str:
   text = str(conversation or '').strip()
   core_issue = _conversation_core_issue(text)
   if core_issue:
-    return core_issue
+    return _dual_axis_fallback_reason(core_issue)
   mapping = [
     (r'重复购买|重复下单|同一时间.*重复购买', '同一时间可重复购买'),
     (r'取消.*选项|没有.*取消', '订单取消选项缺失'),
@@ -756,7 +793,7 @@ def _fallback_dissatisfaction_reason(conversation: str) -> str:
   ]
   for pattern, label in mapping:
     if re.search(pattern, text, re.IGNORECASE):
-      return _normalize_dissatisfaction_reason(label)
+      return _dual_axis_fallback_reason(label)
   return ''
 
 
@@ -869,8 +906,116 @@ def _call_deepseek_chat(messages, model: str = ''):
   return content
 
 
-def _call_annotation_chat(messages, model: str, provider: str = ''):
+def _call_codex_cli_annotation(messages):
+  codex_path = codex_cli_path()
+  if not codex_path:
+    raise RuntimeError('Codex CLI not found')
+  system_text = ''
+  user_text = ''
+  for message in messages or []:
+    if not isinstance(message, dict):
+      continue
+    role = str(message.get('role') or '').strip()
+    content = str(message.get('content') or '').strip()
+    if role == 'system':
+      system_text = content
+    elif role == 'user':
+      user_text = content
+  prompt = (
+    '你是 Workbench 后端通过 Codex CLI / pinAI 调用的批量标注模型。'
+    '本次任务只根据下面输入生成不满意列，不读取或修改本地文件，不运行命令。'
+    '必须只返回 JSON 对象，不能返回 Markdown、解释或代码块。\n\n'
+    f'系统规则：\n{system_text}\n\n'
+    f'待标注数据 JSON：\n{user_text}\n'
+  )
+  schema = {
+    'type': 'object',
+    'properties': {
+      'items': {
+        'type': 'array',
+        'items': {
+          'type': 'object',
+          'properties': {
+            'index': {'type': 'integer'},
+            'dissatisfactionReason': {'type': 'string'},
+          },
+          'required': ['index', 'dissatisfactionReason'],
+          'additionalProperties': False,
+        },
+      },
+    },
+    'required': ['items'],
+    'additionalProperties': False,
+  }
+  with tempfile.TemporaryDirectory(prefix='wb_codex_annotation_') as tmp_dir:
+    output_path = os.path.join(tmp_dir, 'last_message.json')
+    schema_path = os.path.join(tmp_dir, 'schema.json')
+    with open(schema_path, 'w', encoding='utf-8') as file:
+      json.dump(schema, file, ensure_ascii=False)
+    cmd = [
+      codex_path,
+      'exec',
+      '--skip-git-repo-check',
+      '--sandbox',
+      'read-only',
+      '--color',
+      'never',
+      '--output-schema',
+      schema_path,
+      '--output-last-message',
+      output_path,
+      '-C',
+      PROJECT_DIR,
+      prompt,
+    ]
+    child_env = os.environ.copy()
+    codex_bin_dir = os.path.dirname(os.path.abspath(codex_path))
+    path_parts = [
+      codex_bin_dir,
+      '/opt/homebrew/bin',
+      '/usr/local/bin',
+      '/usr/bin',
+      '/bin',
+      '/usr/sbin',
+      '/sbin',
+      child_env.get('PATH') or '',
+    ]
+    child_env['PATH'] = os.pathsep.join([part for part in path_parts if part])
+    completed = subprocess.run(
+      cmd,
+      text=True,
+      capture_output=True,
+      timeout=TRAE_SESSION_CODEX_ANNOTATION_TIMEOUT_SECONDS,
+      check=False,
+      env=child_env,
+    )
+    output_text = ''
+    if os.path.isfile(output_path):
+      with open(output_path, 'r', encoding='utf-8', errors='ignore') as file:
+        output_text = file.read().strip()
+    if completed.returncode != 0:
+      detail = completed.stderr.strip() or completed.stdout.strip() or output_text or 'Codex CLI annotation failed'
+      raise RuntimeError(f'Codex CLI annotation failed: {detail[:1200]}')
+    return output_text or completed.stdout.strip()
+
+
+def _annotation_runtime_config(model_id: str = ''):
+  selected = str(model_id or '').strip()
+  if selected == 'codex-cli-pinai':
+    return 'codex-cli', ['codex-cli'], 'codex-cli-pinai'
+  if selected == 'deepseek-v4-pro':
+    return 'deepseek', [DEEPSEEK_TEXT_MODEL], 'deepseek-v4-pro'
+  return (
+    str(TRAE_SESSION_ANNOTATION_PROVIDER or '').strip().lower(),
+    TRAE_SESSION_ANNOTATION_MODELS or [MODELSCOPE_TEXT_MODEL],
+    selected or '',
+  )
+
+
+def _call_annotation_chat(messages, model: str, provider: str = None):
   provider = str(provider or TRAE_SESSION_ANNOTATION_PROVIDER or '').strip().lower()
+  if provider in {'codex-cli', 'codex', 'pinai'}:
+    return _call_codex_cli_annotation(messages)
   if provider in {'deepseek', 'deepseek-v4', 'deepseek-v4-pro'}:
     return _call_deepseek_chat(messages, model=model)
   if provider in {'modelscope', 'qwen'}:
@@ -880,7 +1025,8 @@ def _call_annotation_chat(messages, model: str, provider: str = ''):
   return _call_modelscope_chat(messages, model=model)
 
 
-def _request_session_annotations(pending_rows, model_config=None):
+def _request_session_annotations(pending_rows, model_id: str = ''):
+  provider, models, selected_model_id = _annotation_runtime_config(model_id)
   row_items = []
   for item in pending_rows:
     index, row = item[0], item[1]
@@ -901,11 +1047,21 @@ def _request_session_annotations(pending_rows, model_config=None):
       'content': (
         '你是 Trae 产物验收标注助手，输出要像人工质检结论，不要像模型在解释证据是否存在。'
         '每条数据包含 currentConversation、nextConversation、currentLogTrace、hasScreenshots。'
-        'nextConversation 是下一轮验收输入，可用于判断上一轮产物缺陷；如果 nextConversation 为空，必须直接根据 currentConversation、currentLogTrace 和截图状态总结当前仍需验收或未闭环的问题。'
+        'currentConversation 是当前行要评价的任务、反馈或修复要求，产物不满意必须先锁定 currentConversation 里的评价对象：页面、模块、入口、按钮、接口、角色路径、业务规则或数据链路。'
+        '生成前先做对象绑定：本轮要求修复什么对象，就评价该对象是否达标；如果输出没有覆盖当前轮对象，即使文字详细也判为不合格。'
+        'nextConversation 只能作为辅助证据：只有它明确复验同一个问题、出现“上一个问题没有解决/仍然失败/还是无响应”等语义时，才可用于说明当前行修复未闭环；如果 nextConversation 已经切换成新问题，禁止把新问题写成当前行的产物不满意。'
+        '第一轮通常是完整主需求，不是验收反馈；第一轮可以借助 nextConversation 判断初版产物缺陷，但第二轮以后必须先评价当前轮任务本身。'
+        '如果 nextConversation 为空，必须直接根据 currentConversation、currentLogTrace 和截图状态总结当前仍需验收或未闭环的问题。'
         '请只输出 JSON 对象，不要输出解释。'
         '字段要求：dissatisfactionReason 必须是“产物不满意：...。过程不满意：...。”双轴结构。'
-        '产物不满意要写页面/接口/模块/按钮/数据/业务规则的具体问题、影响和需求偏差。'
+        '每一行只能输出一组双轴结论，只能出现一次“产物不满意：”和一次“过程不满意：”；禁止把同一段结论重复输出两遍，也禁止输出多个候选版本。'
+        '产物不满意要写当前轮任务对应的页面/接口/模块/按钮/数据/业务规则的具体问题、影响和需求偏差。'
+        '产物不满意至少包含两个要素：范围/对象（哪个页面、模块、入口、按钮、接口、角色路径）和影响范围（影响哪些核心流程、业务目标或验收链路）。'
+        '范围/对象和影响范围不能省略：不能只写“页面没有渲染结果”“跳转错误”“权限错误”“无响应”，必须说明发生在哪个页面或入口、影响哪些核心流程。'
         '过程不满意要写执行过程的问题，例如只验证接口未看页面、启动证据不足、端口归属不清、缺少截图、没有复现路径、反复试错、日志缺失、没有异常场景验收。'
+        '即使产物问题很明确，也必须继续分析过程问题，不能只写产物不满意。'
+        '禁止反馈偏移：例如当前轮是“首页内容简单、登录后跳转逻辑错误”，下一轮是“前端没有接到后端”，当前轮产物不满意必须评价首页内容和登录跳转，不能只写前后端未对接。'
+        '如果生成内容只评价了 nextConversation 的新问题，没有评价 currentConversation 的对象，必须重写。'
         '禁止出现“暂无”“未见”“暂无下一轮反馈”“没有下一轮反馈”“暂无明确的新功能缺陷反馈”“未见新的具体页面功能缺陷反馈”“当前诉求”“用户要求”“用户再次强调”“用户反馈”“用户指出”等表达。'
         '不要把证据缺失写成“没有反馈”，而要根据已有信息直接判断产物和过程问题。'
         '不要使用“用户”作为叙述主体；需要指代时写“业务要求”“验收要求”“页面表现”“交付过程”。'
@@ -913,6 +1069,9 @@ def _request_session_annotations(pending_rows, model_config=None):
         '例如原句是“点击加入购物车没有任何反应，也没有报错，而且商品图片没有显示”，产物不满意部分应完整保留为“点击加入购物车没有任何反应，也没有报错，而且商品图片没有显示”，不要写成“加入购物车无响应”。'
         '例如原句是“个人中心点击我的订单、优惠券、行程收藏等都没反应”，产物不满意部分应写成“个人中心我的订单、优惠券、行程收藏等入口均无响应”。'
         '例如原句是“需求一明确表示游客是可以接单的，但是点击接单后却要求登录，理解存在问题”，产物不满意部分应写成“业务要求明确支持游客接单，但点击接单后却要求登录”，不要写成“游客接单权限错误”。'
+        '例如当前轮原句是“首页只有简单的标题、顶部内容和一个分类产品名称，登录以后直接从展示端进入管理后台”，产物不满意部分应写成“首页内容仍然只有简单标题、顶部内容和分类产品名称，展示端缺少业务内容；登录后错误跳入管理后台，前台浏览和后台治理角色路径混乱”，不要写成下一轮的“前端页面没有接到后端”。'
+        '例如当前轮产物问题是“词条管理页面没有完成开发，页面为空白”，只能输出一次“产物不满意：词条管理页面没有完成开发...。过程不满意：...。”，不能把完全相同的双轴句子连续粘贴两遍。'
+        '对于“前端页面没有接到后端，导致只返回后端的接口成功信息。没有页面渲染结果”这类句子，如果它不是当前轮评价对象，而是下一轮新问题，禁止用于当前轮；如果它就是当前轮对象，也必须补足具体页面、接口和受影响流程。'
         '可以去掉“你/我/用户/客户/抱怨/反馈/麻烦继续修复”等话术，但不能丢掉具体故障现象、页面、按钮、报错、缺失项。'
         '返回格式固定为 {"items":[{"index":0,"dissatisfactionReason":"产物不满意：点击加入购物车没有任何反应，也没有报错，而且商品图片没有显示。过程不满意：日志缺少对购物车按钮、Toast 引入和图片资源加载的浏览器级验收，导致交互和视觉问题同时遗漏。"}]}。'
       ),
@@ -928,10 +1087,8 @@ def _request_session_annotations(pending_rows, model_config=None):
   if not model_names:
     model_names = TRAE_SESSION_ANNOTATION_MODELS or [MODELSCOPE_TEXT_MODEL]
   last_error = None
-  used_model = ''
-  for model in model_names:
+  for model in models:
     try:
-      used_model = model
       parsed = _extract_json_payload(_call_annotation_chat(messages, model=model, provider=provider))
       break
     except Exception as exc:
@@ -953,12 +1110,12 @@ def _request_session_annotations(pending_rows, model_config=None):
       continue
     mapped[index] = {
       'dissatisfactionReason': item.get('dissatisfactionReason'),
-      'annotationSource': f'{provider or TRAE_SESSION_ANNOTATION_PROVIDER}:{used_model or (TRAE_SESSION_ANNOTATION_MODELS[0] if TRAE_SESSION_ANNOTATION_MODELS else DEEPSEEK_TEXT_MODEL)}',
+      'annotationSource': selected_model_id or f'{provider}:{models[0] if models else DEEPSEEK_TEXT_MODEL}',
     }
   return mapped
 
 
-def _annotate_session_rows(rows, use_model: bool = True, model_config=None, force: bool = False, strict_model: bool = False):
+def _annotate_session_rows(rows, use_model: bool = True, model_id: str = '', force: bool = False):
   if not isinstance(rows, list) or not rows:
     return 0
   pending_rows = []
@@ -982,7 +1139,8 @@ def _annotate_session_rows(rows, use_model: bool = True, model_config=None, forc
     target_hash = _annotation_row_hash(row, reason_conversation)
     if (
       not force
-      and row.get('annotationHash') == target_hash
+      and
+      row.get('annotationHash') == target_hash
       and (row.get('dissatisfactionReason') or row.get('annotationSource') == 'next-row-empty')
     ):
       continue
@@ -1002,6 +1160,9 @@ def _annotate_session_rows(rows, use_model: bool = True, model_config=None, forc
         'annotationSource': 'terminal-round-fallback',
       }
       continue
+    if force and use_model:
+      model_pending_rows.append((index, row, reason_conversation))
+      continue
     fallback_text = _fallback_dissatisfaction_reason(reason_conversation)
     if fallback_text:
       annotations[index] = {
@@ -1011,12 +1172,12 @@ def _annotate_session_rows(rows, use_model: bool = True, model_config=None, forc
     else:
       model_pending_rows.append((index, row, reason_conversation))
 
+  annotation_error = None
   try:
     if model_pending_rows and use_model:
-      annotations.update(_request_session_annotations(model_pending_rows, model_config=model_config))
+      annotations.update(_request_session_annotations(model_pending_rows, model_id=model_id))
   except Exception as exc:
-    if strict_model:
-      raise
+    annotation_error = exc
     print(f'[WARN] session annotation fallback: {exc}', file=sys.stderr)
   if strict_model and model_pending_rows:
     missing_indexes = [index for index, _, _ in model_pending_rows if index not in annotations]
@@ -1047,20 +1208,26 @@ def _annotate_session_rows(rows, use_model: bool = True, model_config=None, forc
     row.pop('taskType', None)
     row.pop('taskSolution', None)
     normalized_reason = _normalize_dissatisfaction_reason(annotation.get('dissatisfactionReason'))
+    if not (
+      normalized_reason.startswith('产物不满意：')
+      and '过程不满意：' in normalized_reason
+    ):
+      fallback_issue = (
+        normalized_reason
+        or _conversation_core_issue(reason_conversation)
+        or _conversation_core_issue(row.get('conversation') or '')
+      )
+      normalized_reason = _dual_axis_fallback_reason(fallback_issue)
     row['dissatisfactionReason'] = normalized_reason
     row['annotationHash'] = target_hash
     row['annotationVersion'] = TRAE_SESSION_ANNOTATION_PROMPT_VERSION
     row['annotationUpdatedAt'] = annotated_at
-    row['annotationSource'] = annotation.get('annotationSource') or 'fallback'
-    after = (
-      row.get('dissatisfactionReason'),
-      row.get('annotationHash'),
-      row.get('annotationVersion'),
-      row.get('annotationSource'),
-    )
-    if after != before:
-      changed_count += 1
-  return changed_count
+    source = annotation.get('annotationSource') or 'fallback'
+    if annotation_error and source in {'fallback', 'terminal-round-fallback'}:
+      source = f'fallback-after-model-error:{type(annotation_error).__name__}'
+    row['annotationSource'] = source
+    changed = True
+  return changed
 
 
 def _persist_session_cache(path: str, payload: dict):
@@ -3363,6 +3530,109 @@ def _normalize_trae_media_items(item: dict, db_path: str = ''):
   return screenshots
 
 
+def _trae_input_text_signature(item: dict) -> str:
+  if not isinstance(item, dict):
+    return ''
+  return re.sub(r'\s+', ' ', str(item.get('inputText') or '').strip())
+
+
+def _trae_input_media_signature(item: dict) -> tuple:
+  if not isinstance(item, dict):
+    return tuple()
+  media_ids = []
+  for key in ('multiMedia', 'images'):
+    values = item.get(key)
+    if not isinstance(values, list):
+      continue
+    for media_item in values:
+      if not isinstance(media_item, dict):
+        continue
+      resource_id = str(
+        media_item.get('resource_id')
+        or media_item.get('resourceId')
+        or media_item.get('url')
+        or media_item.get('src')
+        or ''
+      ).strip()
+      if resource_id:
+        media_ids.append(resource_id)
+  return tuple(sorted(dict.fromkeys(media_ids)))
+
+
+def _trae_input_media_datetimes(item: dict):
+  values = []
+  if not isinstance(item, dict):
+    return values
+  media_items = []
+  for key in ('multiMedia', 'images'):
+    raw_items = item.get(key)
+    if isinstance(raw_items, list):
+      media_items.extend(raw_items)
+  for media_item in media_items:
+    if not isinstance(media_item, dict):
+      continue
+    raw = ' '.join(str(media_item.get(key) or '') for key in ('resource_id', 'resourceId', 'url', 'src', 'name'))
+    for match in re.finditer(r'(?<!\d)(1[6-9]\d{11})(?!\d)', raw):
+      try:
+        # Trae resource_id stores millisecond epoch; logs on this machine are UTC+3.
+        dt = datetime.datetime.fromtimestamp(
+          int(match.group(1)) / 1000,
+          datetime.timezone(datetime.timedelta(hours=3)),
+        ).replace(tzinfo=None)
+        values.append(dt)
+      except Exception:
+        continue
+  return values
+
+
+def _trae_input_history_signature(item: dict) -> tuple:
+  return (_trae_input_text_signature(item), _trae_input_media_signature(item))
+
+
+def _effective_trae_input_history_entries(input_history):
+  if not isinstance(input_history, list):
+    return []
+  effective_entries = []
+  seen_long_text_only_signatures = set()
+  index = 0
+  while index < len(input_history):
+    item = input_history[index]
+    if not isinstance(item, dict):
+      index += 1
+      continue
+    signature = _trae_input_history_signature(item)
+    run_end = index
+    while run_end + 1 < len(input_history):
+      next_item = input_history[run_end + 1]
+      if not isinstance(next_item, dict) or _trae_input_history_signature(next_item) != signature:
+        break
+      run_end += 1
+
+    # Trae input_history often keeps retry attempts as identical consecutive rows.
+    # The later attempt is the one that actually survived, so keep the last item in the run.
+    kept_item = input_history[run_end]
+    text_signature, media_signature = signature
+    is_long_text_only = bool(text_signature and not media_signature and len(text_signature) >= 240)
+    if is_long_text_only and signature in seen_long_text_only_signatures:
+      index = run_end + 1
+      continue
+    if is_long_text_only:
+      seen_long_text_only_signatures.add(signature)
+    effective_entries.append({
+      'item': kept_item,
+      'rawIndex': run_end,
+      'runStart': index,
+      'runEnd': run_end,
+      'signature': signature,
+    })
+    index = run_end + 1
+  return effective_entries
+
+
+def _effective_trae_input_history_items(input_history):
+  return [entry.get('item') for entry in _effective_trae_input_history_entries(input_history)]
+
+
 def _fill_session_screenshots_from_input_history(order_token: str, payload: dict) -> bool:
   if not isinstance(payload, dict):
     return False
@@ -3389,17 +3659,10 @@ def _fill_session_screenshots_from_input_history(order_token: str, payload: dict
   input_history = _safe_json_loads(result[0] if result else '[]', [])
   if not isinstance(input_history, list):
     return False
-  effective_items = []
-  previous_text = None
-  for item in input_history:
-    if not isinstance(item, dict):
-      continue
-    text = str(item.get('inputText') or '').strip()
-    screenshots = _normalize_trae_media_items(item, db_path)
-    if text and text == previous_text and not screenshots:
-      continue
-    effective_items.append((item, screenshots))
-    previous_text = text
+  effective_items = [
+    (item, _normalize_trae_media_items(item, db_path))
+    for item in _effective_trae_input_history_items(input_history)
+  ]
   changed = False
   for index, row in enumerate(rows):
     if not isinstance(row, dict) or index >= len(effective_items):
@@ -5693,20 +5956,77 @@ def extract_trae_session_rounds_precise(order_token: str):
   db_path, current_session_id, input_history, user_id = _read_trae_workspace_context(order_token)
   create_rows = _precise_create_message_rows(current_session_id)
   candidates = _session_candidate_message_ids(current_session_id)
-  effective_input_items = []
-  previous_text = None
-  for item in input_history:
-    if not isinstance(item, dict):
-      continue
-    text = str(item.get('inputText') or '').strip()
-    if text and text == previous_text:
-      continue
-    effective_input_items.append(item)
-    previous_text = text
+  effective_input_entries = _effective_trae_input_history_entries(input_history)
+  effective_input_items = [entry.get('item') for entry in effective_input_entries]
+
+  def _create_row_datetime(meta: dict):
+    return _session_row_time({'sessionId': f":Trae CN.T({(meta or {}).get('time')})"})
+
+  def _align_create_rows_by_input(input_items, message_rows, input_entries=None, raw_input_count: int = 0):
+    if (
+      input_entries
+      and raw_input_count
+      and len(message_rows or []) == raw_input_count
+    ):
+      aligned_by_raw_index = []
+      for entry in input_entries:
+        raw_index = entry.get('rawIndex')
+        if isinstance(raw_index, int) and 0 <= raw_index < len(message_rows):
+          aligned_by_raw_index.append(message_rows[raw_index])
+        else:
+          aligned_by_raw_index.append(None)
+      return aligned_by_raw_index
+    aligned = [None] * len(input_items)
+    unused = list(message_rows or [])
+    for idx, item in enumerate(input_items):
+      media_times = _trae_input_media_datetimes(item)
+      if not media_times:
+        continue
+      entry = input_entries[idx] if input_entries and idx < len(input_entries) else {}
+      retry_run_length = 1
+      if isinstance(entry, dict):
+        run_start = entry.get('runStart')
+        run_end = entry.get('runEnd')
+        if isinstance(run_start, int) and isinstance(run_end, int) and run_end >= run_start:
+          retry_run_length = max(1, run_end - run_start + 1)
+      scored = []
+      for row_index, meta in enumerate(unused):
+        meta_time = _create_row_datetime(meta)
+        if not meta_time:
+          continue
+        score = min(abs((meta_time - media_time).total_seconds()) for media_time in media_times)
+        if score <= 15 * 60:
+          scored.append((meta_time, score, row_index))
+      if retry_run_length > 1 and scored:
+        # Identical consecutive input_history rows are retry attempts. Keep the last attempt,
+        # so align to the same ordinal nearby create-message when it exists.
+        scored.sort(key=lambda item: (item[0], item[1]))
+        best_index = scored[min(retry_run_length, len(scored)) - 1][2]
+      elif scored:
+        scored.sort(key=lambda item: (item[1], item[0]))
+        best_index = scored[0][2]
+      else:
+        best_index = -1
+      if best_index >= 0:
+        aligned[idx] = unused.pop(best_index)
+    for idx, meta in enumerate(aligned):
+      if meta is not None or not unused:
+        continue
+      aligned[idx] = unused.pop(0)
+    return aligned
+
+  aligned_create_rows = _align_create_rows_by_input(
+    effective_input_items,
+    create_rows,
+    input_entries=effective_input_entries,
+    raw_input_count=len(input_history),
+  )
 
   rows = []
   used_composites = set()
-  for item, meta in zip(effective_input_items, create_rows):
+  for item, meta in zip(effective_input_items, aligned_create_rows):
+    if not isinstance(meta, dict):
+      continue
     input_text = str(item.get('inputText') or '').strip()
     chat_message_id = meta.get('chatMessageId') or ''
     trace_id = meta.get('traceId') or ''
@@ -5821,7 +6141,10 @@ def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
       precise_rows, _ = strip_source_only_log_trace_rows(normalize_trae_session_rows(precise_payload.get('rows') or []))
       precise_payload['rows'] = sort_session_rows_by_time(precise_rows)
       refresh_precise_row_count = len(precise_payload.get('rows') or [])
-      if _session_rows_quality(precise_payload.get('rows') or []) > _session_rows_quality(payload.get('rows') or []):
+      if (
+        precise_payload.get('rows')
+        and _session_rows_quality(precise_payload.get('rows') or []) >= _session_rows_quality(payload.get('rows') or [])
+      ):
         payload = precise_payload
     except Exception as exc:
       print(f'[WARN] precise session refresh fallback skipped for {order_token}: {exc}', file=sys.stderr)
@@ -5842,7 +6165,11 @@ def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
     previous_db_path = (previous_payload or {}).get('db_path') or payload.get('db_path') or ''
     fill_official_copied_log_traces(order_token, previous_rows, db_path=previous_db_path)
     mark_missing_real_log_traces(order_token, previous_rows, db_path=previous_db_path)
-  if previous_rows and 0 < len(payload.get('rows') or []) < len(previous_rows):
+  payload_row_count = len(payload.get('rows') or [])
+  expected_effective_count = _expected_trae_session_round_count(order_token)
+  if previous_rows and 0 < payload_row_count < len(previous_rows) and not (
+    expected_effective_count and payload_row_count >= expected_effective_count
+  ):
     previous_payload['rows'] = sort_session_rows_by_time(previous_rows)
     previous_payload['cached'] = True
     previous_payload['cache_path'] = path
@@ -5866,6 +6193,14 @@ def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
     _persist_session_cache(path, payload)
     return payload
   if previous_rows:
+    def _row_conversation_signature(candidate):
+      return re.sub(r'\s+', ' ', str((candidate or {}).get('conversation') or '').strip())
+
+    def _can_preserve_previous_content(row, previous):
+      current_conversation = _row_conversation_signature(row)
+      previous_conversation = _row_conversation_signature(previous)
+      return bool(previous_conversation) and (not current_conversation or current_conversation == previous_conversation)
+
     def _stable_previous_row_key(candidate):
       parts = _session_row_composite_parts(candidate)
       if parts:
@@ -5887,15 +6222,20 @@ def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
         'logTraceId',
         'sessionComposite',
         'rawSessionId',
-        'conversation',
-        'dissatisfactionReason',
-        'annotationHash',
-        'annotationVersion',
-        'annotationUpdatedAt',
-        'annotationSource',
       ):
         if key in previous:
           row[key] = previous.get(key)
+      if _can_preserve_previous_content(row, previous):
+        for key in (
+          'conversation',
+          'dissatisfactionReason',
+          'annotationHash',
+          'annotationVersion',
+          'annotationUpdatedAt',
+          'annotationSource',
+        ):
+          if key in previous:
+            row[key] = previous.get(key)
       return row
 
     previous_by_key = {}
@@ -5929,17 +6269,19 @@ def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
       if not _is_trae_composite_session_id(row.get('sessionId') or '') and _is_trae_composite_session_id(previous.get('sessionId') or ''):
         row = _preserve_existing_row_identity(row, previous)
       elif previous:
-        for key in (
-          'rawSessionId',
-          'conversation',
-          'dissatisfactionReason',
-          'annotationHash',
-          'annotationVersion',
-          'annotationUpdatedAt',
-          'annotationSource',
-        ):
-          if key in previous:
-            row[key] = previous.get(key)
+        if 'rawSessionId' in previous and not row.get('rawSessionId'):
+          row['rawSessionId'] = previous.get('rawSessionId')
+        if _can_preserve_previous_content(row, previous):
+          for key in (
+            'conversation',
+            'dissatisfactionReason',
+            'annotationHash',
+            'annotationVersion',
+            'annotationUpdatedAt',
+            'annotationSource',
+          ):
+            if key in previous:
+              row[key] = previous.get(key)
       merged_rows.append(row)
     payload['rows'] = merged_rows
   fill_official_copied_log_traces(order_token, payload.get('rows') or [], db_path=payload.get('db_path') or '')
@@ -5971,24 +6313,6 @@ def _rows_need_force_log_trace_scan(rows) -> bool:
   return False
 
 
-def _effective_trae_input_history_items(input_history):
-  if not isinstance(input_history, list):
-    return []
-  effective_items = []
-  previous_text = None
-  for item in input_history:
-    if not isinstance(item, dict):
-      continue
-    text = str(item.get('inputText') or '').strip()
-    media = item.get('multiMedia') if isinstance(item.get('multiMedia'), list) else []
-    has_media = bool(media)
-    if text and text == previous_text and not has_media:
-      continue
-    effective_items.append(item)
-    previous_text = text
-  return effective_items
-
-
 def _expected_trae_session_round_count(order_token: str) -> int:
   try:
     _, _, input_history, _ = _read_trae_workspace_context(order_token)
@@ -6002,6 +6326,8 @@ def _cached_rows_need_deep_discovery(order_token: str, cached_rows) -> tuple:
   expected_count = _expected_trae_session_round_count(order_token)
   cached_count = len(rows)
   if expected_count and cached_count < expected_count:
+    return True, expected_count, cached_count
+  if expected_count and cached_count > expected_count:
     return True, expected_count, cached_count
   return False, expected_count, cached_count
 
@@ -6046,6 +6372,91 @@ def refresh_existing_trae_session_log_traces(order_token: str):
   _persist_session_cache(_session_cache_path(order_token), payload)
   payload['cache_path'] = _session_cache_path(order_token)
   return payload
+
+
+def annotate_dissatisfaction_for_orders(order_tokens, model_id: str = '', force: bool = True):
+  orders = parse_order_tokens(order_tokens)
+  if not orders:
+    raise RuntimeError('orders 不能为空')
+  if len(orders) > 50:
+    raise RuntimeError('一次最多标注 50 个项目')
+  provider, models, selected_model_id = _annotation_runtime_config(model_id)
+  results = []
+  total_rows = 0
+  total_changed = 0
+  failed_orders = []
+  for order in orders:
+    try:
+      path = _session_cache_path(order)
+      payload = read_trae_session_cache(order)
+      rows = payload.get('rows') if isinstance(payload, dict) else []
+      if not isinstance(rows, list):
+        rows = []
+      before_reasons = [
+        (
+          str(row.get('dissatisfactionReason') or '') if isinstance(row, dict) else '',
+          str(row.get('annotationSource') or '') if isinstance(row, dict) else '',
+        )
+        for row in rows
+      ]
+      before = json.dumps(rows, ensure_ascii=False, sort_keys=True)
+      changed = _annotate_session_rows(rows, use_model=True, model_id=model_id, force=force)
+      after = json.dumps(rows, ensure_ascii=False, sort_keys=True)
+      row_count = len(rows)
+      after_reasons = [
+        (
+          str(row.get('dissatisfactionReason') or '') if isinstance(row, dict) else '',
+          str(row.get('annotationSource') or '') if isinstance(row, dict) else '',
+        )
+        for row in rows
+      ]
+      changed_count = sum(1 for old, new in zip(before_reasons, after_reasons) if old != new)
+      if changed or before != after:
+        updated_at = datetime.datetime.now().isoformat(timespec='seconds')
+        payload['rows'] = sort_session_rows_by_time(rows)
+        payload['cached'] = True
+        payload['annotatedAt'] = updated_at
+        payload['annotationModelId'] = selected_model_id or model_id or ''
+        payload['annotationProvider'] = provider
+        _persist_session_cache(path, payload)
+      else:
+        payload['cached'] = True
+      total_rows += row_count
+      total_changed += changed_count
+      results.append({
+        'order': order,
+        'ok': True,
+        'rows': row_count,
+        'changed': changed or before != after,
+        'changedRows': changed_count,
+        'modelId': selected_model_id or model_id or '',
+        'provider': provider,
+        'models': models,
+      })
+    except Exception as exc:
+      failed_orders.append(order)
+      results.append({
+        'order': order,
+        'ok': False,
+        'rows': 0,
+        'changed': False,
+        'changedRows': 0,
+        'error': str(exc),
+        'modelId': selected_model_id or model_id or '',
+        'provider': provider,
+        'models': models,
+      })
+  return {
+    'ok': len(failed_orders) < len(orders),
+    'orders': orders,
+    'modelId': selected_model_id or model_id or '',
+    'provider': provider,
+    'models': models,
+    'totalRows': total_rows,
+    'changedRows': total_changed,
+    'failedOrders': failed_orders,
+    'results': results,
+  }
 
 
 def refresh_trae_session_identity_column(order_token: str):
@@ -6316,6 +6727,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
   chat_store = _safe_json_loads(kv.get('ChatStore', '{}'), {})
   if not isinstance(input_history, list):
     input_history = []
+  effective_input_count = len(_effective_trae_input_history_items(input_history))
 
   current_session_id = str(memento.get('currentSessionId') or '').strip()
   if not current_session_id and isinstance(memento.get('list'), list) and memento['list']:
@@ -6528,21 +6940,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
       return None
 
   def _media_datetimes(item: dict):
-    values = []
-    media_items = item.get('multiMedia') if isinstance(item.get('multiMedia'), list) else []
-    media_items += item.get('images') if isinstance(item.get('images'), list) else []
-    for media_item in media_items:
-      if not isinstance(media_item, dict):
-        continue
-      raw = ' '.join(str(media_item.get(key) or '') for key in ('resource_id', 'url', 'src', 'name'))
-      for match in re.finditer(r'(?<!\d)(1[6-9]\d{11})(?!\d)', raw):
-        try:
-          # Trae resource_id stores millisecond epoch; logs on this machine are UTC+3.
-          dt = datetime.datetime.fromtimestamp(int(match.group(1)) / 1000, datetime.timezone(datetime.timedelta(hours=3))).replace(tzinfo=None)
-          values.append(dt)
-        except Exception:
-          continue
-    return values
+    return _trae_input_media_datetimes(item)
 
   def _dedupe_chat_ids(chat_ids):
     deduped = []
@@ -6561,19 +6959,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
     ordered_chat_ids = _dedupe_chat_ids(chat_ids)
     if not ordered_chat_ids:
       return []
-    effective_items = []
-    previous_text = None
-    for item in input_items:
-      if not isinstance(item, dict):
-        continue
-      text = str(item.get('inputText') or '').strip()
-      has_media = bool(_media_datetimes(item))
-      if text and text == previous_text and not has_media:
-        continue
-      effective_items.append(item)
-      previous_text = text
-    if len(ordered_chat_ids) >= len(effective_items):
-      return ordered_chat_ids[:len(effective_items)]
+    effective_items = _effective_trae_input_history_items(input_items)
     aligned = [''] * len(effective_items)
     unused = list(ordered_chat_ids)
 
@@ -6714,7 +7100,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
     session_created_ids = _rg_session_create_message_ids(current_session_id)
     if session_created_ids:
       _fast_rg_backfill_meta_for_chat_ids(session_created_ids)
-      if not target_chat_ids_set or len(target_chat_ids) < len(input_history):
+      if not target_chat_ids_set or len(target_chat_ids) < effective_input_count:
         target_chat_ids = _dedupe_chat_ids(session_created_ids)
         target_chat_ids_set = set(target_chat_ids)
         turn_keys = target_chat_ids
@@ -6846,7 +7232,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
     and current_session_id
     and (
       not target_chat_ids_set
-      or len(target_chat_ids) < len(input_history)
+      or len(target_chat_ids) < effective_input_count
       or not _target_metas_complete()
     )
   )
@@ -6923,7 +7309,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
 
       _scan_session_logs(ai_agent_files, recent_line_iter)
       _scan_session_logs(renderer_files, recent_line_iter)
-      expected_count = len(target_chat_ids_set) if target_chat_ids_set else len(input_history)
+      expected_count = len(target_chat_ids_set) if target_chat_ids_set else effective_input_count
       incomplete_chat_ids = list(target_chat_ids_set) if target_chat_ids_set else session_message_ids
       if len(_dedupe_chat_ids(session_message_ids)) < expected_count or _meta_map_has_incomplete(message_meta, incomplete_chat_ids):
         if allow_full_scan:
@@ -6954,7 +7340,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
     _fast_rg_backfill_meta_for_chat_ids(session_created_ids)
     if session_created_ids:
       session_created_ids = _dedupe_chat_ids(session_created_ids)
-      if len(session_created_ids) >= len(effective_input_items if 'effective_input_items' in locals() else input_history):
+      if len(session_created_ids) >= (len(effective_input_items) if 'effective_input_items' in locals() else effective_input_count):
         target_chat_ids = session_created_ids
         turn_keys = target_chat_ids
 
@@ -6964,17 +7350,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
     _time_text_to_datetime((message_meta.get(chat_id) or {}).get('time') or '') or datetime.datetime.max,
   ))
   has_known_chat_turns = bool(aligned_chat_ids)
-  effective_input_items = []
-  previous_text = None
-  for item in input_history:
-    if not isinstance(item, dict):
-      continue
-    text = str(item.get('inputText') or '').strip()
-    has_media = bool(_media_datetimes(item))
-    if text and text == previous_text and not has_media:
-      continue
-    effective_input_items.append(item)
-    previous_text = text
+  effective_input_items = _effective_trae_input_history_items(input_history)
   if aligned_chat_ids and len(aligned_chat_ids) == len(effective_input_items):
     turn_keys = aligned_chat_ids
   else:
@@ -7189,6 +7565,22 @@ class Handler(SimpleHTTPRequestHandler):
           order,
           force=bool(payload.get('force')),
           discover=bool(payload.get('discover')),
+        )
+        self._json(200, result)
+      except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/annotate-dissatisfaction':
+      try:
+        payload = self._read_json_body()
+        orders = payload.get('orders')
+        if orders is None:
+          orders = [payload.get('order')]
+        result = annotate_dissatisfaction_for_orders(
+          orders,
+          model_id=str(payload.get('model_id') or payload.get('modelId') or '').strip(),
+          force=payload.get('force') is not False,
         )
         self._json(200, result)
       except Exception as err:
