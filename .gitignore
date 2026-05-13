@@ -10,6 +10,7 @@ __pycache__/
 # Local machine data/cache. Do not sync generated Workbench state between machines.
 /data/
 /docs/data/generated/
+/docs/data/资料1-human_business_assets/
 /docs/data-bak/
 /solo-coder/workbench/.workbench*.url
 /solo-coder/workbench/.workbench*.pid

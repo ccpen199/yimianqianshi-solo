@@ -452,7 +452,7 @@ TRAE_SESSION_ANNOTATION_MODELS = [
   if model.strip()
 ]
 TRAE_SESSION_ANNOTATION_PROVIDER = os.environ.get('TRAE_SESSION_ANNOTATION_PROVIDER') or 'deepseek'
-TRAE_SESSION_ANNOTATION_PROMPT_VERSION = '20260513_v13_single_dual_axis_block'
+TRAE_SESSION_ANNOTATION_PROMPT_VERSION = '20260513_v14_evidence_bound_product'
 TRAE_SESSION_ANNOTATION_TIMEOUT_SECONDS = int(os.environ.get('TRAE_SESSION_ANNOTATION_TIMEOUT_SECONDS') or '120')
 TRAE_SESSION_CODEX_ANNOTATION_TIMEOUT_SECONDS = int(os.environ.get('TRAE_SESSION_CODEX_ANNOTATION_TIMEOUT_SECONDS') or '240')
 TRAE_SESSION_ANNOTATION_MAX_CONVERSATION_CHARS = 2400
@@ -628,6 +628,7 @@ def _normalize_dissatisfaction_reason(value: str, limit: int = 900) -> str:
   text = re.sub(r'当前诉求集中在|当前诉求是|主要问题转为', '', text)
   text = re.sub(r'(第[一二三四五六七八九十0-9]+轮|最后一轮)[，,。；;:\s]*(请|麻烦|继续|务必).*$' , '', text)
   text = re.sub(r'(请|麻烦)(继续|尽快|直接|优先)?(完成|修复|处理|解决|保证|注意).*$' , '', text)
+  text = re.sub(r'[，,；;、]?\s*影响对[^。；;，,]*时间线[^。；;，,]*(判断|理解)', '', text)
   text = re.sub(r'\s+', ' ', text).strip(' ，,。；;：:')
   if text in {'无', '暂无', '无明显不满意反馈', '无明显问题', '未发现明显不满意反馈', '暂无明显不满意', '产物不满意', '过程不满意'}:
     text = ''
@@ -1055,7 +1056,9 @@ def _request_session_annotations(pending_rows, model_id: str = ''):
         '请只输出 JSON 对象，不要输出解释。'
         '字段要求：dissatisfactionReason 必须是“产物不满意：...。过程不满意：...。”双轴结构。'
         '每一行只能输出一组双轴结论，只能出现一次“产物不满意：”和一次“过程不满意：”；禁止把同一段结论重复输出两遍，也禁止输出多个候选版本。'
-        '产物不满意要写当前轮任务对应的页面/接口/模块/按钮/数据/业务规则的具体问题、影响和需求偏差。'
+        '产物不满意要写当前轮任务对应的页面/接口/模块/按钮/数据/业务规则的确定性问题、证据和需求偏差。'
+        '产物判断必须基于 currentConversation、currentLogTrace 或截图中已经明确出现的事实；不能把推测、感受、可能影响、判断成本、时间线理解成本写成产物缺陷。'
+        '如果只看到“一分钟前显示为三小时前”这类时间文案问题，只能写确定事实，例如“时间展示把一分钟前错误显示为三小时前”；除非已有证据明确说明业务排序、提醒、审计或内容流因此出错，否则禁止写“影响对内容时间线的判断”。'
         '产物不满意至少包含两个要素：范围/对象（哪个页面、模块、入口、按钮、接口、角色路径）和影响范围（影响哪些核心流程、业务目标或验收链路）。'
         '范围/对象和影响范围不能省略：不能只写“页面没有渲染结果”“跳转错误”“权限错误”“无响应”，必须说明发生在哪个页面或入口、影响哪些核心流程。'
         '过程不满意要写执行过程的问题，例如只验证接口未看页面、启动证据不足、端口归属不清、缺少截图、没有复现路径、反复试错、日志缺失、没有异常场景验收。'

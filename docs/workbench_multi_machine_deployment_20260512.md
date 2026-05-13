@@ -19,7 +19,7 @@
    - `TRAE_CLI`
 
 3. 默认路径按系统推断：
-   - Workbench 运行数据：仓库根目录 `data/`，首次启动会从 `docs/data/generated/` 复制 `generation_prompts.json` 和 `prompt_state.json` 作为本机种子。
+   - Workbench 运行数据：仓库根目录 `data/`。远程仓库不再提交 `docs/data/generated/` 里的数据列表、批量组和会话缓存；首次启动若本机没有数据文件，会创建空的 `generation_prompts.json` 和 `prompt_state.json`，后续由本机导入、生成或刷新维护。
    - macOS：`~/Documents/trae_projects`，`~/Library/Application Support/Trae CN`
    - Windows：`%USERPROFILE%\Documents\trae_projects`，`%APPDATA%\Trae CN`
    - Linux：`~/trae_projects`，`~/.config/Trae CN`
@@ -141,16 +141,18 @@ $env:TRAE_CLI="C:\Users\<你>\AppData\Local\Trae CN\Trae CN.exe"
 以下内容属于机器本地运行数据，不同步、不提交、不推送：
 
 ```text
-docs/data/generated/generation_prompts.json
-docs/data/generated/prompt_state.json
-docs/data/generated/trae_session_rounds/
-docs/data/generated/feishu_screenshot_paste/
+data/generated/generation_prompts.json
+data/generated/prompt_state.json
+data/generated/trae_session_rounds/
+data/generated/feishu_screenshot_paste/
+docs/data/generated/
+docs/data/资料1-human_business_assets/
 docs/data-bak/
 ```
 
-其中 `prompt_state.json` 里包含完成状态、序号覆盖和批量组 `trae_groups`。这些数据必须各机器独立维护，否则不同电脑的批量组和轮次缓存会互相污染。
+其中 `generation_prompts.json` 是数据列表，`prompt_state.json` 里包含完成状态、序号覆盖和批量组 `trae_groups`，`trae_session_rounds/` 是会话、日志轨迹和截图缓存。这些数据必须各机器独立维护，否则不同电脑的数据列表、批量组和轮次缓存会互相污染。
 
-`.gitignore` 已加入上述路径。由于历史上部分生成文件可能已经被 Git 跟踪，提交时仍然必须只 stage 代码和文档，不使用 `git add -A`。
+`.gitignore` 已加入上述路径。远程仓库中历史遗留的 `docs/data/generated/` 和 `docs/data/资料1-human_business_assets/` 需要从 Git 跟踪中移除；提交时仍然必须只 stage 代码和文档，不使用 `git add -A`。
 
 ## 拉取 Trae 的跨机原则
 

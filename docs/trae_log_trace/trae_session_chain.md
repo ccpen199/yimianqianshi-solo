@@ -167,14 +167,16 @@ python solo-coder\workbench\serve_workbench.py 8090
 以下路径只代表当前电脑的运行状态、批量组、轮次缓存和截图缓存：
 
 ```text
-docs/data/generated/generation_prompts.json
-docs/data/generated/prompt_state.json
-docs/data/generated/trae_session_rounds/
-docs/data/generated/feishu_screenshot_paste/
+data/generated/generation_prompts.json
+data/generated/prompt_state.json
+data/generated/trae_session_rounds/
+data/generated/feishu_screenshot_paste/
+docs/data/generated/
+docs/data/资料1-human_business_assets/
 docs/data-bak/
 ```
 
-`prompt_state.json` 内含批量组 `trae_groups`，不同机器必须独立维护。提交远程仓库时只提交代码和文档，不提交这些数据文件。
+`generation_prompts.json` 是本机数据列表，`prompt_state.json` 内含批量组 `trae_groups`，`trae_session_rounds/` 内含本机会话轨迹缓存。不同机器必须独立维护。提交远程仓库时只提交代码和文档，不提交这些数据文件。
 
 ## 已知坑位
 
