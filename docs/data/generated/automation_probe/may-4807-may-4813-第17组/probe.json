@@ -1,0 +1,145 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-15 21:18:19",
+  "group": "may-4807-may-4813-第17组",
+  "orders": [
+    "may-4812"
+  ],
+  "localProjectRoot": "/Users/chen/Documents/trae_projects/local_projects",
+  "traeWindowCount": 5,
+  "traeWindows": [
+    "Practice.jsx — may-4798",
+    "user.js — may-4812",
+    "index.js — may-4801",
+    "database.js — may-4802",
+    "user.js — may-4794"
+  ],
+  "projects": [
+    {
+      "order": "may-4812",
+      "projectPath": "/Users/chen/Documents/trae_projects/local_projects/may-4812",
+      "projectExists": true,
+      "traeWindows": [
+        "user.js — may-4812"
+      ],
+      "hasFrontendPackage": true,
+      "hasBackendPackage": true,
+      "hasFrontendNodeModules": true,
+      "hasBackendNodeModules": true,
+      "env": {
+        "PORT": "48121",
+        "JWT_SECRET": "tutor_platform_secret_key_2024",
+        "FRONTEND_URL": "http://localhost:48122"
+      },
+      "envSources": {
+        "PORT": "/Users/chen/Documents/trae_projects/local_projects/may-4812/backend/.env",
+        "JWT_SECRET": "/Users/chen/Documents/trae_projects/local_projects/may-4812/backend/.env",
+        "FRONTEND_URL": "/Users/chen/Documents/trae_projects/local_projects/may-4812/backend/.env"
+      },
+      "frontendPorts": [
+        48122
+      ],
+      "backendPorts": [
+        48121
+      ],
+      "ports": [
+        {
+          "port": 48122,
+          "listening": true,
+          "listeners": [
+            {
+              "command": "node",
+              "pid": "11546",
+              "user": "chen",
+              "protocol": "IPv4",
+              "name": "*:48122 (LISTEN)"
+            }
+          ],
+          "raw": [
+            "COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME",
+            "node    11546 chen   24u  IPv4 0x7204b34809a9a5d9      0t0  TCP *:48122 (LISTEN)"
+          ]
+        },
+        {
+          "port": 48121,
+          "listening": true,
+          "listeners": [
+            {
+              "command": "node",
+              "pid": "87708",
+              "user": "chen",
+              "protocol": "IPv4",
+              "name": "*:48121 (LISTEN)"
+            }
+          ],
+          "raw": [
+            "COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME",
+            "node    87708 chen   18u  IPv4 0x7204b3480982b7d9      0t0  TCP *:48121 (LISTEN)"
+          ]
+        }
+      ],
+      "http": [
+        {
+          "url": "http://localhost:48121/api/health",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 24,
+          "bodyPreview": "{\"success\":true,\"message\":\"服务运行正常\",\"timestamp\":1778869099998}"
+        },
+        {
+          "url": "http://127.0.0.1:48121/api/health",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 12,
+          "bodyPreview": "{\"success\":true,\"message\":\"服务运行正常\",\"timestamp\":1778869100012}"
+        },
+        {
+          "url": "http://[::1]:48121/api/health",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 8
+        },
+        {
+          "url": "http://localhost:48121/health",
+          "ok": false,
+          "status": 404,
+          "elapsedMs": 8,
+          "bodyPreview": "{\"success\":false,\"message\":\"接口不存在\"}"
+        },
+        {
+          "url": "http://127.0.0.1:48121/health",
+          "ok": false,
+          "status": 404,
+          "elapsedMs": 10,
+          "bodyPreview": "{\"success\":false,\"message\":\"接口不存在\"}"
+        },
+        {
+          "url": "http://[::1]:48121/health",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 6
+        },
+        {
+          "url": "http://localhost:48122/",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 14,
+          "bodyPreview": "<!DOCTYPE html>\n<html lang=\"zh-CN\">\n  <head>\n    <script type=\"module\">import { injectIntoGlobalHook } from \"/@react-refresh\";\ninjectIntoGlobalHook(window);\nwindow.$RefreshReg$ = () => {};\nwindow.$RefreshSig$ = () => (type) => type;</script>\n\n    <script type=\"module\" src=\"/@vite/client\"></script>\n\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>随身老师 - 一对一家教平台</title>\n  </head>\n  <body>\n    <div id=\"root\">"
+        },
+        {
+          "url": "http://127.0.0.1:48122/",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 7,
+          "bodyPreview": "<!DOCTYPE html>\n<html lang=\"zh-CN\">\n  <head>\n    <script type=\"module\">import { injectIntoGlobalHook } from \"/@react-refresh\";\ninjectIntoGlobalHook(window);\nwindow.$RefreshReg$ = () => {};\nwindow.$RefreshSig$ = () => (type) => type;</script>\n\n    <script type=\"module\" src=\"/@vite/client\"></script>\n\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>随身老师 - 一对一家教平台</title>\n  </head>\n  <body>\n    <div id=\"root\">"
+        },
+        {
+          "url": "http://[::1]:48122/",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 5
+        }
+      ]
+    }
+  ]
+}

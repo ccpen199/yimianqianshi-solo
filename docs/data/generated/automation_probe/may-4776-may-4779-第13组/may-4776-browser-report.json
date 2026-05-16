@@ -1,0 +1,69 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-14T16:25:47.936Z",
+  "order": "may-4776",
+  "url": "http://[::1]:24776/",
+  "status": 200,
+  "title": "映客 - 直播社交平台",
+  "navigationError": "",
+  "screenshotPath": "docs/data/generated/automation_probe/may-4776-may-4779-第13组/may-4776-frontend.png",
+  "bodyTextPreview": "北京\n映客\n推荐\n附近\n热门\n才艺\n游戏\n聊天\n882\n才艺\n深夜情歌专场\n歌手阿杰\n908\n游戏\n王者荣耀上分中\n游戏达人\n364\n才艺\n今天学习新舞蹈\n舞蹈精灵\n632\n聊天\n搞笑互动聊天\n搞笑大王\n278\n才艺\n新人主播，求关注~\n主播小美\n首页\n动态\n开播\n消息\n我的",
+  "consoleMessages": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "http://[::1]:24776/@vite/client",
+        "lineNumber": 494,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "http://[::1]:24776/@vite/client",
+        "lineNumber": 617,
+        "columnNumber": 14
+      }
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold",
+      "location": {
+        "url": "http://[::1]:24776/node_modules/.vite/deps/chunk-PJEEZAML.js?v=1b8be386",
+        "lineNumber": 21550,
+        "columnNumber": 24
+      }
+    },
+    {
+      "type": "warning",
+      "text": "⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.",
+      "location": {
+        "url": "http://[::1]:24776/node_modules/.vite/deps/react-router-dom.js?v=1b8be386",
+        "lineNumber": 4435,
+        "columnNumber": 12
+      }
+    },
+    {
+      "type": "warning",
+      "text": "⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.",
+      "location": {
+        "url": "http://[::1]:24776/node_modules/.vite/deps/react-router-dom.js?v=1b8be386",
+        "lineNumber": 4435,
+        "columnNumber": 12
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "location": {
+        "url": "http://[::1]:24776/favicon.ico",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    }
+  ],
+  "requestFailures": [],
+  "responseErrors": []
+}

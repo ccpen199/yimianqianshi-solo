@@ -1,0 +1,230 @@
+{
+  "id": "round-20260515-135346-d4f94e10",
+  "status": "stopped",
+  "createdAt": "2026-05-15T13:53:46",
+  "updatedAt": "2026-05-15T16:55:33",
+  "groups": [
+    "may-4772-may-4775-第12组",
+    "may-4780-may-4788-第14组"
+  ],
+  "groupDetails": [
+    {
+      "name": "may-4772-may-4775-第12组",
+      "orders": [
+        "may-4772",
+        "may-4773",
+        "may-4774",
+        "may-4775"
+      ]
+    },
+    {
+      "name": "may-4780-may-4788-第14组",
+      "orders": [
+        "may-4780",
+        "may-4783",
+        "may-4784",
+        "may-4788"
+      ]
+    }
+  ],
+  "targetRounds": 5,
+  "intervalSeconds": 8,
+  "maxCycles": 500,
+  "cycle": 1,
+  "orders": {
+    "may-4772": {
+      "order": "may-4772",
+      "group": "may-4772-may-4775-第12组",
+      "status": "pending",
+      "completedRounds": 0,
+      "targetRounds": 5,
+      "pendingRound": 1,
+      "message": "第 1 轮已提交，等待 Trae 回复和缓存刷新",
+      "submittedAt": "2026-05-15T13:53:54",
+      "submittedAtMono": 64970.717082916,
+      "lastError": ""
+    },
+    "may-4773": {
+      "order": "may-4773",
+      "group": "may-4772-may-4775-第12组",
+      "status": "pending",
+      "completedRounds": 0,
+      "targetRounds": 5,
+      "pendingRound": 1,
+      "message": "第 1 轮已提交，等待 Trae 回复和缓存刷新",
+      "submittedAt": "2026-05-15T13:54:00",
+      "submittedAtMono": 64976.417214041,
+      "lastError": ""
+    },
+    "may-4774": {
+      "order": "may-4774",
+      "group": "may-4772-may-4775-第12组",
+      "status": "blocked",
+      "completedRounds": 0,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "第 1 轮提交失败，未重复提交",
+      "blockedRound": 1,
+      "lastError": "MATCHED=true\nWINDOW=App.jsx — may-4774\nPROCESS=Electron\nFOCUS_ROLE=\nCLIP_LEN=2512\nPASTED_LENGTH=0\nRAN=false"
+    },
+    "may-4775": {
+      "order": "may-4775",
+      "group": "may-4772-may-4775-第12组",
+      "status": "blocked",
+      "completedRounds": 0,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "第 1 轮提交失败，未重复提交",
+      "blockedRound": 1,
+      "lastError": "MATCHED=true\nWINDOW=init.js — may-4775\nPROCESS=Electron\nFOCUS_ROLE=\nCLIP_LEN=2589\nPASTED_LENGTH=0\nRAN=false"
+    },
+    "may-4780": {
+      "order": "may-4780",
+      "group": "may-4780-may-4788-第14组",
+      "status": "blocked",
+      "completedRounds": 0,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "第 1 轮提交失败，未重复提交",
+      "blockedRound": 1,
+      "lastError": "MATCHED=true\nWINDOW=vite.config.js — may-4780\nPROCESS=Electron\nFOCUS_ROLE=\nCLIP_LEN=2611\nPASTED_LENGTH=0\nRAN=false"
+    },
+    "may-4783": {
+      "order": "may-4783",
+      "group": "may-4780-may-4788-第14组",
+      "status": "blocked",
+      "completedRounds": 0,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "第 1 轮提交失败，未重复提交",
+      "blockedRound": 1,
+      "lastError": "MATCHED=true\nWINDOW=server.ts — may-4783\nPROCESS=Electron\nFOCUS_ROLE=AXWebArea\nCLIP_LEN=2538\nPASTED_LENGTH=0\nRAN=false"
+    },
+    "may-4784": {
+      "order": "may-4784",
+      "group": "may-4780-may-4788-第14组",
+      "status": "pending",
+      "completedRounds": 0,
+      "targetRounds": 5,
+      "pendingRound": 1,
+      "message": "第 1 轮已提交，等待 Trae 回复和缓存刷新",
+      "submittedAt": "2026-05-15T13:54:28",
+      "submittedAtMono": 65004.359941041,
+      "lastError": ""
+    },
+    "may-4788": {
+      "order": "may-4788",
+      "group": "may-4780-may-4788-第14组",
+      "status": "blocked",
+      "completedRounds": 0,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "第 1 轮提交失败，未重复提交",
+      "blockedRound": 1,
+      "lastError": "MATCHED=true\nWINDOW=HomePage.jsx — may-4788\nPROCESS=Electron\nFOCUS_ROLE=AXTextArea\nCLIP_LEN=2504\nPASTED_LENGTH=1\nRAN=false"
+    }
+  },
+  "events": [
+    {
+      "time": "2026-05-15T13:53:46",
+      "action": "start",
+      "message": "开始多轮自动化：2 个组，目标 5 轮"
+    },
+    {
+      "time": "2026-05-15T13:53:54",
+      "action": "submit",
+      "group": "may-4772-may-4775-第12组",
+      "order": "may-4772",
+      "round": 1,
+      "message": "may-4772 第 1 轮已提交"
+    },
+    {
+      "time": "2026-05-15T13:54:00",
+      "action": "submit",
+      "group": "may-4772-may-4775-第12组",
+      "order": "may-4773",
+      "round": 1,
+      "message": "may-4773 第 1 轮已提交"
+    },
+    {
+      "time": "2026-05-15T13:54:02",
+      "action": "stop-requested",
+      "message": "收到停止请求"
+    },
+    {
+      "time": "2026-05-15T13:54:04",
+      "action": "stop-requested",
+      "message": "收到停止请求"
+    },
+    {
+      "time": "2026-05-15T13:54:04",
+      "action": "stop-requested",
+      "message": "收到停止请求"
+    },
+    {
+      "time": "2026-05-15T13:54:05",
+      "action": "stop-requested",
+      "message": "收到停止请求"
+    },
+    {
+      "time": "2026-05-15T13:54:05",
+      "action": "submit-blocked",
+      "group": "may-4772-may-4775-第12组",
+      "order": "may-4774",
+      "round": 1,
+      "message": "may-4774 第 1 轮提交失败"
+    },
+    {
+      "time": "2026-05-15T13:54:10",
+      "action": "submit-blocked",
+      "group": "may-4772-may-4775-第12组",
+      "order": "may-4775",
+      "round": 1,
+      "message": "may-4775 第 1 轮提交失败"
+    },
+    {
+      "time": "2026-05-15T13:54:16",
+      "action": "submit-blocked",
+      "group": "may-4780-may-4788-第14组",
+      "order": "may-4780",
+      "round": 1,
+      "message": "may-4780 第 1 轮提交失败"
+    },
+    {
+      "time": "2026-05-15T13:54:16",
+      "action": "stop-requested",
+      "message": "收到停止请求"
+    },
+    {
+      "time": "2026-05-15T13:54:21",
+      "action": "submit-blocked",
+      "group": "may-4780-may-4788-第14组",
+      "order": "may-4783",
+      "round": 1,
+      "message": "may-4783 第 1 轮提交失败"
+    },
+    {
+      "time": "2026-05-15T13:54:28",
+      "action": "submit",
+      "group": "may-4780-may-4788-第14组",
+      "order": "may-4784",
+      "round": 1,
+      "message": "may-4784 第 1 轮已提交"
+    },
+    {
+      "time": "2026-05-15T13:54:36",
+      "action": "submit-blocked",
+      "group": "may-4780-may-4788-第14组",
+      "order": "may-4788",
+      "round": 1,
+      "message": "may-4788 第 1 轮提交失败"
+    },
+    {
+      "time": "2026-05-15T13:54:38",
+      "action": "stopped",
+      "message": "收到停止指令"
+    }
+  ],
+  "stopRequested": true,
+  "message": "已手动停止"
+}

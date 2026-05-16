@@ -1,0 +1,112 @@
+{
+  "ok": true,
+  "group": "may-4776-may-4779-第13组",
+  "drafts": [
+    {
+      "order": "may-4776",
+      "frontendUrl": "http://[::1]:24776/",
+      "backendHealthUrl": "http://127.0.0.1:14776/health",
+      "evidence": [
+        "项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4776",
+        "配置端口：前端 [24776]，后端 [14776]。",
+        "正在监听的项目端口：[24776, 14776]。",
+        "浏览器访问 http://[::1]:24776/ 返回 HTTP 200，页面标题为“映客 - 直播社交平台”。",
+        "后端健康检查地址：http://127.0.0.1:14776/health。",
+        "页面正文可见片段：北京\n映客\n推荐\n附近\n热门\n才艺\n游戏\n聊天\n882\n才艺\n深夜情歌专场\n歌手阿杰\n908\n游戏\n王者荣耀上分中\n游戏达人\n364\n才艺\n今天学习新舞蹈\n舞蹈精灵\n632\n聊天\n搞笑互动聊天\n搞笑大王\n278\n才艺\n新人主播，求关注~\n主播小美\n首页\n动态\n开播\n消息\n我的",
+        "截图尺寸 780x1944，主视觉黑色像素占比 0.0。"
+      ],
+      "issues": [
+        "favicon.ico 返回 404，静态资源兜底不完整。"
+      ],
+      "actions": [
+        "按当前业务需求继续补齐核心页面和主链路，并用浏览器与 API 共同验收。"
+      ],
+      "imageStats": {
+        "ok": true,
+        "width": 780,
+        "height": 1944,
+        "blackRatio": 0.0,
+        "mainVisualBlackRatio": 0.0
+      },
+      "draft": "当前 http://[::1]:24776/ 可以打开，后端健康检查 http://127.0.0.1:14776/health 可用，说明已有运行态可以进入浏览器验收。\n\n已核对到的证据：项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4776；配置端口：前端 [24776]，后端 [14776]；正在监听的项目端口：[24776, 14776]；浏览器访问 http://[::1]:24776/ 返回 HTTP 200，页面标题为“映客 - 直播社交平台”；后端健康检查地址：http://127.0.0.1:14776/health。\n\n需要优先修复的问题：favicon.ico 返回 404，静态资源兜底不完整。\n\n请按以下顺序处理：按当前业务需求继续补齐核心页面和主链路，并用浏览器与 API 共同验收。\n\n修复后请重新启动当前项目端口（前端 [24776]，后端 [14776]），只处理当前项目进程，不要杀死其他项目端口，并用浏览器截图和 API 请求验证主链路。"
+    },
+    {
+      "order": "may-4777",
+      "frontendUrl": "http://127.0.0.1:47772/",
+      "backendHealthUrl": "http://127.0.0.1:47771/api/health",
+      "evidence": [
+        "项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4777",
+        "配置端口：前端 [47772]，后端 [47771]。",
+        "正在监听的项目端口：[47772, 47771]。",
+        "浏览器访问 http://127.0.0.1:47772/ 返回 HTTP 200，页面标题为“网易云音乐私藏推荐”。",
+        "后端健康检查地址：http://127.0.0.1:47771/api/health。",
+        "截图尺寸 780x1688，主视觉黑色像素占比 0.0。"
+      ],
+      "issues": [
+        "页面 HTTP 200 但正文没有可见文本，疑似根组件未渲染、路由空挂载或页面白屏。"
+      ],
+      "actions": [
+        "优先检查前端入口挂载、路由默认页、根组件渲染条件和接口初始化异常，确保首页有可见业务内容而不是空白 DOM。"
+      ],
+      "imageStats": {
+        "ok": true,
+        "width": 780,
+        "height": 1688,
+        "blackRatio": 0.0,
+        "mainVisualBlackRatio": 0.0
+      },
+      "draft": "当前 http://127.0.0.1:47772/ 可以打开，后端健康检查 http://127.0.0.1:47771/api/health 可用，说明已有运行态可以进入浏览器验收。\n\n已核对到的证据：项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4777；配置端口：前端 [47772]，后端 [47771]；正在监听的项目端口：[47772, 47771]；浏览器访问 http://127.0.0.1:47772/ 返回 HTTP 200，页面标题为“网易云音乐私藏推荐”；后端健康检查地址：http://127.0.0.1:47771/api/health。\n\n需要优先修复的问题：页面 HTTP 200 但正文没有可见文本，疑似根组件未渲染、路由空挂载或页面白屏。\n\n请按以下顺序处理：优先检查前端入口挂载、路由默认页、根组件渲染条件和接口初始化异常，确保首页有可见业务内容而不是空白 DOM。\n\n修复后请重新启动当前项目端口（前端 [47772]，后端 [47771]），只处理当前项目进程，不要杀死其他项目端口，并用浏览器截图和 API 请求验证主链路。"
+    },
+    {
+      "order": "may-4778",
+      "frontendUrl": "http://127.0.0.1:47782/",
+      "backendHealthUrl": "http://127.0.0.1:47781/api/health",
+      "evidence": [
+        "项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4778",
+        "配置端口：前端 [47782]，后端 [47781]。",
+        "正在监听的项目端口：[47782, 47781]。",
+        "浏览器访问 http://127.0.0.1:47782/ 返回 HTTP 200，页面标题为“短视频”。",
+        "后端健康检查地址：http://127.0.0.1:47781/api/health。",
+        "页面正文可见片段：关注\n推荐\n🔍\n@创作者3\n关注\n猫咪日常\n🎵\n可爱音乐\n❤️\n9335\n💬\n972\n↗️\n0\n@创作者2\n关注\n美食探店vlog\n🎵\n背景音乐1\n❤️\n8561\n💬\n679\n↗️\n0\n@创作者2\n关注\n美食探店vlog\n🎵\n背景音乐1\n❤️\n7933\n💬\n571\n↗️\n0\n@创作者5\n关注\n旅行日记\n🎵\n旅行音乐\n❤️\n7892\n💬\n79\n↗️\n0\n@创作者4\n关注\n健身打卡\n🎵\n动感音乐\n❤️\n7830\n💬\n226\n↗️\n0\n@创作者5\n关注\n旅行日记\n🎵\n旅行音乐\n❤️\n7468\n💬\n558\n↗️\n0\n@创作",
+        "截图尺寸 780x1688，主视觉黑色像素占比 0.0018。"
+      ],
+      "issues": [
+        "favicon.ico 返回 404，静态资源兜底不完整。",
+        "请求失败：GET https://www.w3schools.com/html/mov_bbb.mp4 net::ERR_ABORTED"
+      ],
+      "actions": [
+        "检查失败资源或接口的来源，避免核心页面依赖不可控外链；必要时改成本地静态资源、后端代理或可见兜底封面。"
+      ],
+      "imageStats": {
+        "ok": true,
+        "width": 780,
+        "height": 1688,
+        "blackRatio": 0.0104,
+        "mainVisualBlackRatio": 0.0018
+      },
+      "draft": "当前 http://127.0.0.1:47782/ 可以打开，后端健康检查 http://127.0.0.1:47781/api/health 可用，说明已有运行态可以进入浏览器验收。\n\n已核对到的证据：项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4778；配置端口：前端 [47782]，后端 [47781]；正在监听的项目端口：[47782, 47781]；浏览器访问 http://127.0.0.1:47782/ 返回 HTTP 200，页面标题为“短视频”；后端健康检查地址：http://127.0.0.1:47781/api/health。\n\n需要优先修复的问题：favicon.ico 返回 404，静态资源兜底不完整；请求失败：GET https://www.w3schools.com/html/mov_bbb.mp4 net::ERR_ABORTED。\n\n请按以下顺序处理：检查失败资源或接口的来源，避免核心页面依赖不可控外链；必要时改成本地静态资源、后端代理或可见兜底封面。\n\n修复后请重新启动当前项目端口（前端 [47782]，后端 [47781]），只处理当前项目进程，不要杀死其他项目端口，并用浏览器截图和 API 请求验证主链路。"
+    },
+    {
+      "order": "may-4779",
+      "frontendUrl": "",
+      "backendHealthUrl": "",
+      "evidence": [
+        "项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4779"
+      ],
+      "issues": [
+        "配置端口当前均未监听，前后端没有可访问运行态。",
+        "未发现 frontend/package.json，前端工程启动入口缺失或目录结构不标准。",
+        "未发现 backend/package.json，后端工程启动入口缺失或目录结构不标准。"
+      ],
+      "actions": [
+        "先恢复标准前后端工程入口，补齐 package.json、启动脚本和端口配置，再进入浏览器与 API 验收。",
+        "按当前项目配置端口启动前后端，只处理本项目端口；不要 killall/pkill 全局 Node 进程。"
+      ],
+      "imageStats": {
+        "ok": false,
+        "error": "missing screenshot"
+      },
+      "draft": "当前项目还没有形成稳定可访问的运行态，需要先把前后端启动链路补齐。\n\n已核对到的证据：项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4779。\n\n需要优先修复的问题：配置端口当前均未监听，前后端没有可访问运行态；未发现 frontend/package.json，前端工程启动入口缺失或目录结构不标准；未发现 backend/package.json，后端工程启动入口缺失或目录结构不标准。\n\n请按以下顺序处理：先恢复标准前后端工程入口，补齐 package.json、启动脚本和端口配置，再进入浏览器与 API 验收；按当前项目配置端口启动前后端，只处理本项目端口；不要 killall/pkill 全局 Node 进程。"
+    }
+  ]
+}

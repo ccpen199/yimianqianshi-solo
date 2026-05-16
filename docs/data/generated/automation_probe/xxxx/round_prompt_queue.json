@@ -1,0 +1,40 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-15 04:22:17",
+  "group": "xxxx",
+  "targetRounds": 5,
+  "queue": [],
+  "skipped": [
+    {
+      "order": "may-979",
+      "reason": "已达到 5 轮",
+      "currentRoundCount": 5
+    },
+    {
+      "order": "may-980",
+      "reason": "已达到 5 轮",
+      "currentRoundCount": 5
+    },
+    {
+      "order": "may-981",
+      "reason": "已达到 5 轮",
+      "currentRoundCount": 5
+    },
+    {
+      "order": "may-982",
+      "reason": "已达到 5 轮",
+      "currentRoundCount": 5
+    },
+    {
+      "order": "may-983",
+      "reason": "已达到 5 轮",
+      "currentRoundCount": 6
+    }
+  ],
+  "counts": {
+    "queued": 0,
+    "skipped": 5,
+    "orders": 5
+  },
+  "source": "trae_session_rounds"
+}

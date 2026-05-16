@@ -20,11 +20,11 @@
       ],
       "logTraceReconstructionVersion": "20260509_v13_trace_time_locator",
       "logTraceScanVersion": "20260509_v13_trace_time_locator",
-      "dissatisfactionReason": "关键按钮无响应",
+      "dissatisfactionReason": "产物不满意：首轮活动模块交付后，时间日历点击没有反应，活动筛选的核心条件无法使用。过程不满意：该轮没有真实日志轨迹，无法核对是否创建并启动了活动列表、日期组件、筛选接口和页面验收动作。",
       "annotationHash": "eab73ab5140dcc962a80eb4d737b067b70ddb2d7",
-      "annotationVersion": "20260509_v10_detailed_permission_issue",
-      "annotationUpdatedAt": "2026-05-10T01:17:41",
-      "annotationSource": "next-row-direct"
+      "annotationVersion": "manual_dual_axis_quality_audit_20260511_v2",
+      "annotationUpdatedAt": "2026-05-11T22:45:00",
+      "annotationSource": "manual-dual-axis-audit"
     },
     {
       "sessionId": ".3792634309254663:772c694e206571fd71c15c38cdc9c1a4_69ff5360b88fb1a0b30c66c6.69ff7564b88fb1a0b30c6b25.69ff7564215e40562d4dfbc4:Trae CN.T(2026/5/9 20:56:52)",
@@ -49,11 +49,11 @@
       "logTraceFormatVersion": "20260509_v13_trace_time_locator",
       "logTraceScanVersion": "20260509_v13_trace_time_locator",
       "officialCopiedLogTrace": true,
-      "dissatisfactionReason": "需求很明确的说了时间范围是近6个月日历，但是时间列表没做好",
+      "dissatisfactionReason": "产物不满意：更换日期组件后，近 6 个月日历范围仍没有按业务要求展开，且图片资源还存在加载报错，活动筛选和内容展示都不完整。过程不满意：本轮主要把原生 date 改成 Element Plus 日期选择器，没有验证 6 个月可选范围、活动时间段过滤和图片可达性。",
       "annotationHash": "096b6fc1cee1984b784b9a30e6bb039583ec0293",
-      "annotationVersion": "20260509_v10_detailed_permission_issue",
-      "annotationUpdatedAt": "2026-05-10T01:17:41",
-      "annotationSource": "next-row-direct"
+      "annotationVersion": "manual_dual_axis_quality_audit_20260511_v2",
+      "annotationUpdatedAt": "2026-05-11T22:45:00",
+      "annotationSource": "manual-dual-axis-audit"
     },
     {
       "sessionId": ".3792634309254663:10e616bbde53e19482845f7487ef6d82_69ff5360b88fb1a0b30c66c6.69ff76e3b88fb1a0b30c6baa.69ff76e2215e40562d4dfbc5:Trae CN.T(2026/5/9 21:03:15)",
@@ -78,11 +78,11 @@
       "logTraceFormatVersion": "20260509_v13_trace_time_locator",
       "logTraceScanVersion": "20260509_v13_trace_time_locator",
       "officialCopiedLogTrace": true,
-      "dissatisfactionReason": "时间显示不对应，现在是2026年，底部显示的却是错误的2024年",
+      "dissatisfactionReason": "产物不满意：日期和图片修复后，页面底部年份仍显示错误的 2024，与当前 2026 年不对应，基础信息存在硬编码问题。过程不满意：日志聚焦活动日历和图片源，未做全页面文本、页脚、日期展示和当前时间一致性的走查。",
       "annotationHash": "b6fd969b4bc8c228b201e0c9742b39e7ff129fb7",
-      "annotationVersion": "20260509_v10_detailed_permission_issue",
-      "annotationUpdatedAt": "2026-05-10T01:17:41",
-      "annotationSource": "next-row-direct"
+      "annotationVersion": "manual_dual_axis_quality_audit_20260511_v2",
+      "annotationUpdatedAt": "2026-05-11T22:45:00",
+      "annotationSource": "manual-dual-axis-audit"
     },
     {
       "sessionId": ".3792634309254663:07f1d011d7ef7b120d515303140439b1_69ff5360b88fb1a0b30c66c6.69ff9f22b88fb1a0b30c6dc8.69ff9f21215e40562d4dfbc6:Trae CN.T(2026/5/9 23:54:58)",
@@ -107,11 +107,11 @@
       "logTraceFormatVersion": "20260509_v13_trace_time_locator",
       "logTraceScanVersion": "20260509_v13_trace_time_locator",
       "officialCopiedLogTrace": true,
-      "dissatisfactionReason": "`net::ERR_FAILED http://localhost:9861/api/auth/register` 注册功能存在问题，提示注册失败请重试",
+      "dissatisfactionReason": "产物不满意：年份修复后，注册接口 `http://localhost:9861/api/auth/register` 仍失败且只提示重试，没有展示具体原因，账号注册链路不可诊断。过程不满意：本轮只修改 Footer 的硬编码年份，没有检查注册接口、后端异常、密码限制和前端错误提示。",
       "annotationHash": "d9fc7ac745c9b2ff2b72cd61a37c21e63d5059f8",
-      "annotationVersion": "20260509_v10_detailed_permission_issue",
-      "annotationUpdatedAt": "2026-05-10T01:17:41",
-      "annotationSource": "next-row-direct"
+      "annotationVersion": "manual_dual_axis_quality_audit_20260511_v2",
+      "annotationUpdatedAt": "2026-05-11T22:45:00",
+      "annotationSource": "manual-dual-axis-audit"
     },
     {
       "sessionId": ".3792634309254663:e5cf3654f9fdbae8315fcecae38c5ada_69ff5360b88fb1a0b30c66c6.69ffa04fb88fb1a0b30c6ea1.69ffa042215e40562d4dfbc7:Trae CN.T(2026/5/9 23:59:59)",
@@ -136,11 +136,11 @@
       "logTraceFormatVersion": "20260509_v13_trace_time_locator",
       "logTraceScanVersion": "20260509_v13_trace_time_locator",
       "officialCopiedLogTrace": true,
-      "dissatisfactionReason": "",
+      "dissatisfactionReason": "产物不满意：本轮修复注册密码限制和错误信息后，注册是否能在页面成功提交、失败原因是否可见仍缺少浏览器表单验证结果。过程不满意：日志主要处理后端 bcrypt、虚拟环境和服务启动，前端 Register 页面只被查看，没有记录实际注册、重复账号、长密码和网络失败场景验收。",
       "annotationHash": "3de6e5c50c8d3859684eed8ab6742279d1116cf9",
-      "annotationVersion": "20260509_v10_detailed_permission_issue",
-      "annotationUpdatedAt": "2026-05-10T01:17:41",
-      "annotationSource": "next-row-empty"
+      "annotationVersion": "manual_dual_axis_quality_audit_20260511_v2",
+      "annotationUpdatedAt": "2026-05-11T22:45:00",
+      "annotationSource": "manual-dual-axis-audit"
     }
   ],
   "deepScan": false,

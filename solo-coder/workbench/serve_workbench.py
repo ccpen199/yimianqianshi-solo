@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import base64
 import concurrent.futures
+import difflib
 import datetime
 import glob
 import hashlib
@@ -13,6 +14,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -214,6 +216,8 @@ DOCS_DATA_DIR = os.path.join(PROJECT_DIR, 'docs', 'data')
 STATE_FILE = os.path.join(DOCS_DATA_DIR, 'generated', 'prompt_state.json')
 PROMPTS_FILE = os.path.join(DOCS_DATA_DIR, 'generated', 'generation_prompts.json')
 TRAE_SESSION_CACHE_DIR = os.path.join(DOCS_DATA_DIR, 'generated', 'trae_session_rounds')
+TRAE_ROUND_AUTOMATION_DIR = os.path.join(DOCS_DATA_DIR, 'generated', 'automation_probe')
+TRAE_ROUND_AUTOMATION_STATE_FILE = os.path.join(DOCS_DATA_DIR, 'generated', 'automation_round_state.json')
 FEISHU_SCREENSHOT_PASTE_DIR = os.path.join(DOCS_DATA_DIR, 'generated', 'feishu_screenshot_paste')
 FEISHU_PASTE_LOCK = threading.RLock()
 TRAE_ROOT = _default_trae_root()
@@ -233,7 +237,7 @@ TRAE_RG_CHAT_TIMEOUT_SECONDS = 4
 TRAE_RG_SESSION_TIMEOUT_SECONDS = 45
 TRAE_RECONSTRUCTED_LOG_TRACE_PREFIX = '[reconstructed: true]'
 TRAE_UNAVAILABLE_LOG_TRACE_PREFIX = '[reconstructed: unavailable]'
-TRAE_RECONSTRUCTED_LOG_TRACE_VERSION = '20260509_v13_trace_time_locator'
+TRAE_RECONSTRUCTED_LOG_TRACE_VERSION = '20260516_v14_session_logtrace_split'
 TRAE_RECONSTRUCTED_LOG_MAX_EVENTS = 220
 TRAE_RECONSTRUCTED_LOG_MAX_CHARS = 50000
 TRAE_RECONSTRUCTED_LOG_WINDOW_BEFORE_MINUTES = 15
@@ -246,8 +250,14 @@ TRAE_REFRESH_MAX_WORKERS = 3
 TRAE_REFRESH_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=TRAE_REFRESH_MAX_WORKERS)
 TRAE_REFRESH_TASKS = {}
 TRAE_REFRESH_TASKS_LOCK = threading.Lock()
-DEFAULT_GITHUB_REPO_URL = os.environ.get('YIMIANQIANSHI_GITHUB_REPO_URL') or 'git@github.com:ccpen199/yimianqianshi-solo.git'
+TRAE_ROUND_AUTOMATION_JOBS = {}
+TRAE_ROUND_AUTOMATION_JOBS_LOCK = threading.RLock()
+TRAE_ROUND_AUTOMATION_JOB_DIR = os.path.join(TRAE_ROUND_AUTOMATION_DIR, '_jobs')
+TRAE_ROUND_AUTOMATION_PENDING_TIMEOUT_SECONDS = 300
+TRAE_ROUND_AUTOMATION_CYCLE_INTERVAL_SECONDS = 8
+DEFAULT_GITHUB_REPO_URL = os.environ.get('YIMIANQIANSHI_GITHUB_REPO_URL') or 'git@github.com:ccpen199/Trae-solo.git'
 GITHUB_MIRROR_ROOT = os.path.join(TRAE_ROOT, '_github_sync_mirrors')
+MIN_GITHUB_SYNC_ORDER_NUMBER = 979
 SYNC_EXCLUDES = [
   '.git/',
   'node_modules/',
@@ -279,7 +289,7 @@ SCENE_PREFIX = {
   'news_weather': 'xw',
   'art_design': 'ys',
   'fun_leisure': 'qx',
-  'local_projects': 'xm',
+  'local_projects': 'may',
 }
 SCENE_NAME_ALIASES = {
   '购物': 'shopping',
@@ -313,8 +323,9 @@ TRAE_SESSION_ANNOTATION_MODELS = [
   if model.strip()
 ]
 TRAE_SESSION_ANNOTATION_PROVIDER = os.environ.get('TRAE_SESSION_ANNOTATION_PROVIDER') or 'deepseek'
-TRAE_SESSION_ANNOTATION_PROMPT_VERSION = '20260509_v10_detailed_permission_issue'
-TRAE_SESSION_ANNOTATION_TIMEOUT_SECONDS = 45
+TRAE_SESSION_ANNOTATION_PROMPT_VERSION = '20260513_v18_next_feedback_product_current_trace'
+TRAE_SESSION_ANNOTATION_TIMEOUT_SECONDS = int(os.environ.get('TRAE_SESSION_ANNOTATION_TIMEOUT_SECONDS') or '120')
+TRAE_SESSION_CODEX_ANNOTATION_TIMEOUT_SECONDS = int(os.environ.get('TRAE_SESSION_CODEX_ANNOTATION_TIMEOUT_SECONDS') or '240')
 TRAE_SESSION_ANNOTATION_MAX_CONVERSATION_CHARS = 2400
 RG_CANDIDATES = [
   shutil.which('rg'),
@@ -323,10 +334,24 @@ RG_CANDIDATES = [
   '/usr/bin/rg',
   '/Users/chen/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/path/rg',
 ]
+NODE_CANDIDATES = [
+  shutil.which('node'),
+  os.environ.get('NODE_BINARY'),
+  '/opt/homebrew/bin/node',
+  '/usr/local/bin/node',
+  *sorted(glob.glob(os.path.expanduser('~/.nvm/versions/node/*/bin/node')), reverse=True),
+]
 
 
 def rg_binary():
   for candidate in RG_CANDIDATES:
+    if candidate and os.path.exists(candidate) and os.access(candidate, os.X_OK):
+      return candidate
+  return ''
+
+
+def node_binary():
+  for candidate in NODE_CANDIDATES:
     if candidate and os.path.exists(candidate) and os.access(candidate, os.X_OK):
       return candidate
   return ''
@@ -385,29 +410,79 @@ def load_prompts():
 
 
 def default_order_token(prompt):
-  if str(prompt.get('id') or '').startswith('prd_300_may_'):
-    return f"may-{prompt.get('global_order')}"
-  scene = scene_segment(prompt.get('business_domain'))
-  return f"{SCENE_PREFIX.get(scene, 'x')}-{prompt.get('global_order')}"
+  explicit = str(prompt.get('order_folder') or prompt.get('orderFolder') or '').strip()
+  if re.fullmatch(r'[A-Za-z]+-\d+', explicit):
+    match = re.fullmatch(r'([A-Za-z]+)-(\d+)', explicit)
+    return f'may-{int(match.group(2))}'
+  return f"may-{prompt.get('global_order')}"
 
 
 def normalize_order_token(prompt, order_value):
-  scene = scene_segment(prompt.get('business_domain'))
-  prefix = 'may' if str(prompt.get('id') or '').startswith('prd_300_may_') else SCENE_PREFIX.get(scene, 'x')
   if order_value is None:
     return default_order_token(prompt)
   if isinstance(order_value, int):
-    return f'{prefix}-{order_value}'
+    return f'may-{order_value}'
 
   text = str(order_value).strip()
   if not text:
     return default_order_token(prompt)
   if re.fullmatch(r'\d+', text):
-    return f'{prefix}-{int(text)}'
+    return f'may-{int(text)}'
   match = re.fullmatch(r'([A-Za-z]+)-(\d+)', text)
   if match:
-    return f'{match.group(1).lower()}-{int(match.group(2))}'
+    return f'may-{int(match.group(2))}'
   return text
+
+
+def order_token_number(order_token) -> int | None:
+  match = re.search(r'-(\d+)$', str(order_token or '').strip())
+  if not match:
+    return None
+  try:
+    return int(match.group(1))
+  except Exception:
+    return None
+
+
+def is_second_phase_order_token(order_token) -> bool:
+  number = order_token_number(order_token)
+  return number is None or number >= MIN_GITHUB_SYNC_ORDER_NUMBER
+
+
+_PROMPT_BY_ORDER_CACHE = None
+
+
+def _expected_generation_prompt_for_order(order_token: str) -> str:
+  global _PROMPT_BY_ORDER_CACHE
+  order_token = _normalize_order_token_text(order_token)
+  if not order_token:
+    return ''
+  if _PROMPT_BY_ORDER_CACHE is None:
+    by_order = {}
+    for prompt in load_prompts():
+      if not isinstance(prompt, dict):
+        continue
+      token = normalize_order_token(prompt, prompt.get('order_folder') or prompt.get('orderFolder') or prompt.get('global_order'))
+      text = str(prompt.get('prompt') or '').strip()
+      if token and text and token not in by_order:
+        by_order[token] = text
+    _PROMPT_BY_ORDER_CACHE = by_order
+  return str((_PROMPT_BY_ORDER_CACHE or {}).get(order_token) or '').strip()
+
+
+def _normalize_prompt_compare_text(text: str) -> str:
+  return re.sub(r'\s+', ' ', str(text or '').strip())
+
+
+def _prompt_matches_expected(actual: str, expected: str) -> bool:
+  actual_text = _normalize_prompt_compare_text(actual)
+  expected_text = _normalize_prompt_compare_text(expected)
+  if not actual_text or not expected_text:
+    return False
+  if actual_text == expected_text:
+    return True
+  prefix_len = min(len(actual_text), len(expected_text), 600)
+  return prefix_len >= 160 and actual_text[:prefix_len] == expected_text[:prefix_len]
 
 
 def extract_order_number(order_value):
@@ -450,18 +525,25 @@ def _single_line_text(value: str, limit: int = 36) -> str:
 
 
 def _annotation_row_hash(row: dict, reason_conversation: str = None) -> str:
+  screenshots = (row or {}).get('screenshots') if isinstance(row, dict) else []
+  screenshot_key = ''
+  if isinstance(screenshots, list):
+    screenshot_key = '|'.join(str((item or {}).get('resourceId') or (item or {}).get('path') or '') for item in screenshots[:8] if isinstance(item, dict))
   raw = '\n'.join([
     TRAE_SESSION_ANNOTATION_PROMPT_VERSION,
     str(reason_conversation if reason_conversation is not None else (row or {}).get('conversation') or ''),
+    str((row or {}).get('logTraceSource') or ''),
+    str((row or {}).get('logTrace') or '')[:4000],
+    screenshot_key,
   ])
   return hashlib.sha1(raw.encode('utf-8')).hexdigest()
 
 
-def _normalize_dissatisfaction_reason(value: str) -> str:
-  text = _single_line_text(value, limit=320)
+def _normalize_dissatisfaction_reason(value: str, limit: int = 900) -> str:
+  text = _single_line_text(value, limit=limit)
   text = re.sub(r'^不满意原因[:：]?\s*', '', text)
   text = re.sub(r'^(用户|客户)(表示|提出|认为|觉得|反馈|抱怨|指出|说)?[:：]?\s*', '', text)
-  text = re.sub(r'(用户|客户)(表示|提出|认为|觉得|反馈|抱怨|指出|说|要求|强调|再次强调)?', '', text)
+  text = re.sub(r'(用户|客户)(表示|提出|认为|觉得|反馈|抱怨|指出|说|要求|强调|再次强调)', '', text)
   text = re.sub(r'(抱怨|反馈)', '', text)
   text = re.sub(r'未见新的?具体?(页面|功能)?缺陷?', '', text)
   text = re.sub(r'暂无明确的?新的?(页面|功能)?缺陷?', '', text)
@@ -469,10 +551,117 @@ def _normalize_dissatisfaction_reason(value: str) -> str:
   text = re.sub(r'当前诉求集中在|当前诉求是|主要问题转为', '', text)
   text = re.sub(r'(第[一二三四五六七八九十0-9]+轮|最后一轮)[，,。；;:\s]*(请|麻烦|继续|务必).*$' , '', text)
   text = re.sub(r'(请|麻烦)(继续|尽快|直接|优先)?(完成|修复|处理|解决|保证|注意).*$' , '', text)
+  text = re.sub(r'[，,；;、]?\s*影响对[^。；;，,]*时间线[^。；;，,]*(判断|理解)', '', text)
   text = re.sub(r'\s+', ' ', text).strip(' ，,。；;：:')
   if text in {'无', '暂无', '无明显不满意反馈', '无明显问题', '未发现明显不满意反馈', '暂无明显不满意', '产物不满意', '过程不满意'}:
     text = ''
+  text = _dedupe_dissatisfaction_reason_blocks(text)
   return text
+
+
+def _dedupe_dissatisfaction_reason_blocks(text: str) -> str:
+  value = str(text or '').strip()
+  if value.count('产物不满意：') <= 1:
+    return value
+  blocks = [part.strip() for part in re.split(r'(?=产物不满意：)', value) if part.strip()]
+  if len(blocks) <= 1:
+    return value
+  unique_blocks = []
+  seen = set()
+  for block in blocks:
+    key = re.sub(r'\s+', '', block).strip('。；;，, ')
+    if key in seen:
+      continue
+    seen.add(key)
+    unique_blocks.append(block.strip(' ；;，,'))
+  if len(unique_blocks) == 1:
+    return unique_blocks[0]
+  # A single table row should contain one dual-axis conclusion. If the model
+  # returns multiple candidates, keep the first complete one instead of pasting
+  # repeated sections into Feishu.
+  return unique_blocks[0]
+
+
+BAD_ANNOTATION_TEMPLATE_MARKERS = (
+  '上一轮交付缺少',
+  '缺少围绕该问题的复现路径、文件修改、接口请求、浏览器操作、截图对照和回归结果',
+  '问题没有被完整闭环验证',
+  '当前轮需要把修复文件、启动状态、复现路径和验收结果串起来',
+  '该问题仍需要结合当前页面、接口和截图完成闭环确认',
+  '避免只给完成结论而缺少可核对证据',
+  '未见新的',
+  '暂无明确',
+  '暂无下一轮',
+)
+
+
+def _split_dual_axis_reason(text: str) -> tuple[str, str]:
+  value = str(text or '').strip()
+  match = re.match(r'^产物不满意[:：]\s*(.*?)(?:。?\s*过程不满意[:：]\s*(.*))?$', value)
+  if not match:
+    return '', ''
+  product = (match.group(1) or '').strip(' ，,。；;')
+  process = (match.group(2) or '').strip(' ，,。；;')
+  return product, process
+
+
+def _annotation_has_bad_template(text: str) -> bool:
+  value = str(text or '')
+  return any(marker in value for marker in BAD_ANNOTATION_TEMPLATE_MARKERS)
+
+
+def _process_reason_from_row(row: dict, issue: str = '') -> str:
+  trace = str((row or {}).get('logTrace') or '').strip()
+  screenshots = row.get('screenshots') if isinstance(row, dict) else []
+  source = str((row or {}).get('logTraceSource') or '')
+  issue_text = str(issue or (row or {}).get('reasonConversation') or (row or {}).get('conversation') or '')
+  has_trace = bool(trace and source != TRAE_LOG_TRACE_NOT_FOUND_SOURCE)
+  has_edit = bool(re.search(r'toolName:\s*(Write|Edit|MultiEdit|edit_file_search_replace)|changes:\s*undefined|filePath:', trace))
+  has_command = bool(re.search(r'toolName:\s*run_command|command:|npm run|curl|localhost|端口|启动', trace, re.IGNORECASE))
+  has_api = bool(re.search(r'curl|api/|接口|health|请求|response|status', trace, re.IGNORECASE))
+  has_browser = bool(re.search(r'open_preview|Browser|浏览器|截图|Playwright|页面.*验证|点击.*验证', trace, re.IGNORECASE))
+  has_screenshot = bool(screenshots)
+
+  if not has_trace:
+    return '本轮没有找到真实日志轨迹，无法核对文件修改、启动命令、页面操作和异常处理是否覆盖当前问题'
+
+  if re.search(r'暂无匹配|匹配用户|刷新按钮', issue_text):
+    return '过程记录没有围绕匹配列表数据、空状态文案、刷新按钮和随机匹配接口做逐项回归，难以确认“暂无匹配”是否被真实数据链路修复'
+  if re.search(r'白色|白屏|渲染.*白|网页标签', issue_text):
+    return '过程缺少对前端入口、路由挂载、控制台报错和首屏 DOM 渲染结果的连续核验，不能只通过文件修改判断白屏问题已消除'
+  if re.search(r'遮掩|下半段|右滑|个人信息|渲染失败', issue_text):
+    return '过程需要分别验证卡片布局高度、右滑按钮事件和个人信息路由渲染结果，目前日志没有把这些交互与截图回归逐项对照'
+  if re.search(r'登录|注册|验证码|密码', issue_text):
+    return '过程缺少登录表单提交、接口返回状态、错误提示和成功跳转的端到端核验，无法判断认证链路是否从页面到后端完全打通'
+  if re.search(r'分类|标签|最新|热门|全部|内容.*一样', issue_text):
+    return '过程没有把分类标签点击、查询参数、后端筛选结果和页面列表差异逐项对照，导致分类逻辑是否生效缺少可复查证据'
+  if re.search(r'数据|没有内容|链路|业务规则', issue_text):
+    return '过程偏向创建或调整数据文件，缺少从后端接口到前端页面的同源数据校验和业务规则路径验收，页面内容链路仍难以确认'
+  if re.search(r'按钮|点击|无响应|没反应', issue_text):
+    return '过程缺少对对应按钮事件、接口调用、成功失败提示和页面状态变化的浏览器级验证，交互是否真正恢复没有形成证据'
+
+  if has_edit and has_command and has_screenshot and not has_api:
+    return '过程记录了文件修改、启动命令和截图，但缺少核心接口请求与页面状态变化的对应关系，无法证明修复贯穿前后端链路'
+  if has_edit and has_command and not has_browser and not has_screenshot:
+    return '过程停留在文件修改和启动命令，缺少浏览器打开、关键点击和截图回归，页面级问题仍可能被命令行验证遗漏'
+  if has_api and not has_browser and not has_screenshot:
+    return '过程主要依赖接口或命令行响应，没有同步验证浏览器首屏、交互状态和视觉资源加载，前端体验问题无法被覆盖'
+  if has_browser or has_screenshot:
+    return '过程已有页面侧证据，但没有把截图现象、修改文件、接口返回和回归结果逐项绑定，当前问题是否完全消除仍缺少闭环对照'
+  return '过程记录没有清晰串联当前问题、修改范围、启动结果和验收动作，缺少可复查的页面或接口回归证据'
+
+
+def _dual_axis_fallback_reason(issue: str, row: dict = None) -> str:
+  core = _normalize_dissatisfaction_reason(issue, limit=420)
+  if not core:
+    core = '当前轮交付缺少足够的页面、接口和数据闭环证据，业务功能是否稳定可用无法形成可靠结论'
+  if core.startswith('产物不满意：') and '过程不满意：' in core:
+    return core
+  process = _process_reason_from_row(row or {}, core)
+  return (
+    f'产物不满意：{core}。'
+    f'过程不满意：{process}。'
+  )
 
 
 def _terminal_round_dissatisfaction_reason(row: dict) -> str:
@@ -501,13 +690,10 @@ def _terminal_round_dissatisfaction_reason(row: dict) -> str:
   if current:
     issue = _conversation_core_issue(current)
     if issue:
-      return (
-        f'产物不满意：{issue}，该问题仍需要结合当前页面、接口和截图完成闭环确认。'
-        '过程不满意：当前轮需要把修复文件、启动状态、复现路径和验收结果串起来，避免只给完成结论而缺少可核对证据。'
-      )
+      return _dual_axis_fallback_reason(issue, row=row)
   return (
     '产物不满意：当前轮交付还需要围绕页面完整性、核心 API、关键交互和数据一致性做最终验收，业务闭环证据不够充分。'
-    '过程不满意：日志需要明确修改范围、启动方式、端口安全、页面操作和失败场景处理，不能只停留在完成说明。'
+    f'过程不满意：{_process_reason_from_row(row or {}, current)}。'
   )
 
 
@@ -531,6 +717,19 @@ def _conversation_core_issue(conversation: str) -> str:
   text = re.sub(r'[，,。；;:\s]*(请|麻烦)(继续|尽快|直接|优先)?(完成|修复|处理|解决|保证|注意).*$' , '', text).strip()
   candidates = [item.strip(' ，,。；;：:') for item in re.split(r'[\n。！？!?；;]', text) if item.strip()]
   problem_pattern = r'没|不|无|错|错误|问题|不可用|不可达|死循环|失败|太长|卡死|缺失|取消|重复|异常|显示|链路|杂糅|字体'
+  problem_candidates = []
+  for candidate in candidates:
+    if not re.search(problem_pattern, candidate):
+      continue
+    candidate = re.sub(r'^(第[一二三四五六七八九十0-9]+轮|最后一轮)[，,。；;:\s]*', '', candidate).strip()
+    candidate = re.sub(r'[，,。；;:\s]*(请|麻烦)(继续|尽快|直接|优先)?(完成|修复|处理|解决|保证|注意).*$' , '', candidate).strip()
+    candidate = candidate.strip(' ，,。；;：:')
+    if candidate:
+      problem_candidates.append(candidate)
+  if len(problem_candidates) >= 2:
+    combined = '，'.join(problem_candidates[:3])
+    if len(combined) <= 180:
+      return _normalize_dissatisfaction_reason(combined)
   for candidate in candidates:
     if not re.search(problem_pattern, candidate):
       continue
@@ -579,10 +778,14 @@ def _conversation_core_issue(conversation: str) -> str:
 
 
 def _fallback_dissatisfaction_reason(conversation: str) -> str:
+  return _fallback_dissatisfaction_reason_for_row(conversation, None)
+
+
+def _fallback_dissatisfaction_reason_for_row(conversation: str, row: dict = None) -> str:
   text = str(conversation or '').strip()
   core_issue = _conversation_core_issue(text)
   if core_issue:
-    return core_issue
+    return _dual_axis_fallback_reason(core_issue, row=row)
   mapping = [
     (r'重复购买|重复下单|同一时间.*重复购买', '同一时间可重复购买'),
     (r'取消.*选项|没有.*取消', '订单取消选项缺失'),
@@ -598,16 +801,76 @@ def _fallback_dissatisfaction_reason(conversation: str) -> str:
   ]
   for pattern, label in mapping:
     if re.search(pattern, text, re.IGNORECASE):
-      return _normalize_dissatisfaction_reason(label)
+      return _dual_axis_fallback_reason(label, row=row)
   return ''
+
+
+def _annotation_reason_conversation(index: int, current_conversation: str, next_conversation: str = '') -> str:
+  current = str(current_conversation or '').strip()
+  next_text = str(next_conversation or '').strip()
+  # Each row represents the work produced in that round. The following user
+  # message is the validation feedback for that produced work, so it is the
+  # primary source for the product dissatisfaction axis when available.
+  if next_text:
+    return next_text
+  return current
+
+
+def _annotation_context_row(row: dict, next_row: dict = None) -> dict:
+  context = dict(row or {})
+  input_screenshots = context.get('screenshots') if isinstance(context.get('screenshots'), list) else []
+  result_screenshots = []
+  if isinstance(next_row, dict):
+    next_screenshots = next_row.get('screenshots')
+    if isinstance(next_screenshots, list):
+      result_screenshots = next_screenshots
+  context['inputScreenshots'] = input_screenshots
+  context['resultScreenshots'] = result_screenshots
+  context['hasResultScreenshots'] = bool(result_screenshots)
+  context['screenshots'] = result_screenshots if result_screenshots else input_screenshots
+  return context
 
 
 def _fallback_session_annotation(row: dict) -> dict:
   conversation = str((row or {}).get('reasonConversation') or (row or {}).get('conversation') or '')
   return {
-    'dissatisfactionReason': _fallback_dissatisfaction_reason(conversation),
+    'dissatisfactionReason': _fallback_dissatisfaction_reason_for_row(conversation, row),
     'annotationSource': 'fallback',
   }
+
+
+def _sanitize_dissatisfaction_annotation(reason: str, row: dict, reason_conversation: str = '') -> str:
+  normalized = _normalize_dissatisfaction_reason(reason)
+  current_issue = _conversation_core_issue(reason_conversation) or _conversation_core_issue((row or {}).get('conversation') or '')
+  if not (
+    normalized.startswith('产物不满意：')
+    and '过程不满意：' in normalized
+  ):
+    return _dual_axis_fallback_reason(normalized or current_issue, row=row)
+
+  product, process = _split_dual_axis_reason(normalized)
+  if not product:
+    product = current_issue or '当前轮交付缺少足够的页面、接口和数据闭环证据，业务功能是否稳定可用无法形成可靠结论'
+  product = _normalize_dissatisfaction_reason(product, limit=420)
+  process = _normalize_dissatisfaction_reason(process, limit=420)
+  if (
+    not process
+    or _annotation_has_bad_template(normalized)
+    or len(process) < 18
+  ):
+    process = _process_reason_from_row(row or {}, current_issue or product)
+  return f'产物不满意：{product}。过程不满意：{process}。'
+
+
+def _rows_need_annotation_fill(rows) -> bool:
+  if not isinstance(rows, list):
+    return False
+  for row in rows:
+    if not isinstance(row, dict):
+      continue
+    if not str(row.get('dissatisfactionReason') or '').strip():
+      return True
+  return False
 
 
 def _extract_json_payload(text: str):
@@ -711,8 +974,116 @@ def _call_deepseek_chat(messages, model: str = ''):
   return content
 
 
-def _call_annotation_chat(messages, model: str):
-  provider = str(TRAE_SESSION_ANNOTATION_PROVIDER or '').strip().lower()
+def _call_codex_cli_annotation(messages):
+  codex_path = codex_cli_path()
+  if not codex_path:
+    raise RuntimeError('Codex CLI not found')
+  system_text = ''
+  user_text = ''
+  for message in messages or []:
+    if not isinstance(message, dict):
+      continue
+    role = str(message.get('role') or '').strip()
+    content = str(message.get('content') or '').strip()
+    if role == 'system':
+      system_text = content
+    elif role == 'user':
+      user_text = content
+  prompt = (
+    '你是 Workbench 后端通过 Codex CLI / pinAI 调用的批量标注模型。'
+    '本次任务只根据下面输入生成不满意列，不读取或修改本地文件，不运行命令。'
+    '必须只返回 JSON 对象，不能返回 Markdown、解释或代码块。\n\n'
+    f'系统规则：\n{system_text}\n\n'
+    f'待标注数据 JSON：\n{user_text}\n'
+  )
+  schema = {
+    'type': 'object',
+    'properties': {
+      'items': {
+        'type': 'array',
+        'items': {
+          'type': 'object',
+          'properties': {
+            'index': {'type': 'integer'},
+            'dissatisfactionReason': {'type': 'string'},
+          },
+          'required': ['index', 'dissatisfactionReason'],
+          'additionalProperties': False,
+        },
+      },
+    },
+    'required': ['items'],
+    'additionalProperties': False,
+  }
+  with tempfile.TemporaryDirectory(prefix='wb_codex_annotation_') as tmp_dir:
+    output_path = os.path.join(tmp_dir, 'last_message.json')
+    schema_path = os.path.join(tmp_dir, 'schema.json')
+    with open(schema_path, 'w', encoding='utf-8') as file:
+      json.dump(schema, file, ensure_ascii=False)
+    cmd = [
+      codex_path,
+      'exec',
+      '--skip-git-repo-check',
+      '--sandbox',
+      'read-only',
+      '--color',
+      'never',
+      '--output-schema',
+      schema_path,
+      '--output-last-message',
+      output_path,
+      '-C',
+      PROJECT_DIR,
+      prompt,
+    ]
+    child_env = os.environ.copy()
+    codex_bin_dir = os.path.dirname(os.path.abspath(codex_path))
+    path_parts = [
+      codex_bin_dir,
+      '/opt/homebrew/bin',
+      '/usr/local/bin',
+      '/usr/bin',
+      '/bin',
+      '/usr/sbin',
+      '/sbin',
+      child_env.get('PATH') or '',
+    ]
+    child_env['PATH'] = os.pathsep.join([part for part in path_parts if part])
+    completed = subprocess.run(
+      cmd,
+      text=True,
+      capture_output=True,
+      timeout=TRAE_SESSION_CODEX_ANNOTATION_TIMEOUT_SECONDS,
+      check=False,
+      env=child_env,
+    )
+    output_text = ''
+    if os.path.isfile(output_path):
+      with open(output_path, 'r', encoding='utf-8', errors='ignore') as file:
+        output_text = file.read().strip()
+    if completed.returncode != 0:
+      detail = completed.stderr.strip() or completed.stdout.strip() or output_text or 'Codex CLI annotation failed'
+      raise RuntimeError(f'Codex CLI annotation failed: {detail[:1200]}')
+    return output_text or completed.stdout.strip()
+
+
+def _annotation_runtime_config(model_id: str = ''):
+  selected = str(model_id or '').strip()
+  if selected == 'codex-cli-pinai':
+    return 'codex-cli', ['codex-cli'], 'codex-cli-pinai'
+  if selected == 'deepseek-v4-pro':
+    return 'deepseek', [DEEPSEEK_TEXT_MODEL], 'deepseek-v4-pro'
+  return (
+    str(TRAE_SESSION_ANNOTATION_PROVIDER or '').strip().lower(),
+    TRAE_SESSION_ANNOTATION_MODELS or [MODELSCOPE_TEXT_MODEL],
+    selected or '',
+  )
+
+
+def _call_annotation_chat(messages, model: str, provider: str = None):
+  provider = str(provider or TRAE_SESSION_ANNOTATION_PROVIDER or '').strip().lower()
+  if provider in {'codex-cli', 'codex', 'pinai'}:
+    return _call_codex_cli_annotation(messages)
   if provider in {'deepseek', 'deepseek-v4', 'deepseek-v4-pro'}:
     return _call_deepseek_chat(messages, model=model)
   if provider in {'modelscope', 'qwen'}:
@@ -722,19 +1093,25 @@ def _call_annotation_chat(messages, model: str):
   return _call_modelscope_chat(messages, model=model)
 
 
-def _request_session_annotations(pending_rows):
+def _request_session_annotations(pending_rows, model_id: str = ''):
+  provider, models, selected_model_id = _annotation_runtime_config(model_id)
   row_items = []
   for item in pending_rows:
     index, row = item[0], item[1]
     next_conversation = str(item[2] if len(item) > 2 else '').strip()
+    context_row = item[4] if len(item) > 4 and isinstance(item[4], dict) else row
     current_conversation = str((row or {}).get('conversation') or '').strip()
     current_trace = str((row or {}).get('logTrace') or '').strip()
-    screenshots = row.get('screenshots') if isinstance(row, dict) else []
+    screenshots = context_row.get('screenshots') if isinstance(context_row, dict) else []
+    result_screenshots = context_row.get('resultScreenshots') if isinstance(context_row, dict) else []
+    reason_conversation = _annotation_reason_conversation(index, current_conversation, next_conversation)
     row_items.append({
       'index': index,
-      'currentConversation': current_conversation[:1200],
-      'nextConversation': next_conversation[:TRAE_SESSION_ANNOTATION_MAX_CONVERSATION_CHARS],
+      'currentTaskConversation': current_conversation[:1200],
+      'validationFeedback': next_conversation[:TRAE_SESSION_ANNOTATION_MAX_CONVERSATION_CHARS],
+      'evaluationConversation': reason_conversation[:TRAE_SESSION_ANNOTATION_MAX_CONVERSATION_CHARS],
       'currentLogTrace': current_trace[:2400],
+      'hasResultScreenshots': bool(result_screenshots),
       'hasScreenshots': bool(screenshots),
     })
   messages = [
@@ -742,12 +1119,31 @@ def _request_session_annotations(pending_rows):
       'role': 'system',
       'content': (
         '你是 Trae 产物验收标注助手，输出要像人工质检结论，不要像模型在解释证据是否存在。'
-        '每条数据包含 currentConversation、nextConversation、currentLogTrace、hasScreenshots。'
-        'nextConversation 是下一轮验收输入，可用于判断上一轮产物缺陷；如果 nextConversation 为空，必须直接根据 currentConversation、currentLogTrace 和截图状态总结当前仍需验收或未闭环的问题。'
+        '每条数据包含 currentTaskConversation、validationFeedback、evaluationConversation、currentLogTrace、hasResultScreenshots、hasScreenshots。'
+        '行语义必须按轮次理解：第 N 行代表第 N 轮产出的结果；第 N+1 行的用户会话是对第 N 轮产物的验收反馈，截图列也已把第 N+1 行截图前移到第 N 行作为结果截图。'
+        '产物不满意只评价第 N 轮产物本身。只要 validationFeedback 非空，产物问题必须优先从 validationFeedback/evaluationConversation 中提炼，因为它反映第 N 轮产物哪里没有达标；禁止退回去只复述 currentTaskConversation 中“本轮要修什么”。'
+        'currentTaskConversation 的作用是限定第 N 轮做了什么任务、修复了什么对象，并帮助判断 validationFeedback 属于哪个页面、模块、入口、按钮、接口、角色路径或业务规则。'
+        'currentLogTrace 的作用是分析第 N 轮过程：看模型是否改了对应文件、是否启动前后端、是否做浏览器/接口/截图验收、是否有反复试错或证据断点。'
+        'hasResultScreenshots 表示第 N+1 行截图已经前移为第 N 行产物截图；如果有截图，要把它当作第 N 轮结果证据，而不是下一轮任务证据。'
+        '如果 validationFeedback 为空，才根据 currentTaskConversation、currentLogTrace 和截图状态总结第 N 轮仍未闭环的问题。'
+        '生成前先做轮次绑定：产物轴来自“下一轮反馈/结果截图对本轮产物的评价”，过程轴来自“本轮日志轨迹的执行和验收方式”。两条轴不能混用。'
         '请只输出 JSON 对象，不要输出解释。'
         '字段要求：dissatisfactionReason 必须是“产物不满意：...。过程不满意：...。”双轴结构。'
-        '产物不满意要写页面/接口/模块/按钮/数据/业务规则的具体问题、影响和需求偏差。'
+        '每一行只能输出一组双轴结论，只能出现一次“产物不满意：”和一次“过程不满意：”；禁止把同一段结论重复输出两遍，也禁止输出多个候选版本。'
+        '产物不满意要写第 N 轮产物对应的页面/接口/模块/按钮/数据/业务规则的确定性问题、证据和需求偏差。'
+        '产物判断必须基于 validationFeedback/evaluationConversation、currentLogTrace 或结果截图中已经明确出现的事实；不能把推测、感受、可能影响、判断成本、时间线理解成本写成产物缺陷。'
+        '如果只看到“一分钟前显示为三小时前”这类时间文案问题，只能写确定事实，例如“时间展示把一分钟前错误显示为三小时前”；除非已有证据明确说明业务排序、提醒、审计或内容流因此出错，否则禁止写“影响对内容时间线的判断”。'
+        '产物不满意至少包含两个要素：范围/对象（哪个页面、模块、入口、按钮、接口、角色路径）和影响范围（影响哪些核心流程、业务目标或验收链路）。'
+        '范围/对象和影响范围不能省略：不能只写“页面没有渲染结果”“跳转错误”“权限错误”“无响应”，必须说明发生在哪个页面或入口、影响哪些核心流程。'
         '过程不满意要写执行过程的问题，例如只验证接口未看页面、启动证据不足、端口归属不清、缺少截图、没有复现路径、反复试错、日志缺失、没有异常场景验收。'
+        '过程不满意也必须围绕 currentLogTrace 里的当前轮执行过程表述，禁止默认写“上一轮交付缺少...”；除非 validationFeedback 明确说“上一轮仍未修复”，否则不要使用“上一轮”。'
+        '过程不满意必须差异化：每行至少引用一个当前轮特征，例如匹配列表、刷新按钮、白屏、路由挂载、登录接口、分类标签、右滑按钮、个人信息页、启动命令、curl、截图或具体 filePath；禁止所有行复用同一句“缺少复现路径、文件修改、接口请求、浏览器操作、截图对照和回归结果”。'
+        '禁止输出“问题没有被完整闭环验证”“当前轮需要把修复文件、启动状态、复现路径和验收结果串起来”“该问题仍需要结合当前页面、接口和截图完成闭环确认”等模板句；要改写成当前轮专属的过程缺口。'
+        '即使产物问题很明确，也必须继续分析过程问题，不能只写产物不满意。'
+        '禁止错位：如果 validationFeedback 说“标签内容全都一样”，第 N 行产物不满意就必须写第 N 轮产物的标签分类失败，不能只写 currentTaskConversation 里的“首页没有数据”。'
+        '禁止错位：如果 validationFeedback 说“普通用户登录不成功，没有任何响应信息”，第 N 行产物不满意就必须写登录链路失败，不能只写第 N 轮做过数据链路或页面内容修复。'
+        '禁止错位：如果 validationFeedback 说“前端页面没有接到后端，只返回接口成功信息，没有页面渲染结果”，第 N 行产物不满意就必须写具体页面的前后端未联通和页面未渲染，不能因为 currentTaskConversation 是上一条修复要求而忽略该反馈。'
+        '如果 validationFeedback 非空但生成内容只评价了 currentTaskConversation 的原始修复要求，没有吸收 validationFeedback 的验收现象，必须重写。'
         '禁止出现“暂无”“未见”“暂无下一轮反馈”“没有下一轮反馈”“暂无明确的新功能缺陷反馈”“未见新的具体页面功能缺陷反馈”“当前诉求”“用户要求”“用户再次强调”“用户反馈”“用户指出”等表达。'
         '不要把证据缺失写成“没有反馈”，而要根据已有信息直接判断产物和过程问题。'
         '不要使用“用户”作为叙述主体；需要指代时写“业务要求”“验收要求”“页面表现”“交付过程”。'
@@ -755,6 +1151,11 @@ def _request_session_annotations(pending_rows):
         '例如原句是“点击加入购物车没有任何反应，也没有报错，而且商品图片没有显示”，产物不满意部分应完整保留为“点击加入购物车没有任何反应，也没有报错，而且商品图片没有显示”，不要写成“加入购物车无响应”。'
         '例如原句是“个人中心点击我的订单、优惠券、行程收藏等都没反应”，产物不满意部分应写成“个人中心我的订单、优惠券、行程收藏等入口均无响应”。'
         '例如原句是“需求一明确表示游客是可以接单的，但是点击接单后却要求登录，理解存在问题”，产物不满意部分应写成“业务要求明确支持游客接单，但点击接单后却要求登录”，不要写成“游客接单权限错误”。'
+        '例如 validationFeedback 是“首页只有简单的标题、顶部内容和一个分类产品名称，登录以后直接从展示端进入管理后台”，产物不满意部分应写成“首页内容仍然只有简单标题、顶部内容和分类产品名称，展示端缺少业务内容；登录后错误跳入管理后台，前台浏览和后台治理角色路径混乱”。'
+        '例如 validationFeedback 是“注册显示请求失败，也没有更具体的异常捕获”，产物不满意必须评价注册请求失败和异常提示不足。'
+        '例如当前轮产物问题是“词条管理页面没有完成开发，页面为空白”，只能输出一次“产物不满意：词条管理页面没有完成开发...。过程不满意：...。”，不能把完全相同的双轴句子连续粘贴两遍。'
+        '对于“前端页面没有接到后端，导致只返回后端的接口成功信息。没有页面渲染结果”这类句子，如果它出现在 validationFeedback 中，就必须作为第 N 轮产物缺陷使用，并补足具体页面、接口和受影响流程。'
+        '例如 validationFeedback 是“搜索功能存在问题”，产物不满意应评价搜索入口、搜索结果或搜索接口本身；不要写成问答/文章模块未开发，除非 validationFeedback 同时明确提到问答和文章模块。'
         '可以去掉“你/我/用户/客户/抱怨/反馈/麻烦继续修复”等话术，但不能丢掉具体故障现象、页面、按钮、报错、缺失项。'
         '返回格式固定为 {"items":[{"index":0,"dissatisfactionReason":"产物不满意：点击加入购物车没有任何反应，也没有报错，而且商品图片没有显示。过程不满意：日志缺少对购物车按钮、Toast 引入和图片资源加载的浏览器级验收，导致交互和视觉问题同时遗漏。"}]}。'
       ),
@@ -765,9 +1166,9 @@ def _request_session_annotations(pending_rows):
     },
   ]
   last_error = None
-  for model in TRAE_SESSION_ANNOTATION_MODELS or [MODELSCOPE_TEXT_MODEL]:
+  for model in models:
     try:
-      parsed = _extract_json_payload(_call_annotation_chat(messages, model=model))
+      parsed = _extract_json_payload(_call_annotation_chat(messages, model=model, provider=provider))
       break
     except Exception as exc:
       last_error = exc
@@ -788,12 +1189,12 @@ def _request_session_annotations(pending_rows):
       continue
     mapped[index] = {
       'dissatisfactionReason': item.get('dissatisfactionReason'),
-      'annotationSource': f'{TRAE_SESSION_ANNOTATION_PROVIDER}:{TRAE_SESSION_ANNOTATION_MODELS[0] if TRAE_SESSION_ANNOTATION_MODELS else DEEPSEEK_TEXT_MODEL}',
+      'annotationSource': selected_model_id or f'{provider}:{models[0] if models else DEEPSEEK_TEXT_MODEL}',
     }
   return mapped
 
 
-def _annotate_session_rows(rows, use_model: bool = True):
+def _annotate_session_rows(rows, use_model: bool = True, model_id: str = '', force: bool = False):
   if not isinstance(rows, list) or not rows:
     return False
   pending_rows = []
@@ -813,67 +1214,88 @@ def _annotate_session_rows(rows, use_model: bool = True):
       and str(row.get('logTraceSource') or '') in {'project-file-log-trace', 'trae-log-acceptCode', 'trae-workspace-state-raw'}
     ):
       continue
-    reason_conversation = str((rows[index + 1] or {}).get('conversation') or '') if index + 1 < len(rows) and isinstance(rows[index + 1], dict) else ''
-    target_hash = _annotation_row_hash(row, reason_conversation)
+    current_conversation = str(row.get('conversation') or '')
+    next_row = rows[index + 1] if index + 1 < len(rows) and isinstance(rows[index + 1], dict) else None
+    next_conversation = str((next_row or {}).get('conversation') or '') if next_row else ''
+    reason_conversation = _annotation_reason_conversation(index, current_conversation, next_conversation)
+    context_row = _annotation_context_row(row, next_row)
+    target_hash = _annotation_row_hash(context_row, reason_conversation)
     if (
+      not force
+      and
       row.get('annotationHash') == target_hash
       and (row.get('dissatisfactionReason') or row.get('annotationSource') == 'next-row-empty')
     ):
       continue
-    pending_rows.append((index, row, reason_conversation))
+    pending_rows.append((index, row, next_conversation, reason_conversation, context_row))
   if not pending_rows:
     return False
 
   annotations = {}
   model_pending_rows = []
-  for index, row, reason_conversation in pending_rows:
+  for index, row, next_conversation, reason_conversation, context_row in pending_rows:
+    current_conversation = str((row or {}).get('conversation') or '')
+    if use_model:
+      model_pending_rows.append((index, row, next_conversation, reason_conversation, context_row))
+      continue
     if not reason_conversation.strip():
       if use_model:
-        model_pending_rows.append((index, row, reason_conversation))
+        model_pending_rows.append((index, row, next_conversation, reason_conversation, context_row))
       else:
         annotations[index] = {
-          'dissatisfactionReason': _terminal_round_dissatisfaction_reason(row),
+          'dissatisfactionReason': _terminal_round_dissatisfaction_reason(context_row),
           'annotationSource': 'terminal-round-fallback',
         }
       continue
-    fallback_text = _fallback_dissatisfaction_reason(reason_conversation)
+    fallback_text = _fallback_dissatisfaction_reason_for_row(reason_conversation, context_row)
     if fallback_text:
       annotations[index] = {
         'dissatisfactionReason': fallback_text,
-        'annotationSource': 'next-row-direct',
+        'annotationSource': 'next-feedback-product' if reason_conversation != current_conversation else 'current-row-direct',
       }
       continue
-    model_pending_rows.append((index, row, reason_conversation))
+    model_pending_rows.append((index, row, next_conversation, reason_conversation, context_row))
 
+  annotation_error = None
   try:
     if model_pending_rows and use_model:
-      annotations.update(_request_session_annotations(model_pending_rows))
+      annotations.update(_request_session_annotations(model_pending_rows, model_id=model_id))
   except Exception as exc:
+    annotation_error = exc
     print(f'[WARN] session annotation fallback: {exc}', file=sys.stderr)
 
   changed = False
   annotated_at = datetime.datetime.now().isoformat(timespec='seconds')
-  for index, row, reason_conversation in pending_rows:
-    target_hash = _annotation_row_hash(row, reason_conversation)
-    annotation_row = dict(row)
-    annotation_row['conversation'] = reason_conversation
+  for index, row, next_conversation, reason_conversation, context_row in pending_rows:
+    current_conversation = str((row or {}).get('conversation') or '')
+    target_hash = _annotation_row_hash(context_row, reason_conversation)
+    annotation_row = dict(context_row or row)
+    annotation_row['conversation'] = current_conversation
+    annotation_row['reasonConversation'] = reason_conversation
     if index in annotations:
       annotation = annotations[index]
     elif not reason_conversation.strip():
       annotation = {
-        'dissatisfactionReason': _terminal_round_dissatisfaction_reason(row),
+        'dissatisfactionReason': _terminal_round_dissatisfaction_reason(annotation_row),
         'annotationSource': 'terminal-round-fallback',
       }
     else:
       annotation = _fallback_session_annotation(annotation_row)
     row.pop('taskType', None)
     row.pop('taskSolution', None)
-    normalized_reason = _normalize_dissatisfaction_reason(annotation.get('dissatisfactionReason'))
+    normalized_reason = _sanitize_dissatisfaction_annotation(
+      annotation.get('dissatisfactionReason'),
+      annotation_row,
+      reason_conversation,
+    )
     row['dissatisfactionReason'] = normalized_reason
     row['annotationHash'] = target_hash
     row['annotationVersion'] = TRAE_SESSION_ANNOTATION_PROMPT_VERSION
     row['annotationUpdatedAt'] = annotated_at
-    row['annotationSource'] = annotation.get('annotationSource') or 'fallback'
+    source = annotation.get('annotationSource') or 'fallback'
+    if annotation_error and source in {'fallback', 'terminal-round-fallback'}:
+      source = f'fallback-after-model-error:{type(annotation_error).__name__}'
+    row['annotationSource'] = source
     changed = True
   return changed
 
@@ -941,11 +1363,15 @@ def _is_order_token_name(value: str) -> bool:
   return bool(re.fullmatch(r'[A-Za-z]+-\d+', str(value or '').strip()))
 
 
+def _is_current_order_token_name(value: str) -> bool:
+  return bool(re.fullmatch(r'may-\d+', str(value or '').strip(), re.IGNORECASE))
+
+
 def _normalize_order_token_text(value: str) -> str:
   text = str(value or '').strip()
   match = re.fullmatch(r'([A-Za-z]+)-(\d+)', text)
   if match:
-    return f'{match.group(1).lower()}-{int(match.group(2))}'
+    return f'may-{int(match.group(2))}'
   return text
 
 
@@ -980,13 +1406,16 @@ def _iter_workspace_db_records():
     except Exception:
       payload = {}
     for folder_path in _workspace_json_folder_paths(payload):
+      basename = os.path.basename(folder_path.rstrip('/'))
+      if not _is_current_order_token_name(basename):
+        continue
       yield {
         'workspaceDir': ws_dir,
         'workspaceJson': ws_json,
         'dbPath': db_path,
         'folderPath': folder_path,
         'folderRealPath': os.path.realpath(folder_path),
-        'order': _normalize_order_token_text(os.path.basename(folder_path.rstrip('/'))),
+        'order': _normalize_order_token_text(basename),
       }
 
 
@@ -1043,10 +1472,10 @@ def parse_order_tokens(raw_orders):
     if not text:
       continue
     if re.fullmatch(r'\d+', text):
-      text = f'xm-{int(text)}'
+      text = f'may-{int(text)}'
     match = re.fullmatch(r'([A-Za-z]+)-(\d+)', text)
     if match:
-      text = f'{match.group(1).lower()}-{int(match.group(2))}'
+      text = f'may-{int(match.group(2))}'
     if text not in seen:
       seen.add(text)
       orders.append(text)
@@ -1120,11 +1549,17 @@ def open_trae_project(order_token: str):
   project_path = project_folder_for_order(order_token)
   launch_mode = 'system-open-folder'
   if TRAE_CLI and os.path.isfile(TRAE_CLI):
-    cmd = [TRAE_CLI, '--new-window', project_path]
+    cmd = [TRAE_CLI]
+    if TRAE_APP_SUPPORT_DIR:
+      cmd.extend(['--user-data-dir', TRAE_APP_SUPPORT_DIR])
+    cmd.extend(['--new-window', project_path])
     launch_mode = 'trae-cli'
     completed = run_cmd(cmd, check=True)
   elif sys.platform == 'darwin':
-    cmd = ['open', '-a', TRAE_APP_NAME, project_path]
+    cmd = ['open', '-na', TRAE_APP_NAME, '--args']
+    if TRAE_APP_SUPPORT_DIR:
+      cmd.extend(['--user-data-dir', TRAE_APP_SUPPORT_DIR])
+    cmd.extend(['--new-window', project_path])
     launch_mode = 'mac-app'
     completed = run_cmd(cmd, check=True)
   else:
@@ -1141,6 +1576,7 @@ def open_trae_project(order_token: str):
     'folder': project_path,
     'command': cmd,
     'launchMode': launch_mode,
+    'userDataDir': TRAE_APP_SUPPORT_DIR,
     'stdout': (completed.stdout or '').strip(),
     'stderr': (completed.stderr or '').strip(),
   }
@@ -1963,6 +2399,1563 @@ def workbench_defaults():
   }
 
 
+def _automation_group_dir(group_name: str) -> str:
+  safe_name = str(group_name or '').strip() or 'custom-orders'
+  return os.path.join(TRAE_ROUND_AUTOMATION_DIR, safe_name)
+
+
+def _automation_script_path(filename: str) -> str:
+  return os.path.join(ROOT_DIR, 'automation', filename)
+
+
+def _run_automation_script(args, timeout_seconds: int = 180):
+  env = os.environ.copy()
+  env['NO_PROXY'] = '127.0.0.1,localhost,*'
+  env['no_proxy'] = '127.0.0.1,localhost,*'
+  completed = subprocess.run(
+    args,
+    cwd=PROJECT_DIR,
+    env=env,
+    text=True,
+    capture_output=True,
+    check=False,
+    timeout=timeout_seconds,
+  )
+  if completed.returncode != 0:
+    detail = (completed.stderr or completed.stdout or '').strip() or 'automation script failed'
+    raise RuntimeError(detail)
+  return completed.stdout or ''
+
+
+def _automation_group_orders(group_name: str, explicit_orders=None):
+  orders = parse_order_tokens(explicit_orders or [])
+  if orders:
+    return orders
+  state = read_json(STATE_FILE, {'trae_groups': {}})
+  groups = state.get('trae_groups') or state.get('batch_groups') or state.get('batchGroups') or {}
+  return parse_order_tokens(groups.get(str(group_name or '').strip()) or [])
+
+
+def _read_automation_json(path: str, fallback=None):
+  if not path or not os.path.isfile(path):
+    return fallback
+  return read_json(path, fallback)
+
+
+def _probe_url_port(url: str):
+  match = re.search(r':(\d{2,5})(?:/|$)', str(url or ''))
+  if not match:
+    return None
+  try:
+    return int(match.group(1))
+  except ValueError:
+    return None
+
+
+def _probe_body_looks_like_page(item: dict) -> bool:
+  body = str((item or {}).get('bodyPreview') or '').strip()
+  if not body:
+    return True
+  prefix = body[:80].lstrip().lower()
+  if prefix.startswith('{') or prefix.startswith('['):
+    return False
+  if '"success"' in prefix or '"message"' in prefix:
+    return False
+  return True
+
+
+def _project_frontend_url(project: dict) -> str:
+  frontend_ports = set()
+  for port in project.get('frontendPorts') or []:
+    try:
+      frontend_ports.add(int(port))
+    except (TypeError, ValueError):
+      continue
+  candidates = []
+  for item in project.get('http') or []:
+    if not isinstance(item, dict) or not item.get('ok'):
+      continue
+    url = str(item.get('url') or '').strip()
+    if not re.search(r':\d+/$', url):
+      continue
+    port = _probe_url_port(url)
+    if frontend_ports and port not in frontend_ports:
+      continue
+    if not _probe_body_looks_like_page(item):
+      continue
+    priority = 0 if 'localhost' in url else 1 if '[::1]' in url else 2
+    candidates.append((priority, url))
+  if candidates:
+    candidates.sort()
+    return candidates[0][1]
+  return ''
+
+
+def _project_backend_base_url(project: dict) -> str:
+  backend_ports = set()
+  for port in project.get('backendPorts') or []:
+    try:
+      backend_ports.add(int(port))
+    except (TypeError, ValueError):
+      continue
+  candidates = []
+  for item in project.get('http') or []:
+    if not isinstance(item, dict) or not item.get('ok'):
+      continue
+    url = str(item.get('url') or '').strip()
+    if not url:
+      continue
+    port = _probe_url_port(url)
+    if backend_ports and port not in backend_ports:
+      continue
+    if not re.search(r'/(api/health|health)(?:$|[?#])', url):
+      continue
+    try:
+      parsed = urlparse(url)
+      if parsed.scheme and parsed.netloc:
+        priority = 0 if 'localhost' in parsed.netloc else 1 if '[::1]' in parsed.netloc else 2
+        candidates.append((priority, f'{parsed.scheme}://{parsed.netloc}'))
+    except Exception:
+      continue
+  if candidates:
+    candidates.sort()
+    return candidates[0][1]
+  return ''
+
+
+def _automation_issue_text_for_browser(group_dir: str, order: str) -> str:
+  order = str(order or '').strip()
+  if not order:
+    return ''
+
+  def _compact(value, limit=5000):
+    text = str(value or '').replace('\r\n', '\n').strip()
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r'[ \t]{2,}', ' ', text)
+    return text[:limit].rstrip() if len(text) > limit else text
+
+  parts = []
+  for filename in ('round_prompt_queue.json', 'submit_queue.json'):
+    payload = _read_automation_json(os.path.join(group_dir, filename), {})
+    queue = payload.get('queue') if isinstance(payload, dict) else []
+    if not isinstance(queue, list):
+      continue
+    item = next((entry for entry in queue if str((entry or {}).get('order') or '').strip() == order), None)
+    if not isinstance(item, dict):
+      continue
+    issues = item.get('issues')
+    if isinstance(issues, list) and issues:
+      parts.append('；'.join(str(issue) for issue in issues if issue))
+    keys = ('dissatisfactionReason', 'conversation') if item.get('priority') == 'first-round' else ('dissatisfactionReason', 'prompt', 'conversation')
+    for key in keys:
+      if item.get(key):
+        parts.append(str(item.get(key)))
+    break
+  if not parts:
+    try:
+      payload = read_json(_session_cache_path(order), {})
+      rows = payload.get('rows') if isinstance(payload, dict) else []
+      if isinstance(rows, list) and rows:
+        row = next((entry for entry in reversed(rows) if isinstance(entry, dict) and (entry.get('dissatisfactionReason') or entry.get('conversation'))), None)
+        if isinstance(row, dict):
+          parts.extend([str(row.get('dissatisfactionReason') or ''), str(row.get('conversation') or '')])
+    except Exception:
+      pass
+  return _compact('\n'.join(part for part in parts if str(part or '').strip()), limit=5000)
+
+
+def run_round_automation_probe(group_name: str, orders=None):
+  group_name = str(group_name or '').strip()
+  normalized_orders = _automation_group_orders(group_name, orders)
+  if not group_name and not normalized_orders:
+    raise RuntimeError('group or orders is required')
+  script = _automation_script_path('trae_round_probe.py')
+  cmd = [sys.executable, script]
+  if group_name:
+    cmd.extend(['--group', group_name])
+  if normalized_orders:
+    cmd.append('--orders')
+    cmd.extend(normalized_orders)
+  stdout = _run_automation_script(cmd, timeout_seconds=90)
+  effective_group = group_name or 'custom-orders'
+  report_path = os.path.join(_automation_group_dir(effective_group), 'probe.json')
+  report = _read_automation_json(report_path, {})
+  if not report:
+    raise RuntimeError('probe report was not generated')
+  return {
+    'ok': True,
+    'action': 'probe',
+    'group': effective_group,
+    'orders': report.get('orders') or normalized_orders,
+    'reportPath': report_path,
+    'report': report,
+    'stdoutTail': stdout[-1200:],
+  }
+
+
+def run_round_automation_round_detect(group_name: str, orders=None, target_rounds: int = 5):
+  group_name = str(group_name or '').strip()
+  normalized_orders = _automation_group_orders(group_name, orders)
+  if not group_name and not normalized_orders:
+    raise RuntimeError('group or orders is required')
+  target = max(1, min(99, int(target_rounds or 5)))
+  items = []
+  for order in normalized_orders:
+    items.append(_round_job_precise_completed_info(order, target_rounds=target))
+  return {
+    'ok': True,
+    'action': 'round-detect',
+    'group': group_name or 'custom-orders',
+    'targetRounds': target,
+    'items': items,
+  }
+
+
+def run_round_automation_runtime_start(group_name: str, orders=None, install: bool = False):
+  group_name = str(group_name or '').strip()
+  normalized_orders = _automation_group_orders(group_name, orders)
+  if not group_name and not normalized_orders:
+    raise RuntimeError('group or orders is required')
+  script = _automation_script_path('trae_safe_runtime_start.py')
+  cmd = [sys.executable, script]
+  if group_name:
+    cmd.extend(['--group', group_name])
+  if normalized_orders:
+    cmd.append('--orders')
+    cmd.extend(normalized_orders)
+  if install:
+    cmd.append('--install')
+  stdout = _run_automation_script(cmd, timeout_seconds=240)
+  effective_group = group_name or 'custom-orders'
+  report_path = os.path.join(_automation_group_dir(effective_group), 'runtime_start_report.json')
+  report = _read_automation_json(report_path, {})
+  if not report:
+    raise RuntimeError('runtime start report was not generated')
+  probe = {}
+  try:
+    probe = run_round_automation_probe(effective_group, normalized_orders).get('report') or {}
+  except Exception:
+    probe = {}
+  return {
+    'ok': True,
+    'action': 'runtime-start',
+    'group': effective_group,
+    'orders': report.get('orders') or normalized_orders,
+    'reportPath': report_path,
+    'report': report,
+    'probe': probe,
+    'stdoutTail': stdout[-1200:],
+  }
+
+
+def run_round_automation_browser_check(group_name: str, orders=None, wait_ms: int = 4500):
+  group_name = str(group_name or '').strip()
+  if not group_name:
+    raise RuntimeError('group is required')
+  group_dir = _automation_group_dir(group_name)
+  # Browser checks must reflect the current runtime. A stale probe can say
+  # "no URL" even when Trae has since started a localhost-only/IPv6 server.
+  probe_result = run_round_automation_probe(group_name, orders)
+  probe = probe_result.get('report') or {}
+  target_orders = set(_automation_group_orders(group_name, orders) or probe.get('orders') or [])
+  browser_script = _automation_script_path('trae_browser_runtime_check.js')
+  projects = probe.get('projects') or []
+  results = []
+  checked = 0
+  skipped = 0
+  for project in projects:
+    if not isinstance(project, dict):
+      continue
+    order = str(project.get('order') or '').strip()
+    if target_orders and order not in target_orders:
+      continue
+    url = _project_frontend_url(project)
+    if not url:
+      skipped += 1
+      results.append({
+        'order': order,
+        'ok': False,
+        'skipped': True,
+        'reason': '前端未监听或没有可访问 URL',
+      })
+      continue
+    api_base = _project_backend_base_url(project)
+    node_path = node_binary()
+    if not node_path:
+      results.append({
+        'order': order,
+        'ok': False,
+        'url': url,
+        'error': 'node binary not found in Workbench environment',
+      })
+      continue
+    cmd = [
+      node_path,
+      browser_script,
+      '--order',
+      order,
+      '--url',
+      url,
+      '--out-dir',
+      group_dir,
+      '--wait-ms',
+      str(max(500, min(20000, int(wait_ms or 4500)))),
+    ]
+    if api_base:
+      cmd.extend(['--api-base', api_base])
+    issue_text = _automation_issue_text_for_browser(group_dir, order)
+    if issue_text:
+      cmd.extend(['--issue-text', issue_text])
+    try:
+      stdout = _run_automation_script(cmd, timeout_seconds=60)
+      report_path = os.path.join(group_dir, f'{order}-browser-report.json')
+      report = _read_automation_json(report_path, {})
+      screenshot_path = report.get('screenshotPath') or os.path.join(group_dir, f'{order}-frontend.png')
+      try:
+        screenshot_bytes = os.path.getsize(screenshot_path) if os.path.isfile(screenshot_path) else 0
+      except OSError:
+        screenshot_bytes = 0
+      checked += 1
+      results.append({
+        'order': order,
+        'ok': bool(report.get('ok')),
+        'url': url,
+        'apiBase': api_base,
+        'reportPath': report_path,
+        'screenshotPath': screenshot_path,
+        'screenshotExists': screenshot_bytes > 0,
+        'screenshotBytes': screenshot_bytes,
+        'title': report.get('title') or '',
+        'finalUrl': report.get('finalUrl') or report.get('url') or url,
+        'targetMatched': bool(report.get('targetMatched')),
+        'targetKind': report.get('targetKind') or '',
+        'targetReason': report.get('targetReason') or '',
+        'targetActions': report.get('targetActions') or [],
+        'apiCheckCount': len(report.get('apiChecks') or []),
+        'apiFailureCount': len([item for item in (report.get('apiChecks') or []) if not (item or {}).get('ok')]),
+        'consoleCount': len(report.get('consoleMessages') or []),
+        'requestFailureCount': len(report.get('requestFailures') or []),
+        'responseErrorCount': len(report.get('responseErrors') or []),
+        'stdoutTail': stdout[-800:],
+      })
+    except Exception as err:
+      results.append({
+        'order': order,
+        'ok': False,
+        'url': url,
+        'error': str(err),
+      })
+  return {
+    'ok': True,
+    'action': 'browser-check',
+    'group': group_name,
+    'checked': checked,
+    'skipped': skipped,
+    'results': results,
+    'groupDir': group_dir,
+  }
+
+
+def run_round_automation_drafts(group_name: str, orders=None):
+  group_name = str(group_name or '').strip()
+  if not group_name:
+    raise RuntimeError('group is required')
+  group_dir = _automation_group_dir(group_name)
+  probe_path = os.path.join(group_dir, 'probe.json')
+  if not os.path.isfile(probe_path):
+    run_round_automation_probe(group_name, orders)
+  script = _automation_script_path('trae_next_prompt_draft.py')
+  cmd = [sys.executable, script, '--group', group_name]
+  normalized_orders = parse_order_tokens(orders or [])
+  if normalized_orders:
+    cmd.append('--orders')
+    cmd.extend(normalized_orders)
+  stdout = _run_automation_script(cmd, timeout_seconds=90)
+  json_path = os.path.join(group_dir, 'next_prompt_drafts.json')
+  md_path = os.path.join(group_dir, 'next_prompt_drafts.md')
+  payload = _read_automation_json(json_path, {})
+  markdown = ''
+  try:
+    with open(md_path, 'r', encoding='utf-8') as file:
+      markdown = file.read()
+  except OSError:
+    markdown = ''
+  return {
+    'ok': True,
+    'action': 'drafts',
+    'group': group_name,
+    'jsonPath': json_path,
+    'markdownPath': md_path,
+    'drafts': payload.get('drafts') or [],
+    'markdownPreview': markdown[:8000],
+    'stdoutTail': stdout[-1200:],
+  }
+
+
+def run_round_automation_submit_queue(group_name: str, orders=None):
+  group_name = str(group_name or '').strip()
+  if not group_name:
+    raise RuntimeError('group is required')
+  group_dir = _automation_group_dir(group_name)
+  drafts_path = os.path.join(group_dir, 'next_prompt_drafts.json')
+  if not os.path.isfile(drafts_path):
+    run_round_automation_drafts(group_name, orders)
+  script = _automation_script_path('trae_submit_queue.py')
+  cmd = [sys.executable, script, '--group', group_name]
+  stdout = _run_automation_script(cmd, timeout_seconds=90)
+  json_path = os.path.join(group_dir, 'submit_queue.json')
+  md_path = os.path.join(group_dir, 'submit_queue.md')
+  payload = _read_automation_json(json_path, {})
+  markdown = ''
+  try:
+    with open(md_path, 'r', encoding='utf-8') as file:
+      markdown = file.read()
+  except OSError:
+    markdown = ''
+  return {
+    'ok': True,
+    'action': 'submit-queue',
+    'group': group_name,
+    'jsonPath': json_path,
+    'markdownPath': md_path,
+    'queue': payload.get('queue') or [],
+    'skipped': payload.get('skipped') or [],
+    'counts': payload.get('counts') or {},
+    'markdownPreview': markdown[:10000],
+    'stdoutTail': stdout[-1200:],
+  }
+
+
+def run_round_automation_round_prompt_queue(group_name: str, orders=None, target_rounds: int = 5):
+  group_name = str(group_name or '').strip()
+  if not group_name:
+    raise RuntimeError('group is required')
+  group_dir = _automation_group_dir(group_name)
+  script = _automation_script_path('trae_round_prompt_queue.py')
+  cmd = [
+    sys.executable,
+    script,
+    '--group',
+    group_name,
+    '--target-rounds',
+    str(max(1, int(target_rounds or 5))),
+  ]
+  normalized_orders = parse_order_tokens(orders or [])
+  if normalized_orders:
+    cmd.append('--orders')
+    cmd.extend(normalized_orders)
+  stdout = _run_automation_script(cmd, timeout_seconds=60)
+  json_path = os.path.join(group_dir, 'round_prompt_queue.json')
+  md_path = os.path.join(group_dir, 'round_prompt_queue.md')
+  payload = _read_automation_json(json_path, {})
+  markdown = ''
+  try:
+    with open(md_path, 'r', encoding='utf-8') as file:
+      markdown = file.read()
+  except OSError:
+    markdown = ''
+  return {
+    'ok': True,
+    'action': 'round-prompt-queue',
+    'group': group_name,
+    'jsonPath': json_path,
+    'markdownPath': md_path,
+    'queue': payload.get('queue') or [],
+    'skipped': payload.get('skipped') or [],
+    'counts': payload.get('counts') or {},
+    'targetRounds': payload.get('targetRounds') or target_rounds,
+    'markdownPreview': markdown[:12000],
+    'stdoutTail': stdout[-1200:],
+  }
+
+
+def _round_automation_existing_submit_queue(group_name: str):
+  group_name = str(group_name or '').strip()
+  if not group_name:
+    raise RuntimeError('group is required')
+  group_dir = _automation_group_dir(group_name)
+  checked_paths = [
+    os.path.join(group_dir, 'round_prompt_queue.json'),
+    os.path.join(group_dir, 'submit_queue.json'),
+  ]
+  missing = []
+  empty = []
+  for queue_path in checked_paths:
+    if not os.path.isfile(queue_path):
+      missing.append(os.path.basename(queue_path))
+      continue
+    payload = _read_automation_json(queue_path, {})
+    queue = payload.get('queue') if isinstance(payload, dict) else []
+    if isinstance(queue, list) and queue:
+      payload['queueSourcePath'] = queue_path
+      return group_dir, queue_path, payload, queue
+    empty.append(os.path.basename(queue_path))
+  if empty:
+    raise RuntimeError(f'提交队列为空：{", ".join(empty)}；请先生成轮次输入队列或提交队列')
+  raise RuntimeError(f'提交队列不存在：{", ".join(missing)}；快速提交不会重新分析或重建队列')
+
+
+def _round_automation_select_queue_item(group_name: str, order: str = ''):
+  group_dir, queue_path, payload, queue = _round_automation_existing_submit_queue(group_name)
+  order = str(order or '').strip()
+  if order:
+    target = next((item for item in queue if str(item.get('order') or '') == order), None)
+  else:
+    target = queue[0]
+  if not target:
+    raise RuntimeError(f'{order or "首项"} 不在提交队列中')
+  prompt = str(target.get('prompt') or '').strip()
+  target_order = str(target.get('order') or '').strip()
+  if not target_order:
+    raise RuntimeError('提交队列项缺少序号')
+  if not prompt:
+    raise RuntimeError(f'{target_order} 没有可提交 prompt')
+  return group_dir, queue_path, payload, target, target_order, prompt
+
+
+def _round_automation_submit_screenshot_path(group_dir: str, order: str) -> str:
+  order = str(order or '').strip()
+  if not order:
+    return ''
+  candidates = []
+  report = _read_automation_json(os.path.join(group_dir, f'{order}-browser-report.json'), {})
+  if isinstance(report, dict) and report.get('screenshotPath'):
+    candidates.append(str(report.get('screenshotPath') or ''))
+  candidates.append(os.path.join(group_dir, f'{order}-frontend.png'))
+  for candidate in candidates:
+    image_path = os.path.abspath(os.path.expanduser(str(candidate or '').strip()))
+    if image_path and os.path.isfile(image_path) and image_path.lower().endswith('.png'):
+      return image_path
+  return ''
+
+
+def _round_automation_prompt_with_attachment_note(prompt: str, screenshot_path: str) -> str:
+  return str(prompt or '').strip()
+
+
+def run_round_automation_prepare_submit(group_name: str, order: str = '', dry_run: bool = False, require_window: bool = False):
+  group_name = str(group_name or '').strip()
+  order = str(order or '').strip()
+  if not group_name:
+    raise RuntimeError('group is required')
+  group_dir, _queue_path, _payload, target, target_order, prompt = _round_automation_select_queue_item(group_name, order)
+
+  focus_result = {'ok': True, 'matched': False, 'window': '', 'dryRun': True}
+  clipboard_written = False
+  blocked = False
+  block_reason = ''
+  if require_window and not dry_run:
+    focus_result = run_round_automation_ax_probe(group_name, target_order, focus=True)
+    if not focus_result.get('ok'):
+      blocked = True
+      block_reason = '目标 Trae 窗口当前不可见或 AX 未匹配，未写入剪贴板'
+  if not dry_run:
+    if not blocked:
+      _copy_text_to_macos_clipboard(prompt)
+      clipboard_written = True
+      focus_result = trae_window_action(target_order, 'focus')
+
+    event_path = os.path.join(group_dir, 'submit_operator_events.jsonl')
+    event = {
+      'time': datetime.datetime.now().isoformat(timespec='seconds'),
+      'action': 'prepare-submit',
+      'group': group_name,
+      'order': target_order,
+      'promptLength': len(prompt),
+      'focus': focus_result,
+      'clipboardWritten': clipboard_written,
+      'blocked': blocked,
+      'blockReason': block_reason,
+    }
+    with open(event_path, 'a', encoding='utf-8') as file:
+      file.write(json.dumps(event, ensure_ascii=False) + '\n')
+
+  return {
+    'ok': True,
+    'action': 'prepare-submit',
+    'group': group_name,
+    'order': target_order,
+    'priority': target.get('priority'),
+    'score': target.get('score'),
+    'issues': target.get('issues') or [],
+    'promptLength': len(prompt),
+    'promptPreview': prompt[:1600],
+    'clipboardWritten': clipboard_written,
+    'focus': focus_result,
+    'dryRun': bool(dry_run),
+    'blocked': blocked,
+    'blockReason': block_reason,
+  }
+
+
+def run_round_automation_fast_submit(group_name: str, order: str = '', should_run: bool = True, include_screenshot: bool = True):
+  group_name = str(group_name or '').strip()
+  order = str(order or '').strip()
+  if not group_name:
+    raise RuntimeError('group is required')
+  if sys.platform != 'darwin':
+    raise RuntimeError('快速粘贴运行当前只支持 macOS Trae 窗口')
+
+  group_dir, queue_path, _payload, target, target_order, prompt = _round_automation_select_queue_item(group_name, order)
+  screenshot_path = _round_automation_submit_screenshot_path(group_dir, target_order) if include_screenshot else ''
+  submitted_prompt = _round_automation_prompt_with_attachment_note(prompt, screenshot_path)
+
+  script = r'''
+on safeText(v)
+  try
+    return v as text
+  on error
+    return ""
+  end try
+end safeText
+
+on setPngClipboard(imagePath)
+  set imageFile to POSIX file imagePath
+  set the clipboard to (read imageFile as «class PNGf»)
+end setPngClipboard
+
+on textLengthOfElement(theElement)
+  set collectedText to ""
+  try
+    set collectedText to collectedText & my safeText(value of theElement)
+  end try
+  try
+    tell application "System Events"
+      repeat with childElement in UI elements of theElement
+        try
+          set collectedText to collectedText & my safeText(value of childElement)
+        end try
+        try
+          set collectedText to collectedText & my safeText(name of childElement)
+        end try
+        try
+          set collectedText to collectedText & my safeText(description of childElement)
+        end try
+      end repeat
+    end tell
+  end try
+  return length of collectedText
+end textLengthOfElement
+
+on run argv
+  set targetOrder to item 1 of argv
+  set shouldRun to item 2 of argv
+  set promptText to item 3 of argv
+  set imagePath to item 4 of argv
+  set the clipboard to promptText
+  set matchedName to ""
+  set matchedProcess to ""
+  set focusRole to ""
+  set pastedLength to 0
+  set imagePasted to "false"
+  set didRun to "false"
+  tell application "System Events"
+    repeat with processName in {"Electron", "Trae CN"}
+      if exists process processName then
+        tell process processName
+          repeat with w in windows
+            try
+              set windowName to name of w as text
+              if windowName contains targetOrder then
+                set frontmost to true
+                perform action "AXRaise" of w
+                set matchedName to windowName
+                set matchedProcess to processName as text
+                delay 0.45
+                exit repeat
+              end if
+            end try
+          end repeat
+        end tell
+      end if
+      if matchedName is not "" then exit repeat
+    end repeat
+    if matchedName is "" then return "MATCHED=false"
+    repeat with i from 1 to 5
+      keystroke "u" using command down
+      delay 0.65
+      try
+        set focusedEl to value of attribute "AXFocusedUIElement" of process matchedProcess
+        set focusRole to role of focusedEl as text
+      on error
+        set focusRole to ""
+      end try
+      if focusRole is "AXTextArea" or focusRole is "AXTextField" then exit repeat
+    end repeat
+    if focusRole is not "AXTextArea" and focusRole is not "AXTextField" then
+      return "MATCHED=true" & linefeed & "WINDOW=" & matchedName & linefeed & "PROCESS=" & matchedProcess & linefeed & "FOCUS_ROLE=" & focusRole & linefeed & "CLIP_LEN=" & (length of promptText) & linefeed & "PASTED_LENGTH=0" & linefeed & "RAN=false"
+    end if
+    keystroke "a" using command down
+    delay 0.08
+    key code 51
+    delay 0.12
+    try
+      set value of focusedEl to promptText
+      delay 0.28
+      set focusedEl to value of attribute "AXFocusedUIElement" of process matchedProcess
+      set pastedLength to my textLengthOfElement(focusedEl)
+    on error
+      set pastedLength to 0
+    end try
+    if pastedLength <= 20 then
+      set the clipboard to promptText
+      keystroke "a" using command down
+      delay 0.08
+      keystroke "v" using command down
+      delay 0.50
+      try
+        set focusedEl to value of attribute "AXFocusedUIElement" of process matchedProcess
+        set pastedLength to my textLengthOfElement(focusedEl)
+      on error
+        set pastedLength to 0
+      end try
+    end if
+    if imagePath is not "" then
+      try
+        my setPngClipboard(imagePath)
+        delay 0.15
+        keystroke "v" using command down
+        set imagePasted to "true"
+        delay 0.85
+      on error
+        set imagePasted to "false"
+      end try
+    end if
+    if shouldRun is "run" and pastedLength > 0 then
+      key code 36
+      set didRun to "true"
+      delay 0.20
+    end if
+  end tell
+  return "MATCHED=true" & linefeed & "WINDOW=" & matchedName & linefeed & "PROCESS=" & matchedProcess & linefeed & "FOCUS_ROLE=" & focusRole & linefeed & "CLIP_LEN=" & (length of promptText) & linefeed & "PASTED_LENGTH=" & pastedLength & linefeed & "IMAGE_PATH=" & imagePath & linefeed & "IMAGE_PASTED=" & imagePasted & linefeed & "RAN=" & didRun
+end run
+'''
+  completed = run_cmd(
+    ['osascript', '-', target_order, 'run' if should_run else 'paste-only', submitted_prompt, screenshot_path],
+    check=False,
+    input_text=script,
+  )
+  raw_output = ((completed.stdout or '') + ('\n' + completed.stderr if completed.stderr else '')).strip()
+  matched = completed.returncode == 0 and 'MATCHED=true' in raw_output
+  window = ''
+  process = ''
+  focus_role = ''
+  clip_length = len(submitted_prompt)
+  pasted_length = 0
+  image_path_output = ''
+  image_pasted = False
+  ran_flag = False
+  for line in raw_output.splitlines():
+    if line.startswith('WINDOW='):
+      window = line.split('=', 1)[1].strip()
+    if line.startswith('PROCESS='):
+      process = line.split('=', 1)[1].strip()
+    if line.startswith('FOCUS_ROLE='):
+      focus_role = line.split('=', 1)[1].strip()
+    if line.startswith('CLIP_LEN='):
+      try:
+        clip_length = int(line.split('=', 1)[1].strip() or len(submitted_prompt))
+      except ValueError:
+        clip_length = len(submitted_prompt)
+    if line.startswith('PASTED_LENGTH='):
+      try:
+        pasted_length = int(line.split('=', 1)[1].strip() or 0)
+      except ValueError:
+        pasted_length = 0
+    if line.startswith('IMAGE_PATH='):
+      image_path_output = line.split('=', 1)[1].strip()
+    if line.startswith('IMAGE_PASTED='):
+      image_pasted = line.split('=', 1)[1].strip().lower() in {'true', '1', 'yes'}
+    if line.startswith('RAN='):
+      ran_flag = line.split('=', 1)[1].strip().lower() in {'true', 'run', '1', 'yes'}
+  event_path = os.path.join(group_dir, 'submit_operator_events.jsonl')
+  event = {
+    'time': datetime.datetime.now().isoformat(timespec='seconds'),
+    'action': 'fast-submit',
+    'group': group_name,
+    'order': target_order,
+    'promptLength': len(submitted_prompt),
+    'basePromptLength': len(prompt),
+    'clipboardWritten': True,
+    'screenshotPath': screenshot_path,
+    'screenshotIncluded': bool(screenshot_path),
+    'imagePasted': image_pasted,
+    'matched': matched,
+    'window': window,
+    'process': process,
+    'focusRole': focus_role,
+    'clipLength': clip_length,
+    'pastedLength': pasted_length,
+    'ran': ran_flag,
+    'returncode': completed.returncode,
+    'rawOutput': raw_output[-1200:],
+  }
+  os.makedirs(group_dir, exist_ok=True)
+  with open(event_path, 'a', encoding='utf-8') as file:
+    file.write(json.dumps(event, ensure_ascii=False) + '\n')
+
+  text_pasted = pasted_length > 0
+  submit_ok = bool(
+    matched
+    and focus_role in {'AXTextArea', 'AXTextField'}
+    and text_pasted
+    and (not screenshot_path or image_pasted)
+    and (not should_run or ran_flag)
+  )
+  submit_error = ''
+  if not matched:
+    submit_error = '未匹配到目标 Trae 窗口'
+  elif focus_role not in {'AXTextArea', 'AXTextField'}:
+    submit_error = f'未聚焦到输入框：{focus_role or "-"}'
+  elif not text_pasted:
+    submit_error = '文本未成功粘贴到输入框'
+  elif screenshot_path and not image_pasted:
+    submit_error = '截图附件未成功粘贴到输入框'
+  elif should_run and not ran_flag:
+    submit_error = '文本和截图已粘贴，但未触发运行'
+  return {
+    'ok': submit_ok,
+    'action': 'fast-submit',
+    'group': group_name,
+    'order': target_order,
+    'priority': target.get('priority'),
+    'score': target.get('score'),
+    'issues': target.get('issues') or [],
+    'promptLength': len(submitted_prompt),
+    'basePromptLength': len(prompt),
+    'promptPreview': submitted_prompt[:1200],
+    'submittedPrompt': submitted_prompt,
+    'clipboardWritten': True,
+    'screenshotPath': screenshot_path,
+    'screenshotIncluded': bool(screenshot_path),
+    'screenshotRequired': bool(screenshot_path),
+    'error': submit_error,
+    'submit': {
+      'matched': matched,
+      'window': window,
+      'process': process,
+      'focusRole': focus_role,
+      'clipLength': clip_length,
+      'pastedLength': pasted_length,
+      'imagePath': image_path_output or screenshot_path,
+      'imagePasted': image_pasted,
+      'ran': ran_flag,
+      'returncode': completed.returncode,
+      'rawOutput': raw_output[-1200:],
+    },
+    'queueSource': os.path.basename(queue_path),
+    'note': '直接读取已有队列，粘贴短反馈文本和截图附件',
+  }
+
+
+def _round_job_path(job_id: str) -> str:
+  safe_id = re.sub(r'[^0-9A-Za-z_.-]+', '_', str(job_id or '').strip())
+  return os.path.join(TRAE_ROUND_AUTOMATION_JOB_DIR, f'{safe_id}.json')
+
+
+def _round_job_now() -> str:
+  return datetime.datetime.now().isoformat(timespec='seconds')
+
+
+def _round_job_public(job: dict) -> dict:
+  public = dict(job or {})
+  public.pop('_thread', None)
+  return public
+
+
+def _persist_round_job(job: dict):
+  job_id = str((job or {}).get('id') or '').strip()
+  if not job_id:
+    return
+  write_json(_round_job_path(job_id), _round_job_public(job))
+
+
+def _update_round_job(job_id: str, updater):
+  with TRAE_ROUND_AUTOMATION_JOBS_LOCK:
+    job = TRAE_ROUND_AUTOMATION_JOBS.get(job_id)
+    if not isinstance(job, dict):
+      loaded = read_json(_round_job_path(job_id), None)
+      if isinstance(loaded, dict):
+        job = loaded
+        TRAE_ROUND_AUTOMATION_JOBS[job_id] = job
+    if not isinstance(job, dict):
+      return None
+    updater(job)
+    job['updatedAt'] = _round_job_now()
+    _persist_round_job(job)
+    return _round_job_public(job)
+
+
+def _append_round_job_event(job_id: str, event: dict):
+  def _apply(job):
+    events = job.setdefault('events', [])
+    item = {'time': _round_job_now(), **(event or {})}
+    events.append(item)
+    del events[:-240]
+  return _update_round_job(job_id, _apply)
+
+
+def _round_job_effective_rows(rows):
+  result = []
+  seen = {}
+  for row in rows or []:
+    if not isinstance(row, dict):
+      continue
+    session = str(row.get('sessionId') or row.get('sessionComposite') or row.get('logTraceId') or '').strip()
+    conversation = str(row.get('conversation') or '').strip()
+    if not session or session == '-' or not conversation or conversation.startswith(('读取失败:', '刷新失败:')):
+      continue
+    trace = str(row.get('logTrace') or '').strip()
+    transient_failure_markers = ('模型请求失败', '请稍后重试', '任务中断', '网络断开', '异常打断')
+    normalized_conversation = re.sub(r'\s+', ' ', conversation).strip()
+    is_transient_failure_notice = (
+      len(trace) < 80
+      and len(normalized_conversation) <= 160
+      and any(
+        normalized_conversation.startswith(marker) or normalized_conversation == marker
+        for marker in transient_failure_markers
+      )
+    )
+    if is_transient_failure_notice:
+      continue
+    key = re.sub(r'\s+', ' ', conversation)
+    if key and key in seen:
+      result[seen[key]] = row
+      continue
+    if key:
+      seen[key] = len(result)
+    result.append(row)
+  return result
+
+
+def _round_job_completed_count_from_payload(payload) -> int:
+  rows = (payload or {}).get('rows') if isinstance(payload, dict) else []
+  return len(_round_job_effective_rows(rows if isinstance(rows, list) else []))
+
+
+def _round_job_cached_completed_count(order: str) -> int:
+  try:
+    return _round_job_completed_count_from_payload(read_trae_session_cache(order))
+  except Exception:
+    payload = read_json(_session_cache_path(order), None)
+    return _round_job_completed_count_from_payload(payload)
+
+
+def _round_job_precise_completed_info(order: str, target_rounds: int = 5) -> dict:
+  order = _normalize_order_token_text(order)
+  target = max(1, min(99, int(target_rounds or 5)))
+  cache_exists = os.path.exists(_session_cache_path(order))
+  cached_count = _round_job_cached_completed_count(order)
+  info = {
+    'order': order,
+    'completedRounds': cached_count,
+    'cachedRounds': cached_count,
+    'targetRounds': target,
+    'nextRound': min(cached_count + 1, target),
+    'reachedTarget': cached_count >= target,
+    'cacheExists': cache_exists,
+    'source': 'cache',
+    'rawInputCount': None,
+    'effectiveInputCount': None,
+    'sentRoundCount': None,
+    'duplicateInputCount': None,
+    'sessionId': '',
+    'dbPath': '',
+    'detectError': '',
+  }
+  try:
+    db_path, session_id, input_history, _user_id = _read_trae_workspace_context(order)
+    raw_input_count = len(input_history) if isinstance(input_history, list) else 0
+    expected_count = _expected_trae_session_round_count(order) or 0
+    precise_payload = extract_trae_session_rounds_precise(order)
+    sent_count = _round_job_completed_count_from_payload(precise_payload)
+    # Completed rounds must come from sent chat turns or the existing normalized
+    # cache. Input history is only diagnostic because it can contain repeated
+    # retries or edited drafts.
+    completed = max(cached_count, sent_count)
+    info.update({
+      'completedRounds': completed,
+      'targetRounds': target,
+      'nextRound': min(completed + 1, target),
+      'reachedTarget': completed >= target,
+      'source': 'precise-local' if completed != cached_count or sent_count else 'cache',
+      'rawInputCount': raw_input_count,
+      'effectiveInputCount': expected_count,
+      'sentRoundCount': sent_count,
+      'duplicateInputCount': max(0, raw_input_count - expected_count),
+      'sessionId': session_id,
+      'dbPath': db_path,
+    })
+  except Exception as exc:
+    info['detectError'] = str(exc)
+  return info
+
+
+def _round_job_refresh_completed_count(order: str) -> tuple[int, str]:
+  try:
+    payload = refresh_trae_session_cache(order, deep_scan=False)
+    return _round_job_completed_count_from_payload(payload), ''
+  except Exception as exc:
+    return _round_job_cached_completed_count(order), str(exc)
+
+
+def _round_job_quick_completed_count(order: str) -> tuple[int, str]:
+  try:
+    payload = read_json(_session_cache_path(order), None)
+    if isinstance(payload, dict):
+      return _round_job_completed_count_from_payload(payload), ''
+    return 0, '没有本地会话缓存'
+  except Exception as exc:
+    return 0, str(exc)
+
+
+def _round_job_browser_completion_check(group: str, order: str, wait_ms: int = 700) -> dict:
+  try:
+    result = run_round_automation_browser_check(group, [order], wait_ms=wait_ms)
+    items = result.get('results') or []
+    item = next((entry for entry in items if str((entry or {}).get('order') or '') == order), items[0] if items else {})
+    screenshot_path = str((item or {}).get('screenshotPath') or '').strip()
+    try:
+      screenshot_bytes = os.path.getsize(screenshot_path) if screenshot_path and os.path.isfile(screenshot_path) else 0
+    except OSError:
+      screenshot_bytes = 0
+    ok = bool((item or {}).get('ok')) and screenshot_bytes > 0
+    return {
+      'ok': ok,
+      'order': order,
+      'url': (item or {}).get('url') or '',
+      'finalUrl': (item or {}).get('finalUrl') or (item or {}).get('url') or '',
+      'title': (item or {}).get('title') or '',
+      'reportPath': (item or {}).get('reportPath') or '',
+      'screenshotPath': screenshot_path,
+      'screenshotBytes': screenshot_bytes,
+      'targetMatched': bool((item or {}).get('targetMatched')),
+      'targetKind': (item or {}).get('targetKind') or '',
+      'targetReason': (item or {}).get('targetReason') or '',
+      'error': (item or {}).get('error') or (item or {}).get('reason') or '',
+    }
+  except Exception as exc:
+    return {
+      'ok': False,
+      'order': order,
+      'url': '',
+      'title': '',
+      'reportPath': '',
+      'screenshotPath': '',
+      'screenshotBytes': 0,
+      'error': str(exc),
+    }
+
+
+def _round_job_record_optimistic_completion(group: str, order: str, target_rounds: int, completed_round: int, state: dict, browser: dict):
+  payload = read_json(TRAE_ROUND_AUTOMATION_STATE_FILE, {})
+  if not isinstance(payload, dict):
+    payload = {}
+  orders = payload.setdefault('orders', {})
+  groups = payload.setdefault('groups', {})
+  current = orders.get(order) if isinstance(orders, dict) else {}
+  if not isinstance(current, dict):
+    current = {}
+  now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+  submitted_prompt = str((state or {}).get('lastSubmittedPrompt') or '').strip()
+  screenshot_name = os.path.basename(str(browser.get('screenshotPath') or '').strip())
+  target_detail = ''
+  if browser.get('targetReason'):
+    target_detail = f"；截图目标={browser.get('targetReason')}"
+  if browser.get('targetMatched'):
+    target_detail += "；已进入问题相关页面"
+  browser_summary = (
+    f"快速网页验收已通过：URL={browser.get('finalUrl') or browser.get('url') or '-'}；"
+    f"标题={browser.get('title') or '-'}；"
+    f"截图已生成{screenshot_name and '（' + screenshot_name + '）' or ''}{target_detail}。"
+  )
+  optimistic_source = {
+    'conversation': submitted_prompt,
+    'dissatisfactionReason': '',
+    'logTrace': browser_summary,
+    'screenshots': [{'resourceId': screenshot_name or 'frontend-screenshot'}] if browser.get('screenshotPath') else [],
+    'browserReportPath': browser.get('reportPath') or '',
+    'browserUrl': browser.get('finalUrl') or browser.get('url') or '',
+    'browserTitle': browser.get('title') or '',
+  }
+  current.update({
+    'order': order,
+    'status': 'web_verified_round',
+    'targetRounds': target_rounds,
+    'effectiveRoundCount': max(int(current.get('effectiveRoundCount') or 0), completed_round),
+    'nextRoundIndex': completed_round + 1,
+    'optimisticCompletedRounds': max(int(current.get('optimisticCompletedRounds') or 0), completed_round),
+    'optimisticRound': completed_round,
+    'optimisticSource': optimistic_source,
+    'optimisticReason': 'browser_ok_with_screenshot',
+    'updatedAt': now,
+  })
+  orders[order] = current
+  group_state = groups.get(group) if isinstance(groups, dict) else {}
+  if not isinstance(group_state, dict):
+    group_state = {}
+  group_orders = parse_order_tokens(group_state.get('orders') or [])
+  if order and order not in group_orders:
+    group_orders.append(order)
+  group_state.update({
+    'orders': group_orders,
+    'targetRounds': target_rounds,
+    'updatedAt': now,
+  })
+  groups[group] = group_state
+  write_json(TRAE_ROUND_AUTOMATION_STATE_FILE, payload)
+
+
+def _round_job_selected_groups(groups) -> list:
+  state = read_json(STATE_FILE, {'trae_groups': {}})
+  saved_groups = state.get('trae_groups') or state.get('batch_groups') or state.get('batchGroups') or {}
+  result = []
+  seen = set()
+  for name in groups or []:
+    group = str(name or '').strip()
+    if not group or group in seen or group not in saved_groups:
+      continue
+    orders = _automation_group_orders(group)
+    if not orders:
+      continue
+    seen.add(group)
+    result.append({'name': group, 'orders': orders})
+  return result
+
+
+def _round_job_mark_order(job_id: str, group: str, order: str, updates: dict):
+  def _apply(job):
+    orders = job.setdefault('orders', {})
+    current = orders.get(order)
+    if not isinstance(current, dict):
+      current = {'order': order}
+    current.update({
+      'group': group,
+      'order': order,
+      'targetRounds': job.get('targetRounds'),
+      **(updates or {}),
+    })
+    orders[order] = current
+  return _update_round_job(job_id, _apply)
+
+
+def _round_job_should_stop(job_id: str) -> bool:
+  with TRAE_ROUND_AUTOMATION_JOBS_LOCK:
+    job = TRAE_ROUND_AUTOMATION_JOBS.get(job_id) or read_json(_round_job_path(job_id), {})
+    return bool((job or {}).get('stopRequested'))
+
+
+def _round_job_finalize_stop(job_id: str, message: str = '已手动停止') -> bool:
+  if not _round_job_should_stop(job_id):
+    return False
+  _update_round_job(job_id, lambda job: job.update({'status': 'stopped', 'message': message}))
+  _append_round_job_event(job_id, {'action': 'stopped', 'message': message})
+  return True
+
+
+def _round_job_interruptible_sleep(job_id: str, seconds: float) -> bool:
+  deadline = time.monotonic() + max(0, float(seconds or 0))
+  while time.monotonic() < deadline:
+    if _round_job_finalize_stop(job_id):
+      return True
+    time.sleep(min(0.5, max(0, deadline - time.monotonic())))
+  return _round_job_finalize_stop(job_id)
+
+
+def _round_automation_job_worker(job_id: str):
+  try:
+    with TRAE_ROUND_AUTOMATION_JOBS_LOCK:
+      job = TRAE_ROUND_AUTOMATION_JOBS.get(job_id)
+      groups = list((job or {}).get('groupDetails') or [])
+      target_rounds = int((job or {}).get('targetRounds') or 5)
+      interval_seconds = max(3, int((job or {}).get('intervalSeconds') or TRAE_ROUND_AUTOMATION_CYCLE_INTERVAL_SECONDS))
+      max_cycles = max(1, int((job or {}).get('maxCycles') or 500))
+    if not groups:
+      _update_round_job(job_id, lambda job: job.update({'status': 'failed', 'message': '没有可运行的批量组'}))
+      return
+    _append_round_job_event(job_id, {'action': 'start', 'message': f'开始多轮自动化：{len(groups)} 个组，目标 {target_rounds} 轮'})
+    for cycle in range(1, max_cycles + 1):
+      if _round_job_finalize_stop(job_id):
+        return
+      _update_round_job(job_id, lambda job: job.update({'status': 'running', 'cycle': cycle}))
+      cycle_had_work = False
+      all_done = True
+      for group_info in groups:
+        if _round_job_finalize_stop(job_id):
+          return
+        group = group_info.get('name') or ''
+        orders = group_info.get('orders') or []
+        if not group or not orders:
+          continue
+        for order in orders:
+          if _round_job_finalize_stop(job_id):
+            return
+          state = ((TRAE_ROUND_AUTOMATION_JOBS.get(job_id) or {}).get('orders') or {}).get(order) or {}
+          if state.get('status') == 'completed' and int(state.get('completedRounds') or 0) >= target_rounds:
+            continue
+          pending_round = int(state.get('pendingRound') or 0)
+          if pending_round:
+            completed_count, refresh_error = _round_job_quick_completed_count(order)
+            if completed_count >= pending_round:
+              _round_job_mark_order(job_id, group, order, {
+                'status': 'completed' if completed_count >= target_rounds else 'ready',
+                'completedRounds': completed_count,
+                'pendingRound': 0,
+                'message': f'第 {pending_round} 轮已确认落盘',
+                'lastError': '',
+              })
+              _append_round_job_event(job_id, {'action': 'round-completed', 'group': group, 'order': order, 'round': pending_round, 'message': f'{order} 第 {pending_round} 轮完成'})
+              cycle_had_work = True
+            else:
+              browser_completion = _round_job_browser_completion_check(group, order, wait_ms=700)
+              if browser_completion.get('ok'):
+                _round_job_record_optimistic_completion(group, order, target_rounds, pending_round, state, browser_completion)
+                _round_job_mark_order(job_id, group, order, {
+                  'status': 'web_verified',
+                  'completedRounds': max(completed_count, pending_round),
+                  'pendingRound': 0,
+                  'message': f'第 {pending_round} 轮网页已打开并截图，按快速闭环进入下一轮；真实会话轮次后续自动校准',
+                  'lastError': refresh_error,
+                  'browserCompletion': browser_completion,
+                })
+                _append_round_job_event(job_id, {'action': 'round-web-verified', 'group': group, 'order': order, 'round': pending_round, 'message': f'{order} 第 {pending_round} 轮网页可访问且已截图'})
+                cycle_had_work = True
+                continue
+              submitted_at = float(state.get('submittedAtMono') or 0)
+              if submitted_at and time.monotonic() - submitted_at > TRAE_ROUND_AUTOMATION_PENDING_TIMEOUT_SECONDS:
+                _round_job_mark_order(job_id, group, order, {
+                  'status': 'blocked',
+                  'completedRounds': completed_count,
+                  'message': f'第 {pending_round} 轮超时未确认，已阻止重复提交',
+                  'lastError': refresh_error,
+                })
+                _append_round_job_event(job_id, {'action': 'round-timeout', 'group': group, 'order': order, 'round': pending_round, 'message': f'{order} 第 {pending_round} 轮超时'})
+              else:
+                _round_job_mark_order(job_id, group, order, {
+                  'status': 'pending',
+                  'completedRounds': completed_count,
+                  'message': f'第 {pending_round} 轮等待网页验收或真实轮次校准',
+                  'lastError': refresh_error,
+                })
+              all_done = False
+              continue
+          if _round_job_finalize_stop(job_id):
+            return
+          completed_count, refresh_error = _round_job_quick_completed_count(order)
+          if state.get('status') == 'web_verified':
+            completed_count = max(completed_count, int(state.get('completedRounds') or 0))
+          if completed_count >= target_rounds:
+            _round_job_mark_order(job_id, group, order, {
+              'status': 'completed',
+              'completedRounds': completed_count,
+              'pendingRound': 0,
+              'message': f'轮次检测已达到目标：{completed_count}/{target_rounds}',
+              'lastError': refresh_error,
+            })
+            _append_round_job_event(job_id, {'action': 'round-detected-completed', 'group': group, 'order': order, 'message': f'{order} 已达到 {completed_count}/{target_rounds} 轮，跳过'})
+            cycle_had_work = True
+            continue
+          _round_job_mark_order(job_id, group, order, {
+            'status': 'ready',
+            'completedRounds': completed_count,
+            'pendingRound': 0,
+            'message': f'轮次检测：{completed_count}/{target_rounds}，等待提交下一轮',
+            'lastError': refresh_error,
+          })
+        try:
+          if _round_job_finalize_stop(job_id):
+            return
+          queue_result = run_round_automation_round_prompt_queue(group, orders, target_rounds=target_rounds)
+        except Exception as exc:
+          _append_round_job_event(job_id, {'action': 'queue-error', 'group': group, 'message': f'{group} 生成轮次输入失败：{exc}'})
+          all_done = False
+          continue
+        if _round_job_finalize_stop(job_id):
+          return
+        queue = queue_result.get('queue') or []
+        skipped = queue_result.get('skipped') or []
+        if queue:
+          all_done = False
+        for skipped_item in skipped:
+          if _round_job_finalize_stop(job_id):
+            return
+          order = str((skipped_item or {}).get('order') or '').strip()
+          if not order:
+            continue
+          reason = str((skipped_item or {}).get('reason') or '')
+          completed = int((skipped_item or {}).get('currentRoundCount') or _round_job_quick_completed_count(order)[0] or 0)
+          _round_job_mark_order(job_id, group, order, {
+            'status': 'completed' if completed >= target_rounds else 'skipped',
+            'completedRounds': completed,
+            'pendingRound': 0,
+            'message': reason,
+          })
+          if completed < target_rounds:
+            all_done = False
+        for item in queue:
+          if _round_job_finalize_stop(job_id):
+            return
+          order = str((item or {}).get('order') or '').strip()
+          next_round = int((item or {}).get('nextRoundIndex') or 0)
+          if not order or not next_round:
+            continue
+          state = ((TRAE_ROUND_AUTOMATION_JOBS.get(job_id) or {}).get('orders') or {}).get(order) or {}
+          if int(state.get('pendingRound') or 0) == next_round:
+            continue
+          completed_count, refresh_error = _round_job_quick_completed_count(order)
+          if completed_count >= target_rounds:
+            _round_job_mark_order(job_id, group, order, {
+              'status': 'completed',
+              'completedRounds': completed_count,
+              'pendingRound': 0,
+              'message': f'提交前轮次检测已达到目标：{completed_count}/{target_rounds}',
+              'lastError': refresh_error,
+            })
+            _append_round_job_event(job_id, {'action': 'submit-skip-target', 'group': group, 'order': order, 'message': f'{order} 提交前已达标，跳过'})
+            cycle_had_work = True
+            continue
+          if state.get('status') == 'blocked' and int(state.get('blockedRound') or 0) == next_round:
+            all_done = False
+            continue
+          if _round_job_finalize_stop(job_id):
+            return
+          try:
+            submit = run_round_automation_fast_submit(group, order, should_run=True)
+            if _round_job_finalize_stop(job_id, '已手动停止；最近一次快捷键动作已结束'):
+              return
+            submit_info = submit.get('submit') or {}
+            if submit.get('ok') and submit_info.get('ran'):
+              _round_job_mark_order(job_id, group, order, {
+                'status': 'pending',
+                'completedRounds': int((item or {}).get('currentRoundCount') or 0),
+                'pendingRound': next_round,
+                'lastSubmittedPrompt': str(submit.get('submittedPrompt') or (item or {}).get('prompt') or '')[:9000],
+                'lastSubmittedRound': next_round,
+                'lastSubmittedScreenshot': submit.get('screenshotPath') or '',
+                'lastSubmittedScreenshotPasted': bool(submit_info.get('imagePasted')),
+                'submittedAt': _round_job_now(),
+                'submittedAtMono': time.monotonic(),
+                'message': f'第 {next_round} 轮已提交，文本和上一轮截图已进入 Trae，等待网页验收或真实轮次校准',
+                'lastError': '',
+              })
+              _append_round_job_event(job_id, {
+                'action': 'submit',
+                'group': group,
+                'order': order,
+                'round': next_round,
+                'screenshotPath': submit.get('screenshotPath') or '',
+                'imagePasted': bool(submit_info.get('imagePasted')),
+                'message': f'{order} 第 {next_round} 轮已提交，截图附件状态：{"已粘贴" if submit_info.get("imagePasted") else "无附件"}',
+              })
+              cycle_had_work = True
+              all_done = False
+            else:
+              submit_error = str(submit.get('error') or submit_info.get('rawOutput') or submit.get('error') or 'fast-submit failed')
+              _round_job_mark_order(job_id, group, order, {
+                'status': 'blocked',
+                'completedRounds': int((item or {}).get('currentRoundCount') or 0),
+                'pendingRound': 0,
+                'blockedRound': next_round,
+                'message': f'第 {next_round} 轮提交失败，未重复提交',
+                'lastError': submit_error[-500:],
+              })
+              _append_round_job_event(job_id, {'action': 'submit-blocked', 'group': group, 'order': order, 'round': next_round, 'message': f'{order} 第 {next_round} 轮提交失败：{submit_error[:160]}'})
+              all_done = False
+          except Exception as exc:
+            _round_job_mark_order(job_id, group, order, {
+              'status': 'blocked',
+              'pendingRound': 0,
+              'blockedRound': next_round,
+              'message': f'第 {next_round} 轮提交异常',
+              'lastError': str(exc),
+            })
+            _append_round_job_event(job_id, {'action': 'submit-error', 'group': group, 'order': order, 'round': next_round, 'message': f'{order} 提交异常：{exc}'})
+            all_done = False
+      if all_done:
+        _update_round_job(job_id, lambda job: job.update({'status': 'completed', 'message': '所有选中组已达到目标轮次'}))
+        _append_round_job_event(job_id, {'action': 'completed', 'message': '所有选中组已达到目标轮次'})
+        return
+      if _round_job_interruptible_sleep(job_id, interval_seconds if not cycle_had_work else 2):
+        return
+    _update_round_job(job_id, lambda job: job.update({'status': 'stopped', 'message': '达到最大循环次数后停止'}))
+  except Exception as exc:
+    _update_round_job(job_id, lambda job: job.update({'status': 'failed', 'message': str(exc)}))
+    _append_round_job_event(job_id, {'action': 'failed', 'message': str(exc)})
+
+
+def start_round_automation_job(groups, target_rounds: int = 5):
+  selected = _round_job_selected_groups(groups)
+  if not selected:
+    raise RuntimeError('请先勾选至少一个有效批量组')
+  target = max(1, min(99, int(target_rounds or 5)))
+  job_id = f'round-{time.strftime("%Y%m%d-%H%M%S")}-{hashlib.sha1(("|".join(item["name"] for item in selected) + str(time.time())).encode("utf-8")).hexdigest()[:8]}'
+  orders = {}
+  for group in selected:
+    for order in group.get('orders') or []:
+      completed_rounds, quick_error = _round_job_quick_completed_count(order)
+      orders.setdefault(order, {
+        'order': order,
+        'group': group.get('name'),
+        'status': 'completed' if completed_rounds >= target else 'ready',
+        'completedRounds': completed_rounds,
+        'targetRounds': target,
+        'pendingRound': 0,
+        'message': (
+          f'启动前快速轮次检测已达标：{completed_rounds}/{target}'
+          if completed_rounds >= target
+          else f'启动前快速轮次检测：{completed_rounds}/{target}'
+        ),
+        'roundDetect': {
+          'cachedRounds': completed_rounds,
+          'source': 'cache-fast',
+          'error': quick_error,
+        },
+      })
+  job = {
+    'id': job_id,
+    'status': 'running',
+    'createdAt': _round_job_now(),
+    'updatedAt': _round_job_now(),
+    'groups': [item.get('name') for item in selected],
+    'groupDetails': selected,
+    'targetRounds': target,
+    'intervalSeconds': TRAE_ROUND_AUTOMATION_CYCLE_INTERVAL_SECONDS,
+    'maxCycles': 500,
+    'cycle': 0,
+    'orders': orders,
+    'events': [],
+    'stopRequested': False,
+  }
+  thread = threading.Thread(target=_round_automation_job_worker, args=(job_id,), daemon=True)
+  job['_thread'] = thread
+  with TRAE_ROUND_AUTOMATION_JOBS_LOCK:
+    TRAE_ROUND_AUTOMATION_JOBS[job_id] = job
+    _persist_round_job(job)
+  thread.start()
+  return {'ok': True, 'job': _round_job_public(job)}
+
+
+def get_round_automation_job(job_id: str):
+  job_id = str(job_id or '').strip()
+  if not job_id:
+    raise RuntimeError('job id is required')
+  with TRAE_ROUND_AUTOMATION_JOBS_LOCK:
+    job = TRAE_ROUND_AUTOMATION_JOBS.get(job_id)
+  if not isinstance(job, dict):
+    job = read_json(_round_job_path(job_id), None)
+  if not isinstance(job, dict):
+    raise RuntimeError('job not found')
+  return {'ok': True, 'job': _round_job_public(job)}
+
+
+def stop_round_automation_job(job_id: str):
+  job_id = str(job_id or '').strip()
+  if not job_id:
+    raise RuntimeError('job id is required')
+  def _request_stop(item):
+    status = str((item or {}).get('status') or '').strip()
+    if status in {'completed', 'stopped', 'failed'}:
+      item.update({'message': item.get('message') or '任务已结束'})
+      return
+    item.update({'stopRequested': True, 'status': 'stopping', 'message': '正在停止，当前动作结束后立即退出'})
+  job = _update_round_job(job_id, _request_stop)
+  if not isinstance(job, dict):
+    raise RuntimeError('job not found')
+  if job.get('status') == 'stopping':
+    _append_round_job_event(job_id, {'action': 'stop-requested', 'message': '收到停止请求'})
+  return {'ok': True, 'job': job}
+
+
+def _round_automation_queue_first_order(group_name: str, order: str = '') -> str:
+  order = str(order or '').strip()
+  if order:
+    return order
+  _group_dir, _queue_path, _payload, target, target_order, _prompt = _round_automation_select_queue_item(group_name)
+  return target_order
+
+
+def run_round_automation_ax_probe(group_name: str, order: str = '', focus: bool = False):
+  group_name = str(group_name or '').strip()
+  if not group_name:
+    raise RuntimeError('group is required')
+  target_order = _round_automation_queue_first_order(group_name, order)
+  if not target_order:
+    raise RuntimeError('order is required')
+  script = _automation_script_path('trae_ui_ax_probe.py')
+  cmd = [
+    sys.executable,
+    script,
+    '--group',
+    group_name,
+    '--order',
+    target_order,
+    '--max-depth',
+    '10',
+    '--max-lines',
+    '800',
+  ]
+  if focus:
+    cmd.append('--focus')
+  stdout = _run_automation_script(cmd, timeout_seconds=60)
+  try:
+    payload = json.loads(stdout)
+  except Exception:
+    payload = {'ok': False, 'stdout': stdout}
+  return {
+    'ok': bool(payload.get('ok')),
+    'action': 'ax-probe',
+    'group': group_name,
+    'order': target_order,
+    **payload,
+  }
+
+
+def run_round_automation_restore_window(group_name: str, order: str = ''):
+  group_name = str(group_name or '').strip()
+  if not group_name:
+    raise RuntimeError('group is required')
+  target_order = _round_automation_queue_first_order(group_name, order)
+  if not target_order:
+    raise RuntimeError('order is required')
+
+  open_result = open_trae_project(target_order)
+  time.sleep(2.0)
+  ax_result = run_round_automation_ax_probe(group_name, target_order, focus=True)
+
+  group_dir = _automation_group_dir(group_name)
+  event_path = os.path.join(group_dir, 'submit_operator_events.jsonl')
+  event = {
+    'time': datetime.datetime.now().isoformat(timespec='seconds'),
+    'action': 'restore-window',
+    'group': group_name,
+    'order': target_order,
+    'open': {
+      'ok': open_result.get('ok'),
+      'launchMode': open_result.get('launchMode'),
+      'folder': open_result.get('folder'),
+      'userDataDir': open_result.get('userDataDir'),
+    },
+    'ax': {
+      'ok': ax_result.get('ok'),
+      'matched': ax_result.get('matched'),
+      'lineCount': ax_result.get('lineCount'),
+      'path': ax_result.get('path'),
+    },
+  }
+  os.makedirs(group_dir, exist_ok=True)
+  with open(event_path, 'a', encoding='utf-8') as file:
+    file.write(json.dumps(event, ensure_ascii=False) + '\n')
+
+  return {
+    'ok': True,
+    'action': 'restore-window',
+    'group': group_name,
+    'order': target_order,
+    'open': open_result,
+    'ax': ax_result,
+  }
+
+
 def llm_annotation_model_catalog():
   active_provider = str(TRAE_SESSION_ANNOTATION_PROVIDER or '').strip().lower()
   active_models = set(TRAE_SESSION_ANNOTATION_MODELS or [])
@@ -2447,12 +4440,27 @@ def _copy_text_to_macos_clipboard(text: str):
   run_cmd(['pbcopy'], check=True, input_text=value)
 
 
-def _feishu_paste_current_clipboard(delay_seconds: float):
+def _feishu_paste_current_clipboard(delay_seconds: float, commit: str = 'tab'):
+  commit_key_lines = []
+  if commit == 'tab':
+    commit_key_lines = [
+      # Feishu long-text cells can stay in edit mode after paste. Tab commits
+      # the pasted column and moves one cell right; callers adjust the next
+      # horizontal offset accordingly.
+      'key code 48',
+      'delay 0.25',
+    ]
+  elif commit == 'escape':
+    commit_key_lines = [
+      'key code 53',
+      'delay 0.18',
+    ]
   run_applescript([
     'tell application "Google Chrome" to activate',
     'tell application "System Events"',
     'keystroke "v" using command down',
     f'delay {max(0.1, delay_seconds):.2f}',
+    *commit_key_lines,
     'end tell',
   ])
 
@@ -2463,9 +4471,11 @@ def _feishu_text_paste_delay(key: str, chars: int, rows: int, requested_delay: f
   row_delay = min(4.0, max(0, int(rows or 0)) * 0.08)
   delay = base + size_delay + row_delay
   if key == 'logTrace':
-    return max(base, min(45.0, delay))
+    return max(base, min(60.0, delay))
   if key == 'conversation':
-    return max(base, min(12.0, delay))
+    return max(8.0, min(30.0, delay + 3.0))
+  if key == 'dissatisfactionReason':
+    return max(6.0, min(20.0, delay + 2.0))
   return max(base, min(5.0, delay))
 
 
@@ -2495,17 +4505,17 @@ def _feishu_text_column(rows, key: str):
   return '\n'.join(values)
 
 
-def _feishu_paste_text_column(rows, key: str, label: str, delay_seconds: float):
+def _feishu_paste_text_column(rows, key: str, label: str, delay_seconds: float, commit: str = 'tab'):
   text = _feishu_text_column(rows, key)
   paste_delay = _feishu_text_paste_delay(key, len(text), len(rows), delay_seconds)
   print(
-    f'[feishu-batch-paste] paste text label={label} rows={len(rows)} chars={len(text)} delay={paste_delay:.2f}s',
+    f'[feishu-batch-paste] paste text label={label} rows={len(rows)} chars={len(text)} delay={paste_delay:.2f}s commit={commit}',
     flush=True,
   )
   _copy_text_to_macos_clipboard(text)
-  _feishu_paste_current_clipboard(paste_delay)
+  _feishu_paste_current_clipboard(paste_delay, commit=commit)
   print(f'[feishu-batch-paste] text done label={label}', flush=True)
-  return {'label': label, 'key': key, 'rows': len(rows), 'chars': len(text), 'delaySeconds': paste_delay}
+  return {'label': label, 'key': key, 'rows': len(rows), 'chars': len(text), 'delaySeconds': paste_delay, 'commit': commit}
 
 
 def paste_feishu_screenshots(rows, task_url: str, delay_ms: int = 850, focus_tab: bool = True):
@@ -2587,18 +4597,20 @@ def paste_feishu_batch_sessions(rows, delay_ms: int = 1200):
   delay_seconds = max(0.35, min(3.0, int(delay_ms or 1200) / 1000.0))
   events = []
 
-  # 起点必须是飞书 User Prompt 列第一行。偏移按当前多维表格模板固定：
-  # User Prompt -> 不满意原因(+6) -> 分支/文件夹(+2) -> 日志轨迹(+2)
-  # -> 截图(-1)。截图最后逐行粘贴，因为图片粘贴会向下移动光标。
-  # Trae Session ID 暂不纳入总按钮。
+  # 起点必须是飞书 Session 列第一行。每个文本列粘贴后用 Tab
+  # 提交并右移一格，避免大文本列仍在编辑态时被后续横移或 Esc 吞掉。
+  # 偏移按当前多维表格模板固定：
+  # Session -> User Prompt -> 不满意原因(+6) -> 分支/文件夹(+2) -> 截图(+1) -> 日志轨迹(+1)。
+  # 因为 Tab 已经右移一格，下面的横移量都减去 1。
+  events.append(_feishu_paste_text_column(rows, 'sessionId', 'Session', delay_seconds))
   events.append(_feishu_paste_text_column(rows, 'conversation', 'User Prompt', delay_seconds))
-  _feishu_move_horizontal(6, delay_seconds=0.16)
+  _feishu_move_horizontal(5, delay_seconds=0.16)
   events.append(_feishu_paste_text_column(rows, 'dissatisfactionReason', '不满意原因', delay_seconds))
-  _feishu_move_horizontal(2, delay_seconds=0.16)
+  _feishu_move_horizontal(1, delay_seconds=0.16)
   events.append(_feishu_paste_text_column(rows, 'order', '分支/文件夹', delay_seconds))
-  _feishu_move_horizontal(2, delay_seconds=0.16)
+  _feishu_move_horizontal(1, delay_seconds=0.16)
   events.append(_feishu_paste_text_column(rows, 'logTrace', '日志轨迹', delay_seconds))
-  _feishu_move_horizontal(-1, delay_seconds=0.16)
+  _feishu_move_horizontal(-2, delay_seconds=0.16)
 
   screenshot_result = paste_feishu_screenshots(
     rows,
@@ -2790,10 +4802,20 @@ def sync_all_completed_to_github(repo_url: str):
   }
 
   prompt_by_id = {str(prompt.get('id')): prompt for prompt in prompts}
-  target_ids = [pid for pid in completed_ids if pid in prompt_by_id]
+  target_ids = []
+  skipped_low_order = []
+  for pid in completed_ids:
+    prompt = prompt_by_id.get(pid)
+    if not prompt:
+      continue
+    order_token = normalize_order_token(prompt, order_map.get(pid, default_order_token(prompt)))
+    if not is_second_phase_order_token(order_token):
+      skipped_low_order.append({'prompt_id': pid, 'order': str(order_token), 'status': 'skipped', 'reason': 'order number is before may-979'})
+      continue
+    target_ids.append(pid)
   target_ids.sort()
 
-  results = []
+  results = list(skipped_low_order)
   for index, prompt_id in enumerate(target_ids, start=1):
     prompt = prompt_by_id[prompt_id]
     order_token = normalize_order_token(prompt, order_map.get(prompt_id, default_order_token(prompt)))
@@ -3009,7 +5031,7 @@ def _meta_map_has_incomplete(meta_map: dict, chat_ids) -> bool:
 
 
 def _session_cache_path(order_token: str):
-  safe_order = safe_segment(str(order_token or '').strip())
+  safe_order = safe_segment(_normalize_order_token_text(order_token))
   if not safe_order:
     raise RuntimeError('order is required')
   return os.path.join(TRAE_SESSION_CACHE_DIR, f'{safe_order}.json')
@@ -3099,6 +5121,199 @@ def _normalize_trae_media_items(item: dict, db_path: str = ''):
   return screenshots
 
 
+def _trae_input_text_signature(item: dict) -> str:
+  if not isinstance(item, dict):
+    return ''
+  return re.sub(r'\s+', ' ', str(item.get('inputText') or '').strip())
+
+
+def _trae_input_media_signature(item: dict) -> tuple:
+  if not isinstance(item, dict):
+    return tuple()
+  media_ids = []
+  for key in ('multiMedia', 'images'):
+    values = item.get(key)
+    if not isinstance(values, list):
+      continue
+    for media_item in values:
+      if not isinstance(media_item, dict):
+        continue
+      resource_id = str(
+        media_item.get('resource_id')
+        or media_item.get('resourceId')
+        or media_item.get('url')
+        or media_item.get('src')
+        or ''
+      ).strip()
+      if resource_id:
+        media_ids.append(resource_id)
+  return tuple(sorted(dict.fromkeys(media_ids)))
+
+
+def _trae_input_media_datetimes(item: dict):
+  values = []
+  if not isinstance(item, dict):
+    return values
+  media_items = []
+  for key in ('multiMedia', 'images'):
+    raw_items = item.get(key)
+    if isinstance(raw_items, list):
+      media_items.extend(raw_items)
+  for media_item in media_items:
+    if not isinstance(media_item, dict):
+      continue
+    raw = ' '.join(str(media_item.get(key) or '') for key in ('resource_id', 'resourceId', 'url', 'src', 'name'))
+    for match in re.finditer(r'(?<!\d)(1[6-9]\d{11})(?!\d)', raw):
+      try:
+        # Trae resource_id stores millisecond epoch; logs on this machine are UTC+3.
+        dt = datetime.datetime.fromtimestamp(
+          int(match.group(1)) / 1000,
+          datetime.timezone(datetime.timedelta(hours=3)),
+        ).replace(tzinfo=None)
+        values.append(dt)
+      except Exception:
+        continue
+  return values
+
+
+def _trae_input_history_signature(item: dict) -> tuple:
+  return (_trae_input_text_signature(item), _trae_input_media_signature(item))
+
+
+def _trae_input_retry_text_signature(item: dict) -> str:
+  text = _trae_input_text_signature(item)
+  text = re.sub(r'[\s，,。；;：:、·`~!！?？"“”‘’（）()\[\]{}<>《》\-_=+|\\/@#￥%^&*]+', '', text)
+  return text.lower()
+
+
+def _trae_input_history_retry_equivalent(current_item: dict, next_item: dict) -> bool:
+  if not isinstance(current_item, dict) or not isinstance(next_item, dict):
+    return False
+  current_media = _trae_input_media_signature(current_item)
+  next_media = _trae_input_media_signature(next_item)
+  current_text = _trae_input_retry_text_signature(current_item)
+  next_text = _trae_input_retry_text_signature(next_item)
+  if current_text == next_text:
+    return True
+  if not current_text or not next_text:
+    return current_media == next_media and current_text == next_text
+  if current_media != next_media and current_text != next_text:
+    return False
+  ratio = difflib.SequenceMatcher(None, current_text, next_text).ratio()
+  if current_media == next_media and ratio >= 0.9:
+    return True
+  if current_text == next_text:
+    return True
+  return False
+
+
+def _looks_like_full_generation_prompt(text: str) -> bool:
+  value = re.sub(r'\s+', ' ', str(text or '').strip())
+  if len(value) < 800:
+    return False
+  markers = ('落地要求', '组件约束', '端口约束', '验收约束', '启动与端口安全约束')
+  return sum(1 for marker in markers if marker in value) >= 2
+
+
+def _looks_like_internal_automation_prompt(text: str) -> bool:
+  value = re.sub(r'\s+', ' ', str(text or '').strip())
+  if len(value) < 160:
+    return False
+  marker_groups = (
+    (
+      '当前 http://',
+      '后端健康检查',
+      '已核对到的证据',
+      '需要优先修复的问题',
+      '请按以下顺序处理',
+    ),
+    (
+      '当前项目还没有形成稳定可访问的运行态',
+      '已核对到的证据',
+      '需要优先修复的问题',
+      '请按以下顺序处理',
+    ),
+  )
+  return any(all(marker in value for marker in markers) for markers in marker_groups)
+
+
+def _effective_trae_input_history_entries(input_history, expected_initial_prompt: str = ''):
+  if not isinstance(input_history, list):
+    return []
+  effective_entries = []
+  effective_entry_index_by_signature = {}
+  seen_long_text_only_signatures = set()
+  seen_full_generation_prompt = False
+  expected_initial_prompt = _normalize_prompt_compare_text(expected_initial_prompt)
+  has_expected_full_generation_prompt = False
+  if expected_initial_prompt:
+    for candidate in input_history:
+      text = _trae_input_text_signature(candidate) if isinstance(candidate, dict) else ''
+      if _looks_like_full_generation_prompt(text) and _prompt_matches_expected(text, expected_initial_prompt):
+        has_expected_full_generation_prompt = True
+        break
+  index = 0
+  while index < len(input_history):
+    item = input_history[index]
+    if not isinstance(item, dict):
+      index += 1
+      continue
+    signature = _trae_input_history_signature(item)
+    run_end = index
+    while run_end + 1 < len(input_history):
+      next_item = input_history[run_end + 1]
+      if not _trae_input_history_retry_equivalent(input_history[run_end], next_item):
+        break
+      run_end += 1
+
+    # Trae input_history often keeps retry attempts as nearly identical consecutive rows.
+    # The later attempt is the one that actually survived, so keep the last item in the run.
+    kept_item = input_history[run_end]
+    text_signature, media_signature = signature
+    kept_text_signature = _trae_input_text_signature(kept_item)
+    if _looks_like_internal_automation_prompt(kept_text_signature):
+      index = run_end + 1
+      continue
+    is_long_text_only = bool(text_signature and not media_signature and len(text_signature) >= 240)
+    is_full_generation_prompt = bool(is_long_text_only and _looks_like_full_generation_prompt(text_signature))
+    if (
+      is_full_generation_prompt
+      and has_expected_full_generation_prompt
+      and not _prompt_matches_expected(text_signature, expected_initial_prompt)
+    ):
+      index = run_end + 1
+      continue
+    if is_full_generation_prompt and seen_full_generation_prompt:
+      index = run_end + 1
+      continue
+    if is_full_generation_prompt:
+      seen_full_generation_prompt = True
+    if is_long_text_only:
+      seen_long_text_only_signatures.add(signature)
+    entry = {
+      'item': kept_item,
+      'rawIndex': run_end,
+      'runStart': index,
+      'runEnd': run_end,
+      'signature': signature,
+    }
+    # Retry attempts can be interrupted by stale full PRD text or UI replays.
+    # Treat identical input text + identical media as the same round and keep
+    # the last surviving attempt.
+    previous_entry_index = effective_entry_index_by_signature.get(signature)
+    if previous_entry_index is not None:
+      effective_entries[previous_entry_index] = entry
+    else:
+      effective_entry_index_by_signature[signature] = len(effective_entries)
+      effective_entries.append(entry)
+    index = run_end + 1
+  return effective_entries
+
+
+def _effective_trae_input_history_items(input_history, expected_initial_prompt: str = ''):
+  return [entry.get('item') for entry in _effective_trae_input_history_entries(input_history, expected_initial_prompt)]
+
+
 def _fill_session_screenshots_from_input_history(order_token: str, payload: dict) -> bool:
   if not isinstance(payload, dict):
     return False
@@ -3125,17 +5340,11 @@ def _fill_session_screenshots_from_input_history(order_token: str, payload: dict
   input_history = _safe_json_loads(result[0] if result else '[]', [])
   if not isinstance(input_history, list):
     return False
-  effective_items = []
-  previous_text = None
-  for item in input_history:
-    if not isinstance(item, dict):
-      continue
-    text = str(item.get('inputText') or '').strip()
-    screenshots = _normalize_trae_media_items(item, db_path)
-    if text and text == previous_text and not screenshots:
-      continue
-    effective_items.append((item, screenshots))
-    previous_text = text
+  expected_initial_prompt = _expected_generation_prompt_for_order(order_token)
+  effective_items = [
+    (item, _normalize_trae_media_items(item, db_path))
+    for item in _effective_trae_input_history_items(input_history, expected_initial_prompt)
+  ]
   changed = False
   for index, row in enumerate(rows):
     if not isinstance(row, dict) or index >= len(effective_items):
@@ -3278,11 +5487,18 @@ def normalize_trae_session_rows(rows):
       composite_text = log_trace_text
     elif session_id_text.startswith('.') and not _is_trae_composite_session_id(log_trace_text):
       composite_text = session_id_text
+    if (
+      not composite_text
+      and str(row.get('invalidSessionComposite') or '').strip()
+      and _is_trae_composite_session_id(str(row.get('invalidSessionComposite') or '').strip())
+    ):
+      composite_text = str(row.get('invalidSessionComposite') or '').strip()
 
     if composite_text:
       row['logTraceId'] = composite_text
       row['sessionComposite'] = composite_text
       row.pop('invalidSessionComposite', None)
+      row.pop('invalidSessionCompositeReason', None)
       if _is_trae_composite_session_id(log_trace_text):
         row['logTrace'] = ''
       parsed_session_id = _raw_session_id_from_composite(composite_text)
@@ -3384,7 +5600,7 @@ def _rg_lines(pattern: str, timeout_seconds: int = 60, fixed_strings: bool = Fal
   rg = rg_binary()
   if not rg:
     return []
-  cmd = [rg, '--no-heading', '--line-number']
+  cmd = [rg, '--text', '--no-heading', '--line-number']
   if fixed_strings:
     cmd.append('--fixed-strings')
   cmd.extend([pattern, os.path.join(TRAE_APP_SUPPORT_DIR, 'logs')])
@@ -3400,6 +5616,17 @@ def _rg_lines(pattern: str, timeout_seconds: int = 60, fixed_strings: bool = Fal
   except Exception:
     return []
   return (completed.stdout or '').splitlines()
+
+
+def _rg_create_message_lines_for_session(session_id: str, timeout_seconds: int = 20):
+  session_id = str(session_id or '').strip()
+  if not re.fullmatch(r'[0-9a-f]{24}', session_id):
+    return []
+  return _rg_lines(
+    rf'create message, chat_session_id:\s*{re.escape(session_id)}',
+    timeout_seconds=timeout_seconds,
+    fixed_strings=False,
+  )
 
 
 def _rg_identifier_lines(identifier: str, timeout_seconds: int = 8, max_count: int = 120):
@@ -3899,7 +6126,7 @@ def _collect_log_lines_for_reconstruction(parts: dict, composite_time_text: str 
       _add_identifier_lines(identifier)
 
   task_message_id = str((parts or {}).get('taskMessageId') or '').strip()
-  if task_message_id:
+  if task_message_id and _has_real_task_message_id(parts):
     exact_task_message_markers = [
       f'message_id={task_message_id},status=',
       f'message_id: {task_message_id},status=',
@@ -4099,7 +6326,7 @@ def _build_reconstructed_log_trace(order_token: str, row: dict, db_path: str = '
   time_text = _trae_composite_time_text(composite)
   items = _collect_log_lines_for_reconstruction(parts, composite_time_text=time_text, order_token=order_token)
   has_real_task_message_id = _has_real_task_message_id(parts)
-  has_original_evidence = has_real_task_message_id and _has_original_turn_evidence(items, parts)
+  has_original_evidence = _has_original_turn_evidence(items, parts)
   has_history_evidence = _has_local_history_turn_evidence(items, parts, order_token=order_token)
   if not has_original_evidence and not has_history_evidence:
     return _build_unavailable_log_trace(order_token, row, 'local_original_log_events_not_found', db_path=db_path)
@@ -4298,6 +6525,23 @@ def _looks_like_official_copied_log_trace(text: str, order_token: str = '') -> b
   if 'toolName:' not in value or 'status:' not in value:
     return False
   evidence_markers = ['Todos updated:', 'filePath:', 'command:', 'changes:', 'CompactFake', 'GetDiagnostics']
+  order_token = str(order_token or '').strip()
+  if order_token:
+    evidence_markers.extend(_order_path_markers(order_token))
+  return any(marker in value for marker in evidence_markers)
+
+
+def _looks_like_modular_history_log_trace(text: str, order_token: str = '') -> bool:
+  value = str(text or '').strip()
+  if len(value) < 40:
+    return False
+  if value.startswith(TRAE_RECONSTRUCTED_LOG_TRACE_PREFIX) or value.startswith(TRAE_UNAVAILABLE_LOG_TRACE_PREFIX):
+    return False
+  if _is_trae_composite_session_id(value):
+    return False
+  if 'toolName:' not in value or 'status:' not in value:
+    return False
+  evidence_markers = ['filePath:', 'command:', 'changes:', 'Todos updated:', 'file_pattern:', 'GetDiagnostics']
   order_token = str(order_token or '').strip()
   if order_token:
     evidence_markers.extend(_order_path_markers(order_token))
@@ -4857,20 +7101,28 @@ def _read_modular_ai_agent_history_candidates(order_token: str, rows=None):
     return candidates
   files = _sort_modular_files_for_rows(files, rows)
 
-  raw_lines = {}
-  for raw_line in _rg_modular_history_lines([order_token], files, timeout_seconds=20):
-    raw_lines[raw_line] = raw_line
-
   trace_ids = []
   seen_trace_ids = set()
+  trace_anchor_dt_by_id = {}
   for row in rows or []:
     parts = _session_row_composite_parts(row)
     trace_id = str((parts or {}).get('traceId') or '').strip()
     if trace_id and trace_id not in seen_trace_ids:
       seen_trace_ids.add(trace_id)
       trace_ids.append(trace_id)
+    if trace_id and trace_id not in trace_anchor_dt_by_id:
+      anchor_dt = _session_row_locator_time(row)
+      if isinstance(anchor_dt, datetime.datetime):
+        trace_anchor_dt_by_id[trace_id] = anchor_dt
+
+  raw_lines = {}
   if trace_ids:
-    for raw_line in _rg_modular_history_lines(trace_ids, files, timeout_seconds=30):
+    # Prefer exact trace ids from composite session rows. A broad order-token
+    # search is much slower and is only needed when no row has a stable trace.
+    for raw_line in _rg_modular_history_lines(trace_ids, files, timeout_seconds=8):
+      raw_lines[raw_line] = raw_line
+  else:
+    for raw_line in _rg_modular_history_lines([order_token], files, timeout_seconds=8):
       raw_lines[raw_line] = raw_line
 
   grouped = {}
@@ -4887,6 +7139,20 @@ def _read_modular_ai_agent_history_candidates(order_token: str, rows=None):
     if not event:
       continue
     trace_id = event.get('traceId') or 'missing_trace'
+    anchor_dt = trace_anchor_dt_by_id.get(trace_id)
+    created_at = event.get('createdAt') or 0
+    if anchor_dt and created_at:
+      try:
+        event_dt = datetime.datetime.fromtimestamp(
+          int(created_at),
+          datetime.timezone(datetime.timedelta(hours=3)),
+        ).replace(tzinfo=None)
+      except Exception:
+        event_dt = None
+      if event_dt:
+        delta_seconds = (event_dt - anchor_dt).total_seconds()
+        if delta_seconds < -2 * 60 * 60 or delta_seconds > 18 * 60 * 60:
+          continue
     grouped.setdefault(trace_id, []).append(event)
     details.setdefault(trace_id, []).append(detail)
 
@@ -4895,7 +7161,9 @@ def _read_modular_ai_agent_history_candidates(order_token: str, rows=None):
     first = events[0] if events else {}
     body = '\n\n'.join(event.get('text') or '' for event in events if event.get('text')).strip()
     text = body
-    if not _looks_like_official_copied_log_trace(text, order_token):
+    exact_trace_match = trace_id in seen_trace_ids
+    looks_like_exact_modular_trace = exact_trace_match and _looks_like_modular_history_log_trace(text, order_token)
+    if not _looks_like_official_copied_log_trace(text, order_token) and not looks_like_exact_modular_trace:
       continue
     candidates.append({
       'text': text[:TRAE_OFFICIAL_COPY_TEXT_MAX_CHARS].rstrip(),
@@ -4934,9 +7202,8 @@ def read_official_copied_log_trace_candidates(order_token: str, db_path: str = '
     except Exception:
       db_path = ''
   candidates = []
-  candidates.extend(_read_current_workspace_copy_candidates(db_path, order_token))
-  candidates.extend(_read_raw_workspace_copy_candidates(db_path, order_token))
   candidates.extend(_read_modular_ai_agent_history_candidates(order_token, rows=rows))
+  candidates.extend(_read_current_workspace_copy_candidates(db_path, order_token))
   candidates.extend(_read_project_file_log_trace_candidates(order_token))
   candidates.extend(_read_log_accept_code_candidates(order_token))
   return _dedupe_official_copy_candidates(candidates)
@@ -4968,7 +7235,11 @@ def _is_source_only_log_trace_row(row: dict) -> bool:
 def strip_source_only_log_trace_rows(rows) -> tuple[list, bool]:
   if not isinstance(rows, list):
     return [], False
-  filtered = [row for row in rows if not _is_source_only_log_trace_row(row)]
+  filtered = [
+    row for row in rows
+    if not _is_source_only_log_trace_row(row)
+    and not _is_input_history_only_session_row(row)
+  ]
   return filtered, len(filtered) != len(rows)
 
 
@@ -5082,11 +7353,56 @@ def _row_can_accept_official_log_trace(row: dict) -> bool:
   return False
 
 
+def _row_has_trae_composite_identity(row: dict) -> bool:
+  if not isinstance(row, dict):
+    return False
+  for key in ('sessionId', 'logTraceId', 'sessionComposite'):
+    if _is_trae_composite_session_id(str(row.get(key) or '').strip()):
+      return True
+  return bool(_session_row_composite_parts(row))
+
+
+def _is_input_history_only_session_row(row: dict) -> bool:
+  if not isinstance(row, dict):
+    return False
+  if _row_has_trae_composite_identity(row):
+    return False
+  return bool(row.get('inputHistoryOnly')) or str(row.get('logTraceSource') or '') == 'input-history-only'
+
+
+def _rows_are_input_history_only(rows) -> bool:
+  if not isinstance(rows, list) or not rows:
+    return False
+  dict_rows = [row for row in rows if isinstance(row, dict)]
+  return bool(dict_rows) and all(_is_input_history_only_session_row(row) for row in dict_rows)
+
+
+def _mark_input_history_only_log_trace_deferred(payload) -> bool:
+  if not isinstance(payload, dict):
+    return False
+  rows = payload.get('rows') or []
+  if not _rows_are_input_history_only(rows):
+    return False
+  for row in rows:
+    if not isinstance(row, dict):
+      continue
+    row['inputHistoryOnly'] = True
+    row['logTraceSource'] = row.get('logTraceSource') or 'input-history-only'
+    row['logTraceDeferred'] = True
+    row['logTraceReconstructionVersion'] = row.get('logTraceReconstructionVersion') or TRAE_RECONSTRUCTED_LOG_TRACE_VERSION
+    row['logTraceScanVersion'] = row.get('logTraceScanVersion') or TRAE_RECONSTRUCTED_LOG_TRACE_VERSION
+  payload['inputHistoryOnlyRefresh'] = True
+  payload['logTraceDeferred'] = True
+  return True
+
+
 def _rows_need_official_candidate_scan_on_read(rows) -> bool:
   if not isinstance(rows, list):
     return False
   for row in rows:
     if not isinstance(row, dict):
+      continue
+    if _is_input_history_only_session_row(row):
       continue
     source = str(row.get('logTraceSource') or '')
     text = str(row.get('logTrace') or '').strip()
@@ -5111,6 +7427,17 @@ def fill_official_copied_log_traces(order_token: str, rows, db_path: str = '') -
   changed = False
   for row in rows:
     if not isinstance(row, dict):
+      continue
+    if (
+      str(row.get('logTraceSource') or '') == 'trae-modular-ai-agent-history'
+      and row.get('logTraceFormatVersion') != TRAE_RECONSTRUCTED_LOG_TRACE_VERSION
+    ):
+      row['logTrace'] = ''
+      row['logTraceSource'] = ''
+      row['logTraceSourceDetail'] = ''
+      row['logTraceReconstructed'] = False
+      row['officialCopiedLogTrace'] = False
+      changed = True
       continue
     if not row.get('officialCopiedLogTrace') or not str(row.get('logTrace') or '').strip():
       continue
@@ -5223,8 +7550,66 @@ def mark_missing_real_log_traces(order_token: str, rows, db_path: str = '') -> b
   for row in rows:
     if not isinstance(row, dict):
       continue
+    if _is_input_history_only_session_row(row):
+      row['logTraceDeferred'] = True
+      row['logTraceReconstructionVersion'] = row.get('logTraceReconstructionVersion') or TRAE_RECONSTRUCTED_LOG_TRACE_VERSION
+      row['logTraceScanVersion'] = row.get('logTraceScanVersion') or TRAE_RECONSTRUCTED_LOG_TRACE_VERSION
+      continue
     text = str(row.get('logTrace') or '').strip()
-    if _looks_like_official_copied_log_trace(text, order_token):
+    if text.startswith(TRAE_RECONSTRUCTED_LOG_TRACE_PREFIX):
+      before = (
+        row.get('logTraceSource'),
+        row.get('logTraceReconstructed'),
+        row.get('officialCopiedLogTrace'),
+        row.get('logTraceReconstructionVersion'),
+        row.get('logTraceScanVersion'),
+      )
+      row['logTraceSource'] = row.get('logTraceSource') or 'local-trae-logs'
+      row['logTraceReconstructed'] = True
+      row['officialCopiedLogTrace'] = False
+      row['logTraceReconstructionVersion'] = TRAE_RECONSTRUCTED_LOG_TRACE_VERSION
+      row['logTraceScanVersion'] = TRAE_RECONSTRUCTED_LOG_TRACE_VERSION
+      row.pop('logTraceMissing', None)
+      after = (
+        row.get('logTraceSource'),
+        row.get('logTraceReconstructed'),
+        row.get('officialCopiedLogTrace'),
+        row.get('logTraceReconstructionVersion'),
+        row.get('logTraceScanVersion'),
+      )
+      if after != before:
+        changed = True
+      continue
+    if text.startswith(TRAE_UNAVAILABLE_LOG_TRACE_PREFIX):
+      before = (
+        row.get('logTraceSource'),
+        row.get('logTraceReconstructed'),
+        row.get('officialCopiedLogTrace'),
+        row.get('logTraceReconstructionVersion'),
+        row.get('logTraceScanVersion'),
+      )
+      row['logTraceSource'] = row.get('logTraceSource') or 'local-trae-logs-unavailable'
+      row['logTraceReconstructed'] = False
+      row['officialCopiedLogTrace'] = False
+      row['logTraceReconstructionVersion'] = TRAE_RECONSTRUCTED_LOG_TRACE_VERSION
+      row['logTraceScanVersion'] = TRAE_RECONSTRUCTED_LOG_TRACE_VERSION
+      after = (
+        row.get('logTraceSource'),
+        row.get('logTraceReconstructed'),
+        row.get('officialCopiedLogTrace'),
+        row.get('logTraceReconstructionVersion'),
+        row.get('logTraceScanVersion'),
+      )
+      if after != before:
+        changed = True
+      continue
+    if (
+      _looks_like_official_copied_log_trace(text, order_token)
+      or (
+        str(row.get('logTraceSource') or '') == 'trae-modular-ai-agent-history'
+        and _looks_like_modular_history_log_trace(text, order_token)
+      )
+    ):
       if not row.get('officialCopiedLogTrace'):
         row['officialCopiedLogTrace'] = True
         row['logTraceReconstructed'] = False
@@ -5295,7 +7680,55 @@ def _row_needs_reconstructed_log_trace(row: dict) -> bool:
 
 
 def fill_reconstructed_log_traces(order_token: str, rows, db_path: str = '') -> bool:
-  return mark_missing_real_log_traces(order_token, rows, db_path=db_path)
+  if not isinstance(rows, list) or not rows:
+    return False
+  changed = False
+  for row in rows:
+    if not isinstance(row, dict) or _is_input_history_only_session_row(row):
+      continue
+    text = str(row.get('logTrace') or '').strip()
+    needs_reconstruction = (
+      _row_needs_reconstructed_log_trace(row)
+      or str(row.get('logTraceSource') or '') == TRAE_LOG_TRACE_NOT_FOUND_SOURCE
+    )
+    if not needs_reconstruction:
+      continue
+    rebuilt = _build_reconstructed_log_trace(order_token, row, db_path=db_path)
+    if not rebuilt:
+      continue
+    before = (
+      row.get('logTrace'),
+      row.get('logTraceSource'),
+      row.get('logTraceReconstructed'),
+      row.get('officialCopiedLogTrace'),
+      row.get('logTraceMissing'),
+      row.get('logTraceReconstructionVersion'),
+      row.get('logTraceScanVersion'),
+    )
+    row['logTrace'] = rebuilt
+    if rebuilt.startswith(TRAE_RECONSTRUCTED_LOG_TRACE_PREFIX):
+      row['logTraceSource'] = 'local-trae-logs'
+      row['logTraceReconstructed'] = True
+      row.pop('logTraceMissing', None)
+    else:
+      row['logTraceSource'] = 'local-trae-logs-unavailable'
+      row['logTraceReconstructed'] = False
+      row['logTraceMissing'] = [TRAE_LOG_TRACE_NOT_FOUND_REASON]
+    row['officialCopiedLogTrace'] = False
+    row['logTraceReconstructionVersion'] = TRAE_RECONSTRUCTED_LOG_TRACE_VERSION
+    row['logTraceScanVersion'] = TRAE_RECONSTRUCTED_LOG_TRACE_VERSION
+    after = (
+      row.get('logTrace'),
+      row.get('logTraceSource'),
+      row.get('logTraceReconstructed'),
+      row.get('officialCopiedLogTrace'),
+      row.get('logTraceMissing'),
+      row.get('logTraceReconstructionVersion'),
+      row.get('logTraceScanVersion'),
+    )
+    if after != before:
+      changed = True
+  return changed
 
 
 def _precise_create_message_rows(session_id: str):
@@ -5303,9 +7736,11 @@ def _precise_create_message_rows(session_id: str):
     return []
   rows = []
   seen = set()
-  pattern = rf'create message, chat_session_id:\s*{re.escape(session_id)}, message_id:'
-  for raw_line in _rg_lines(pattern, timeout_seconds=30):
-    line = raw_line.split(':', 2)[-1] if ':' in raw_line else raw_line
+  for raw_line in _rg_create_message_lines_for_session(session_id, timeout_seconds=20):
+    source_path, _, split_line = _split_rg_log_line(raw_line)
+    line = split_line or (raw_line.split(':', 2)[-1] if ':' in raw_line else raw_line)
+    if 'create message' not in line or session_id not in line:
+      continue
     match = re.search(
       r'create message, chat_session_id:\s*([0-9a-f]{24}), message_id:\s*([0-9a-f]{24}).*trace_id="([0-9a-f]{32})"',
       line,
@@ -5321,6 +7756,7 @@ def _precise_create_message_rows(session_id: str):
       'chatMessageId': chat_id,
       'traceId': match.group(3),
       'time': _log_line_time_to_text(line) or _object_id_time_text(chat_id),
+      'sourcePath': source_path,
     })
   rows.sort(key=lambda item: (
     _session_row_time({'sessionId': f":Trae CN.T({item.get('time')})"}) is None,
@@ -5352,7 +7788,12 @@ def _cloud_task_meta_for_trace(trace_id: str, session_id: str = '', chat_message
   trace = str(trace_id or '').strip()
   if not re.fullmatch(r'[0-9a-f]{32}', trace):
     return {}
-  for raw_line in _rg_lines(trace, timeout_seconds=8, fixed_strings=True):
+  trace_pattern = re.escape(trace)
+  task_pattern = (
+    rf'(trace_id=\"{trace_pattern}\".*task_id[=:]\s*[0-9a-f]{{24}}.*message_id[=:]\s*[0-9a-f]{{24}}'
+    rf'|task_id[=:]\s*[0-9a-f]{{24}}.*message_id[=:]\s*[0-9a-f]{{24}}.*trace_id=\"{trace_pattern}\")'
+  )
+  for raw_line in _rg_lines(task_pattern, timeout_seconds=8, fixed_strings=False):
     line = raw_line.split(':', 2)[-1] if ':' in raw_line else raw_line
     if session_id and session_id not in line:
       continue
@@ -5368,6 +7809,80 @@ def _cloud_task_meta_for_trace(trace_id: str, session_id: str = '', chat_message
       'time': _log_line_time_to_text(line) or _object_id_time_text(message_id),
     }
   return {}
+
+
+def _cloud_task_meta_for_create_rows(create_rows, session_id: str = ''):
+  if not isinstance(create_rows, list) or not create_rows:
+    return {}
+  trace_to_chat = {}
+  source_paths = []
+  for row in create_rows:
+    if not isinstance(row, dict):
+      continue
+    trace_id = str(row.get('traceId') or '').strip()
+    chat_message_id = str(row.get('chatMessageId') or '').strip()
+    if re.fullmatch(r'[0-9a-f]{32}', trace_id) and re.fullmatch(r'[0-9a-f]{24}', chat_message_id):
+      trace_to_chat[trace_id] = chat_message_id
+      source_path = str(row.get('sourcePath') or '').strip()
+      if source_path and os.path.isfile(source_path) and source_path not in source_paths:
+        source_paths.append(source_path)
+  if not trace_to_chat:
+    return {}
+  rg = rg_binary()
+  if not rg:
+    return {}
+  trace_alt = '|'.join(re.escape(trace_id) for trace_id in trace_to_chat.keys())
+  task_pattern = (
+    rf'(trace_id=\"({trace_alt})\".*task_id[=:]\s*[0-9a-f]{{24}}.*message_id[=:]\s*[0-9a-f]{{24}}'
+    rf'|task_id[=:]\s*[0-9a-f]{{24}}.*message_id[=:]\s*[0-9a-f]{{24}}.*trace_id=\"({trace_alt})\")'
+  )
+  cmd = [rg, '--text', '--no-heading', '--line-number', task_pattern]
+  if source_paths:
+    cmd.extend(source_paths)
+  else:
+    cmd.append(os.path.join(TRAE_APP_SUPPORT_DIR, 'logs'))
+  try:
+    completed = subprocess.run(
+      cmd,
+      stdout=subprocess.PIPE,
+      stderr=subprocess.DEVNULL,
+      text=True,
+      timeout=max(10, min(30, 4 + len(trace_to_chat) * 4)),
+      check=False,
+    )
+  except Exception:
+    return {}
+  raw_items = []
+  for raw_line in (completed.stdout or '').splitlines():
+    path, line_no, line = _split_rg_log_line(raw_line)
+    raw_items.append((path, line_no, line))
+  raw_items.sort(key=lambda item: (
+    _log_line_datetime(item[2]) is None,
+    _log_line_datetime(item[2]) or datetime.datetime.max,
+    item[0],
+    item[1],
+  ))
+  result = {}
+  for _, _, line in raw_items:
+    if session_id and session_id not in line:
+      continue
+    m_trace = re.search(r'trace_id=\"([0-9a-f]{32})\"', line)
+    trace_id = m_trace.group(1) if m_trace else ''
+    if trace_id not in trace_to_chat or trace_id in result:
+      continue
+    m_task = re.search(r'task_id[=:]\s*([0-9a-f]{24}).*?message_id[=:]\s*([0-9a-f]{24})', line)
+    if not m_task:
+      continue
+    chat_message_id = trace_to_chat.get(trace_id) or ''
+    message_id = m_task.group(2)
+    if message_id == chat_message_id:
+      continue
+    result[trace_id] = {
+      'taskId': m_task.group(1),
+      'messageId': message_id,
+      'time': _log_line_time_to_text(line) or _object_id_time_text(message_id),
+    }
+  return result
 
 
 def _repair_row_session_identity(row: dict) -> bool:
@@ -5391,7 +7906,7 @@ def _repair_row_session_identity(row: dict) -> bool:
   task_message_id = str(cloud_task_meta.get('messageId') or '').strip()
   if not re.fullmatch(r'[0-9a-f]{24}', task_message_id) or task_message_id == match.group('chat'):
     return False
-  time_text = str(cloud_task_meta.get('time') or match.group('time') or '').strip()
+  time_text = str(match.group('time') or cloud_task_meta.get('time') or '').strip()
   repaired = (
     f".{match.group('user')}:{match.group('trace')}_{match.group('session')}."
     f"{task_message_id}.{match.group('chat')}:{TRAE_APP_NAME}.T({time_text})"
@@ -5428,31 +7943,98 @@ def _choose_response_or_task_message_id(chat_message_id: str, candidates):
 def extract_trae_session_rounds_precise(order_token: str):
   db_path, current_session_id, input_history, user_id = _read_trae_workspace_context(order_token)
   create_rows = _precise_create_message_rows(current_session_id)
-  candidates = _session_candidate_message_ids(current_session_id)
-  effective_input_items = []
-  previous_text = None
-  for item in input_history:
-    if not isinstance(item, dict):
-      continue
-    text = str(item.get('inputText') or '').strip()
-    if text and text == previous_text:
-      continue
-    effective_input_items.append(item)
-    previous_text = text
+  candidates = []
+  expected_initial_prompt = _expected_generation_prompt_for_order(order_token)
+  effective_input_entries = _effective_trae_input_history_entries(input_history, expected_initial_prompt)
+  effective_input_items = [entry.get('item') for entry in effective_input_entries]
+
+  def _create_row_datetime(meta: dict):
+    return _session_row_time({'sessionId': f":Trae CN.T({(meta or {}).get('time')})"})
+
+  def _align_create_rows_by_input(input_items, message_rows, input_entries=None, raw_input_count: int = 0):
+    if (
+      input_entries
+      and raw_input_count
+      and len(message_rows or []) == raw_input_count
+    ):
+      aligned_by_raw_index = []
+      for entry in input_entries:
+        raw_index = entry.get('rawIndex')
+        if isinstance(raw_index, int) and 0 <= raw_index < len(message_rows):
+          aligned_by_raw_index.append(message_rows[raw_index])
+        else:
+          aligned_by_raw_index.append(None)
+      return aligned_by_raw_index
+    aligned = [None] * len(input_items)
+    unused = list(message_rows or [])
+    for idx, item in enumerate(input_items):
+      media_times = _trae_input_media_datetimes(item)
+      if not media_times:
+        continue
+      entry = input_entries[idx] if input_entries and idx < len(input_entries) else {}
+      retry_run_length = 1
+      if isinstance(entry, dict):
+        run_start = entry.get('runStart')
+        run_end = entry.get('runEnd')
+        if isinstance(run_start, int) and isinstance(run_end, int) and run_end >= run_start:
+          retry_run_length = max(1, run_end - run_start + 1)
+      scored = []
+      for row_index, meta in enumerate(unused):
+        meta_time = _create_row_datetime(meta)
+        if not meta_time:
+          continue
+        score = min(abs((meta_time - media_time).total_seconds()) for media_time in media_times)
+        if score <= 15 * 60:
+          scored.append((meta_time, score, row_index))
+      if retry_run_length > 1 and scored:
+        # Identical consecutive input_history rows are retry attempts. Keep the last attempt,
+        # so align to the same ordinal nearby create-message when it exists.
+        scored.sort(key=lambda item: (item[0], item[1]))
+        best_index = scored[min(retry_run_length, len(scored)) - 1][2]
+      elif scored:
+        scored.sort(key=lambda item: (item[1], item[0]))
+        best_index = scored[0][2]
+      else:
+        best_index = -1
+      if best_index >= 0:
+        aligned[idx] = unused.pop(best_index)
+    for idx, meta in enumerate(aligned):
+      if meta is not None or not unused:
+        continue
+      aligned[idx] = unused.pop(0)
+    return aligned
+
+  aligned_create_rows = _align_create_rows_by_input(
+    effective_input_items,
+    create_rows,
+    input_entries=effective_input_entries,
+    raw_input_count=len(input_history),
+  )
+  cloud_task_meta_by_trace = _cloud_task_meta_for_create_rows(aligned_create_rows, session_id=current_session_id)
 
   rows = []
   used_composites = set()
-  for item, meta in zip(effective_input_items, create_rows):
+  for item, meta in zip(effective_input_items, aligned_create_rows):
     input_text = str(item.get('inputText') or '').strip()
+    if not isinstance(meta, dict):
+      continue
     chat_message_id = meta.get('chatMessageId') or ''
     trace_id = meta.get('traceId') or ''
     if not (re.fullmatch(r'[0-9a-f]{24}', chat_message_id) and re.fullmatch(r'[0-9a-f]{32}', trace_id)):
       continue
-    cloud_task_meta = _cloud_task_meta_for_trace(trace_id, current_session_id, chat_message_id)
-    task_message_id = cloud_task_meta.get('messageId') or _choose_response_or_task_message_id(chat_message_id, candidates)
-    if not re.fullmatch(r'[0-9a-f]{24}', str(task_message_id or '')) or task_message_id == chat_message_id:
+    cloud_task_meta = cloud_task_meta_by_trace.get(trace_id) or _cloud_task_meta_for_trace(trace_id, current_session_id, chat_message_id)
+    if not cloud_task_meta.get('messageId') and not candidates:
+      candidates = _session_candidate_message_ids(current_session_id)
+    task_message_id = cloud_task_meta.get('messageId') or _choose_response_or_task_message_id(chat_message_id, candidates) or chat_message_id
+    if not re.fullmatch(r'[0-9a-f]{24}', str(task_message_id or '')):
       continue
-    time_text = cloud_task_meta.get('time') or _object_id_time_text(task_message_id) or meta.get('time') or _object_id_time_text(chat_message_id)
+    session_id_quality = 'real_response_task' if task_message_id != chat_message_id else 'fallback_user_message'
+    time_text = (
+      meta.get('time')
+      or _object_id_time_text(chat_message_id)
+      or cloud_task_meta.get('time')
+      or _object_id_time_text(task_message_id)
+    )
     if not time_text:
       continue
     trace_user = user_id or '3792634309254663'
@@ -5462,6 +8044,8 @@ def extract_trae_session_rounds_precise(order_token: str):
     used_composites.add(composite)
     rows.append({
       'sessionId': composite,
+      'sessionIdQuality': session_id_quality,
+      'responseMessageIdFallback': task_message_id == chat_message_id,
       'rawSessionId': current_session_id,
       'conversation': input_text,
       'logTraceId': composite,
@@ -5478,6 +8062,7 @@ def extract_trae_session_rounds_precise(order_token: str):
 
 
 def read_trae_session_cache(order_token: str):
+  order_token = _normalize_order_token_text(order_token)
   path = _session_cache_path(order_token)
   payload = read_json(path, None)
   if not isinstance(payload, dict):
@@ -5509,10 +8094,13 @@ def read_trae_session_cache(order_token: str):
   official_trace_changed = False
   if _rows_need_official_candidate_scan_on_read(payload['rows']):
     official_trace_changed = fill_official_copied_log_traces(order_token, payload['rows'], db_path=payload.get('db_path') or '')
+  reconstructed_trace_changed = False
   trace_changed = mark_missing_real_log_traces(order_token, payload['rows'], db_path=payload.get('db_path') or '')
-  annotation_changed = _annotate_session_rows(payload['rows'], use_model=False)
+  annotation_changed = False
+  if _rows_need_annotation_fill(payload['rows']):
+    annotation_changed = _annotate_session_rows(payload['rows'], use_model=False)
   screenshot_changed = _fill_session_screenshots_from_input_history(order_token, payload)
-  if rows_changed or official_trace_changed or trace_changed or source_rows_removed or annotation_changed or screenshot_changed:
+  if rows_changed or official_trace_changed or reconstructed_trace_changed or trace_changed or source_rows_removed or annotation_changed or screenshot_changed:
     _persist_session_cache(path, payload)
   payload['cached'] = True
   payload['cache_path'] = path
@@ -5520,6 +8108,7 @@ def read_trae_session_cache(order_token: str):
 
 
 def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
+  order_token = _normalize_order_token_text(order_token)
   refresh_deadline = time.monotonic() + (
     TRAE_DEEP_REFRESH_TIMEOUT_SECONDS if deep_scan else TRAE_REFRESH_TIMEOUT_SECONDS
   )
@@ -5531,7 +8120,9 @@ def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
       precise_rows, _ = strip_source_only_log_trace_rows(normalize_trae_session_rows(precise_payload.get('rows') or []))
       precise_payload['rows'] = sort_session_rows_by_time(precise_rows)
       expected_count = _expected_trae_session_round_count(order_token)
-      if expected_count and len(precise_payload.get('rows') or []) >= expected_count:
+      if precise_payload.get('rows') and (
+        not expected_count or len(precise_payload.get('rows') or []) >= expected_count
+      ):
         payload = precise_payload
         fast_precise_refresh = True
     except Exception as exc:
@@ -5549,6 +8140,7 @@ def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
     payload['fastPreciseRefresh'] = True
   payload_rows, _ = strip_source_only_log_trace_rows(normalize_trae_session_rows(payload.get('rows') or []))
   payload['rows'] = sort_session_rows_by_time(payload_rows)
+  input_history_only_refresh = _mark_input_history_only_log_trace_deferred(payload)
   refresh_full_row_count = len(payload.get('rows') or [])
   refresh_precise_row_count = None
   if not fast_precise_refresh:
@@ -5557,7 +8149,10 @@ def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
       precise_rows, _ = strip_source_only_log_trace_rows(normalize_trae_session_rows(precise_payload.get('rows') or []))
       precise_payload['rows'] = sort_session_rows_by_time(precise_rows)
       refresh_precise_row_count = len(precise_payload.get('rows') or [])
-      if _session_rows_quality(precise_payload.get('rows') or []) > _session_rows_quality(payload.get('rows') or []):
+      if (
+        precise_payload.get('rows')
+        and _session_rows_quality(precise_payload.get('rows') or []) >= _session_rows_quality(payload.get('rows') or [])
+      ):
         payload = precise_payload
     except Exception as exc:
       print(f'[WARN] precise session refresh fallback skipped for {order_token}: {exc}', file=sys.stderr)
@@ -5565,8 +8160,10 @@ def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
     payload['deepScan'] = True
   if fast_precise_refresh:
     payload['fastPreciseRefresh'] = True
-  fill_official_copied_log_traces(order_token, payload.get('rows') or [], db_path=payload.get('db_path') or '')
-  mark_missing_real_log_traces(order_token, payload.get('rows') or [], db_path=payload.get('db_path') or '')
+  input_history_only_refresh = _mark_input_history_only_log_trace_deferred(payload)
+  if not input_history_only_refresh:
+    fill_official_copied_log_traces(order_token, payload.get('rows') or [], db_path=payload.get('db_path') or '')
+    mark_missing_real_log_traces(order_token, payload.get('rows') or [], db_path=payload.get('db_path') or '')
   path = _session_cache_path(order_token)
   previous_payload = read_json(path, None)
   previous_rows = normalize_trae_session_rows((previous_payload or {}).get('rows') or []) if isinstance(previous_payload, dict) else []
@@ -5576,9 +8173,14 @@ def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
     previous_payload.pop('logTraceSourceOnly', None)
   if previous_rows:
     previous_db_path = (previous_payload or {}).get('db_path') or payload.get('db_path') or ''
-    fill_official_copied_log_traces(order_token, previous_rows, db_path=previous_db_path)
-    mark_missing_real_log_traces(order_token, previous_rows, db_path=previous_db_path)
-  if previous_rows and 0 < len(payload.get('rows') or []) < len(previous_rows):
+    if not input_history_only_refresh and not _rows_are_input_history_only(previous_rows):
+      fill_official_copied_log_traces(order_token, previous_rows, db_path=previous_db_path)
+      mark_missing_real_log_traces(order_token, previous_rows, db_path=previous_db_path)
+  payload_row_count = len(payload.get('rows') or [])
+  expected_effective_count = _expected_trae_session_round_count(order_token)
+  if previous_rows and 0 < payload_row_count < len(previous_rows) and not (
+    expected_effective_count and payload_row_count >= expected_effective_count
+  ):
     previous_payload['rows'] = sort_session_rows_by_time(previous_rows)
     previous_payload['cached'] = True
     previous_payload['cache_path'] = path
@@ -5602,6 +8204,14 @@ def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
     _persist_session_cache(path, payload)
     return payload
   if previous_rows:
+    def _row_conversation_signature(candidate):
+      return re.sub(r'\s+', ' ', str((candidate or {}).get('conversation') or '').strip())
+
+    def _can_preserve_previous_content(row, previous):
+      current_conversation = _row_conversation_signature(row)
+      previous_conversation = _row_conversation_signature(previous)
+      return bool(previous_conversation) and (not current_conversation or current_conversation == previous_conversation)
+
     def _stable_previous_row_key(candidate):
       parts = _session_row_composite_parts(candidate)
       if parts:
@@ -5623,15 +8233,20 @@ def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
         'logTraceId',
         'sessionComposite',
         'rawSessionId',
-        'conversation',
-        'dissatisfactionReason',
-        'annotationHash',
-        'annotationVersion',
-        'annotationUpdatedAt',
-        'annotationSource',
       ):
         if key in previous:
           row[key] = previous.get(key)
+      if _can_preserve_previous_content(row, previous):
+        for key in (
+          'conversation',
+          'dissatisfactionReason',
+          'annotationHash',
+          'annotationVersion',
+          'annotationUpdatedAt',
+          'annotationSource',
+        ):
+          if key in previous:
+            row[key] = previous.get(key)
       return row
 
     previous_by_key = {}
@@ -5665,22 +8280,29 @@ def refresh_trae_session_cache(order_token: str, deep_scan: bool = False):
       if not _is_trae_composite_session_id(row.get('sessionId') or '') and _is_trae_composite_session_id(previous.get('sessionId') or ''):
         row = _preserve_existing_row_identity(row, previous)
       elif previous:
-        for key in (
-          'rawSessionId',
-          'conversation',
-          'dissatisfactionReason',
-          'annotationHash',
-          'annotationVersion',
-          'annotationUpdatedAt',
-          'annotationSource',
-        ):
-          if key in previous:
-            row[key] = previous.get(key)
+        if 'rawSessionId' in previous and not row.get('rawSessionId'):
+          row['rawSessionId'] = previous.get('rawSessionId')
+        if _can_preserve_previous_content(row, previous):
+          for key in (
+            'conversation',
+            'dissatisfactionReason',
+            'annotationHash',
+            'annotationVersion',
+            'annotationUpdatedAt',
+            'annotationSource',
+          ):
+            if key in previous:
+              row[key] = previous.get(key)
       merged_rows.append(row)
     payload['rows'] = merged_rows
-  fill_official_copied_log_traces(order_token, payload.get('rows') or [], db_path=payload.get('db_path') or '')
-  mark_missing_real_log_traces(order_token, payload.get('rows') or [], db_path=payload.get('db_path') or '')
-  _annotate_session_rows(payload.get('rows') or [], use_model=True)
+  input_history_only_refresh = _mark_input_history_only_log_trace_deferred(payload)
+  if not input_history_only_refresh:
+    fill_official_copied_log_traces(order_token, payload.get('rows') or [], db_path=payload.get('db_path') or '')
+    mark_missing_real_log_traces(order_token, payload.get('rows') or [], db_path=payload.get('db_path') or '')
+    # Session refresh must stay local and fast. Model-backed dissatisfaction
+    # annotation is triggered by the dedicated annotation action, not by the
+    # row/log refresh path.
+    _annotate_session_rows(payload.get('rows') or [], use_model=False)
   payload['cached'] = True
   payload['refreshedAt'] = datetime.datetime.now().isoformat(timespec='seconds')
   if payload.pop('_traceTimedOut', False):
@@ -5696,6 +8318,8 @@ def _rows_need_force_log_trace_scan(rows) -> bool:
   for row in rows:
     if not isinstance(row, dict):
       continue
+    if _is_input_history_only_session_row(row):
+      continue
     source = str(row.get('logTraceSource') or '')
     text = str(row.get('logTrace') or '').strip()
     if source == TRAE_LOG_TRACE_NOT_FOUND_SOURCE:
@@ -5707,30 +8331,12 @@ def _rows_need_force_log_trace_scan(rows) -> bool:
   return False
 
 
-def _effective_trae_input_history_items(input_history):
-  if not isinstance(input_history, list):
-    return []
-  effective_items = []
-  previous_text = None
-  for item in input_history:
-    if not isinstance(item, dict):
-      continue
-    text = str(item.get('inputText') or '').strip()
-    media = item.get('multiMedia') if isinstance(item.get('multiMedia'), list) else []
-    has_media = bool(media)
-    if text and text == previous_text and not has_media:
-      continue
-    effective_items.append(item)
-    previous_text = text
-  return effective_items
-
-
 def _expected_trae_session_round_count(order_token: str) -> int:
   try:
     _, _, input_history, _ = _read_trae_workspace_context(order_token)
   except Exception:
     return 0
-  return len(_effective_trae_input_history_items(input_history))
+  return len(_effective_trae_input_history_items(input_history, _expected_generation_prompt_for_order(order_token)))
 
 
 def _cached_rows_need_deep_discovery(order_token: str, cached_rows) -> tuple:
@@ -5738,6 +8344,8 @@ def _cached_rows_need_deep_discovery(order_token: str, cached_rows) -> tuple:
   expected_count = _expected_trae_session_round_count(order_token)
   cached_count = len(rows)
   if expected_count and cached_count < expected_count:
+    return True, expected_count, cached_count
+  if expected_count and cached_count > expected_count:
     return True, expected_count, cached_count
   return False, expected_count, cached_count
 
@@ -5784,7 +8392,93 @@ def refresh_existing_trae_session_log_traces(order_token: str):
   return payload
 
 
+def annotate_dissatisfaction_for_orders(order_tokens, model_id: str = '', force: bool = True):
+  orders = parse_order_tokens(order_tokens)
+  if not orders:
+    raise RuntimeError('orders 不能为空')
+  if len(orders) > 50:
+    raise RuntimeError('一次最多标注 50 个项目')
+  provider, models, selected_model_id = _annotation_runtime_config(model_id)
+  results = []
+  total_rows = 0
+  total_changed = 0
+  failed_orders = []
+  for order in orders:
+    try:
+      path = _session_cache_path(order)
+      payload = read_trae_session_cache(order)
+      rows = payload.get('rows') if isinstance(payload, dict) else []
+      if not isinstance(rows, list):
+        rows = []
+      before_reasons = [
+        (
+          str(row.get('dissatisfactionReason') or '') if isinstance(row, dict) else '',
+          str(row.get('annotationSource') or '') if isinstance(row, dict) else '',
+        )
+        for row in rows
+      ]
+      before = json.dumps(rows, ensure_ascii=False, sort_keys=True)
+      changed = _annotate_session_rows(rows, use_model=True, model_id=model_id, force=force)
+      after = json.dumps(rows, ensure_ascii=False, sort_keys=True)
+      row_count = len(rows)
+      after_reasons = [
+        (
+          str(row.get('dissatisfactionReason') or '') if isinstance(row, dict) else '',
+          str(row.get('annotationSource') or '') if isinstance(row, dict) else '',
+        )
+        for row in rows
+      ]
+      changed_count = sum(1 for old, new in zip(before_reasons, after_reasons) if old != new)
+      if changed or before != after:
+        updated_at = datetime.datetime.now().isoformat(timespec='seconds')
+        payload['rows'] = sort_session_rows_by_time(rows)
+        payload['cached'] = True
+        payload['annotatedAt'] = updated_at
+        payload['annotationModelId'] = selected_model_id or model_id or ''
+        payload['annotationProvider'] = provider
+        _persist_session_cache(path, payload)
+      else:
+        payload['cached'] = True
+      total_rows += row_count
+      total_changed += changed_count
+      results.append({
+        'order': order,
+        'ok': True,
+        'rows': row_count,
+        'changed': changed or before != after,
+        'changedRows': changed_count,
+        'modelId': selected_model_id or model_id or '',
+        'provider': provider,
+        'models': models,
+      })
+    except Exception as exc:
+      failed_orders.append(order)
+      results.append({
+        'order': order,
+        'ok': False,
+        'rows': 0,
+        'changed': False,
+        'changedRows': 0,
+        'error': str(exc),
+        'modelId': selected_model_id or model_id or '',
+        'provider': provider,
+        'models': models,
+      })
+  return {
+    'ok': len(failed_orders) < len(orders),
+    'orders': orders,
+    'modelId': selected_model_id or model_id or '',
+    'provider': provider,
+    'models': models,
+    'totalRows': total_rows,
+    'changedRows': total_changed,
+    'failedOrders': failed_orders,
+    'results': results,
+  }
+
+
 def refresh_trae_session_identity_column(order_token: str):
+  order_token = _normalize_order_token_text(order_token)
   payload = read_json(_session_cache_path(order_token), None)
   if not isinstance(payload, dict):
     payload = refresh_trae_session_cache(order_token, deep_scan=False)
@@ -5900,7 +8594,7 @@ def _cached_session_orders():
     if not name.endswith('.json'):
       continue
     order = os.path.splitext(name)[0]
-    if order:
+    if _is_current_order_token_name(order):
       orders.append(order)
   return sorted(set(orders))
 
@@ -5918,11 +8612,11 @@ def _local_project_orders():
         continue
       for name in child_names:
         path = os.path.join(scene_path, name)
-        if os.path.isdir(path) and _is_order_token_name(name):
+        if os.path.isdir(path) and _is_current_order_token_name(name):
           orders.append(_normalize_order_token_text(name))
   for record in _iter_workspace_db_records() or []:
     order = record.get('order') or ''
-    if _is_order_token_name(order):
+    if _is_current_order_token_name(order):
       orders.append(_normalize_order_token_text(order))
   return sorted(set(orders))
 
@@ -6052,6 +8746,8 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
   chat_store = _safe_json_loads(kv.get('ChatStore', '{}'), {})
   if not isinstance(input_history, list):
     input_history = []
+  expected_initial_prompt = _expected_generation_prompt_for_order(order_token)
+  effective_input_count = len(_effective_trae_input_history_items(input_history, expected_initial_prompt))
 
   current_session_id = str(memento.get('currentSessionId') or '').strip()
   if not current_session_id and isinstance(memento.get('list'), list) and memento['list']:
@@ -6264,21 +8960,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
       return None
 
   def _media_datetimes(item: dict):
-    values = []
-    media_items = item.get('multiMedia') if isinstance(item.get('multiMedia'), list) else []
-    media_items += item.get('images') if isinstance(item.get('images'), list) else []
-    for media_item in media_items:
-      if not isinstance(media_item, dict):
-        continue
-      raw = ' '.join(str(media_item.get(key) or '') for key in ('resource_id', 'url', 'src', 'name'))
-      for match in re.finditer(r'(?<!\d)(1[6-9]\d{11})(?!\d)', raw):
-        try:
-          # Trae resource_id stores millisecond epoch; logs on this machine are UTC+3.
-          dt = datetime.datetime.fromtimestamp(int(match.group(1)) / 1000, datetime.timezone(datetime.timedelta(hours=3))).replace(tzinfo=None)
-          values.append(dt)
-        except Exception:
-          continue
-    return values
+    return _trae_input_media_datetimes(item)
 
   def _dedupe_chat_ids(chat_ids):
     deduped = []
@@ -6297,19 +8979,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
     ordered_chat_ids = _dedupe_chat_ids(chat_ids)
     if not ordered_chat_ids:
       return []
-    effective_items = []
-    previous_text = None
-    for item in input_items:
-      if not isinstance(item, dict):
-        continue
-      text = str(item.get('inputText') or '').strip()
-      has_media = bool(_media_datetimes(item))
-      if text and text == previous_text and not has_media:
-        continue
-      effective_items.append(item)
-      previous_text = text
-    if len(ordered_chat_ids) >= len(effective_items):
-      return ordered_chat_ids[:len(effective_items)]
+    effective_items = _effective_trae_input_history_items(input_items, expected_initial_prompt)
     aligned = [''] * len(effective_items)
     unused = list(ordered_chat_ids)
 
@@ -6360,13 +9030,19 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
     for chat_id in chat_ids:
       if _deadline_expired():
         return
+      timeout_seconds = TRAE_RG_CHAT_TIMEOUT_SECONDS
+      if deadline is not None:
+        remaining = deadline - time.monotonic()
+        if remaining <= 1:
+          return
+        timeout_seconds = max(1, min(1, int(remaining)))
       try:
         completed = subprocess.run(
           [rg, '--fixed-strings', '--no-heading', '--line-number', '-m', '80', chat_id, os.path.join(TRAE_APP_SUPPORT_DIR, 'logs')],
           stdout=subprocess.PIPE,
           stderr=subprocess.DEVNULL,
           text=True,
-          timeout=TRAE_RG_CHAT_TIMEOUT_SECONDS,
+          timeout=timeout_seconds,
           check=False,
         )
       except Exception:
@@ -6401,8 +9077,6 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
       cloud_task_meta = _cloud_task_meta_for_trace(meta.get('traceId') or '', meta.get('sessionId') or '', chat_id)
       if cloud_task_meta.get('messageId'):
         meta['taskMessageId'] = cloud_task_meta['messageId']
-        if cloud_task_meta.get('time'):
-          meta['time'] = cloud_task_meta['time']
     if _target_metas_complete():
       return
 
@@ -6410,20 +9084,20 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
     rg = rg_binary()
     if not session_id or not rg:
       return []
-    try:
-      completed = subprocess.run(
-        [rg, '--no-heading', '--line-number', '-m', '200', rf'create message, chat_session_id:\s*{re.escape(session_id)}, message_id:', os.path.join(TRAE_APP_SUPPORT_DIR, 'logs')],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        text=True,
-        timeout=TRAE_RG_SESSION_TIMEOUT_SECONDS,
-        check=False,
-      )
-    except Exception:
-      return []
+    timeout_seconds = TRAE_RG_SESSION_TIMEOUT_SECONDS
+    if deadline is not None:
+      remaining = deadline - time.monotonic()
+      if remaining <= 1:
+        return []
+      # Refresh paths must not let one rg scan occupy a worker for 45s.
+      # Search the fixed session id, then filter create-message rows below.
+      timeout_seconds = max(1, min(6, int(remaining)))
+    raw_lines = _rg_create_message_lines_for_session(session_id, timeout_seconds=timeout_seconds)
     found = []
-    for raw_line in (completed.stdout or '').splitlines():
-      line = raw_line.split(':', 2)[-1] if ':' in raw_line else raw_line
+    created_rows = []
+    for raw_line in raw_lines:
+      source_path, _, split_line = _split_rg_log_line(raw_line)
+      line = split_line or (raw_line.split(':', 2)[-1] if ':' in raw_line else raw_line)
       m_create = re.search(r'create message, chat_session_id:\s*([0-9a-f]{24}), message_id:\s*([0-9a-f]{24})', line)
       if not m_create or m_create.group(1) != session_id:
         continue
@@ -6438,19 +9112,25 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
       m_trace = re.search(r'trace_id=\"([0-9a-f]{32})\"', line)
       if m_trace:
         meta['traceId'] = m_trace.group(1)
-      cloud_task_meta = _cloud_task_meta_for_trace(meta.get('traceId') or '', session_id, chat_id)
+      if source_path:
+        meta['sourcePath'] = source_path
+      created_rows.append(dict(meta))
+      found.append(chat_id)
+    cloud_task_meta_by_trace = _cloud_task_meta_for_create_rows(created_rows, session_id=session_id)
+    for chat_id in found:
+      meta = message_meta.get(chat_id) or {}
+      cloud_task_meta = cloud_task_meta_by_trace.get(meta.get('traceId') or '') or {}
+      if not cloud_task_meta.get('messageId'):
+        cloud_task_meta = _cloud_task_meta_for_trace(meta.get('traceId') or '', session_id, chat_id)
       if cloud_task_meta.get('messageId'):
         meta['taskMessageId'] = cloud_task_meta['messageId']
-        if cloud_task_meta.get('time'):
-          meta['time'] = cloud_task_meta['time']
-      found.append(chat_id)
     return found
 
   if include_trace and current_session_id:
     session_created_ids = _rg_session_create_message_ids(current_session_id)
     if session_created_ids:
       _fast_rg_backfill_meta_for_chat_ids(session_created_ids)
-      if not target_chat_ids_set or len(target_chat_ids) < len(input_history):
+      if not target_chat_ids_set or len(target_chat_ids) < effective_input_count:
         target_chat_ids = _dedupe_chat_ids(session_created_ids)
         target_chat_ids_set = set(target_chat_ids)
         turn_keys = target_chat_ids
@@ -6559,6 +9239,8 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
             for line in line_iter(path):
               if _deadline_expired():
                 return
+              if target_chat_ids and not any(chat_msg in line for chat_msg in target_chat_ids):
+                continue
               for chat_msg in target_chat_ids:
                 if _extract_meta_from_line(line, chat_msg=chat_msg, session_hint=current_session_id):
                   pass
@@ -6582,7 +9264,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
     and current_session_id
     and (
       not target_chat_ids_set
-      or len(target_chat_ids) < len(input_history)
+      or len(target_chat_ids) < effective_input_count
       or not _target_metas_complete()
     )
   )
@@ -6659,7 +9341,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
 
       _scan_session_logs(ai_agent_files, recent_line_iter)
       _scan_session_logs(renderer_files, recent_line_iter)
-      expected_count = len(target_chat_ids_set) if target_chat_ids_set else len(input_history)
+      expected_count = len(target_chat_ids_set) if target_chat_ids_set else effective_input_count
       incomplete_chat_ids = list(target_chat_ids_set) if target_chat_ids_set else session_message_ids
       if len(_dedupe_chat_ids(session_message_ids)) < expected_count or _meta_map_has_incomplete(message_meta, incomplete_chat_ids):
         if allow_full_scan:
@@ -6690,7 +9372,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
     _fast_rg_backfill_meta_for_chat_ids(session_created_ids)
     if session_created_ids:
       session_created_ids = _dedupe_chat_ids(session_created_ids)
-      if len(session_created_ids) >= len(effective_input_items if 'effective_input_items' in locals() else input_history):
+      if len(session_created_ids) >= (len(effective_input_items) if 'effective_input_items' in locals() else effective_input_count):
         target_chat_ids = session_created_ids
         turn_keys = target_chat_ids
 
@@ -6700,17 +9382,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
     _time_text_to_datetime((message_meta.get(chat_id) or {}).get('time') or '') or datetime.datetime.max,
   ))
   has_known_chat_turns = bool(aligned_chat_ids)
-  effective_input_items = []
-  previous_text = None
-  for item in input_history:
-    if not isinstance(item, dict):
-      continue
-    text = str(item.get('inputText') or '').strip()
-    has_media = bool(_media_datetimes(item))
-    if text and text == previous_text and not has_media:
-      continue
-    effective_input_items.append(item)
-    previous_text = text
+  effective_input_items = _effective_trae_input_history_items(input_history, expected_initial_prompt)
   if aligned_chat_ids and len(aligned_chat_ids) == len(effective_input_items):
     turn_keys = aligned_chat_ids
   else:
@@ -6745,18 +9417,32 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
       fallback_session_id = meta.get('sessionId') or current_session_id or 'missing_session'
       fallback_chat_message_id = chat_message_id or 'missing_chat'
       task_message_id = meta.get('taskMessageId') or fallback_chat_message_id
-      time_text = (
-        meta.get('time')
-        or _object_id_time_text(fallback_chat_message_id)
-        or _object_id_time_text(task_message_id)
-      )
+      is_fallback_session_id = task_message_id == fallback_chat_message_id
+      if is_fallback_session_id:
+        time_text = (
+          meta.get('time')
+          or _object_id_time_text(fallback_chat_message_id)
+          or _object_id_time_text(task_message_id)
+        )
+      else:
+        time_text = (
+          meta.get('time')
+          or _object_id_time_text(fallback_chat_message_id)
+          or _object_id_time_text(task_message_id)
+        )
       if not time_text:
         continue
       trace_user = user_id or 'missing_user'
-      if trace_id and re.fullmatch(r'[0-9a-f]{32}', trace_id):
+      if (
+        trace_id
+        and re.fullmatch(r'[0-9a-f]{32}', trace_id)
+        and re.fullmatch(r'[0-9a-f]{24}', task_message_id)
+        and re.fullmatch(r'[0-9a-f]{24}', fallback_chat_message_id)
+      ):
         composite = f".{trace_user}:{trace_id}_{fallback_session_id}.{task_message_id}.{fallback_chat_message_id}:{app_name}.T({time_text})"
       else:
         continue
+      session_id_quality = 'fallback_user_message' if is_fallback_session_id else 'real_response_task'
       if composite in used_composites:
         continue
       used_composites.add(composite)
@@ -6765,6 +9451,8 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
     session_id_value = log_trace_value if include_trace and log_trace_value else raw_session_id_value
     rows.append({
       'sessionId': session_id_value,
+      'sessionIdQuality': session_id_quality if include_trace and composite else '',
+      'responseMessageIdFallback': bool(include_trace and composite and is_fallback_session_id),
       'rawSessionId': raw_session_id_value,
       'conversation': input_text,
       'logTraceId': log_trace_value if include_trace else '',
@@ -6889,6 +9577,15 @@ class Handler(SimpleHTTPRequestHandler):
         self._json(500, {'ok': False, 'error': str(err)})
       return
 
+    if parsed.path == '/api/trae-round-automation-job-status':
+      query = parse_qs(parsed.query)
+      job_id = (query.get('id') or query.get('jobId') or [''])[0]
+      try:
+        self._json(200, get_round_automation_job(job_id))
+      except Exception as err:
+        self._json(404, {'ok': False, 'error': str(err)})
+      return
+
     return super().do_GET()
 
   def do_POST(self):
@@ -6905,6 +9602,13 @@ class Handler(SimpleHTTPRequestHandler):
         state.setdefault('completed', {})
         state.setdefault('orders', {})
         if completed:
+          prompt = next((item for item in load_prompts() if item.get('id') == prompt_id), None)
+          order_token = normalize_order_token(prompt, state.get('orders', {}).get(prompt_id, default_order_token(prompt))) if prompt else ''
+          if not is_second_phase_order_token(order_token):
+            state['completed'].pop(prompt_id, None)
+            write_json(STATE_FILE, state)
+            self._json(200, {'ok': True, 'state': state, 'skipped': True, 'reason': 'order number is before may-979'})
+            return
           state['completed'][prompt_id] = {'completed': True}
         else:
           state['completed'].pop(prompt_id, None)
@@ -6922,6 +9626,43 @@ class Handler(SimpleHTTPRequestHandler):
           order,
           force=bool(payload.get('force')),
           discover=bool(payload.get('discover')),
+        )
+        self._json(200, result)
+      except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/trae-round-automation-start':
+      try:
+        payload = self._read_json_body()
+        result = start_round_automation_job(
+          payload.get('groups') or payload.get('groupNames') or [],
+          target_rounds=int(payload.get('targetRounds') or payload.get('target_rounds') or 5),
+        )
+        self._json(200, result)
+      except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/trae-round-automation-stop':
+      try:
+        payload = self._read_json_body()
+        result = stop_round_automation_job(str(payload.get('id') or payload.get('jobId') or '').strip())
+        self._json(200, result)
+      except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/annotate-dissatisfaction':
+      try:
+        payload = self._read_json_body()
+        orders = payload.get('orders')
+        if orders is None:
+          orders = [payload.get('order')]
+        result = annotate_dissatisfaction_for_orders(
+          orders,
+          model_id=str(payload.get('model_id') or payload.get('modelId') or '').strip(),
+          force=payload.get('force') is not False,
         )
         self._json(200, result)
       except Exception as err:
@@ -6958,6 +9699,149 @@ class Handler(SimpleHTTPRequestHandler):
           result = delete_trae_group(payload.get('name'))
         else:
           result = save_trae_group(payload.get('name'), payload.get('orders'))
+        self._json(200, result)
+      except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/trae-round-automation-probe':
+      try:
+        payload = self._read_json_body()
+        result = run_round_automation_probe(
+          str(payload.get('group') or payload.get('groupName') or '').strip(),
+          payload.get('orders'),
+        )
+        self._json(200, result)
+      except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/trae-round-automation-round-detect':
+      try:
+        payload = self._read_json_body()
+        result = run_round_automation_round_detect(
+          str(payload.get('group') or payload.get('groupName') or '').strip(),
+          payload.get('orders'),
+          target_rounds=int(payload.get('targetRounds') or payload.get('target_rounds') or 5),
+        )
+        self._json(200, result)
+      except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/trae-round-automation-runtime-start':
+      try:
+        payload = self._read_json_body()
+        result = run_round_automation_runtime_start(
+          str(payload.get('group') or payload.get('groupName') or '').strip(),
+          payload.get('orders'),
+          install=bool(payload.get('install')),
+        )
+        self._json(200, result)
+      except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/trae-round-automation-browser-check':
+      try:
+        payload = self._read_json_body()
+        result = run_round_automation_browser_check(
+          str(payload.get('group') or payload.get('groupName') or '').strip(),
+          payload.get('orders'),
+          wait_ms=int(payload.get('waitMs') or payload.get('wait_ms') or 4500),
+        )
+        self._json(200, result)
+      except ValueError:
+        self._json(400, {'ok': False, 'error': 'waitMs must be an integer'})
+      except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/trae-round-automation-drafts':
+      try:
+        payload = self._read_json_body()
+        result = run_round_automation_drafts(
+          str(payload.get('group') or payload.get('groupName') or '').strip(),
+          payload.get('orders'),
+        )
+        self._json(200, result)
+      except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/trae-round-automation-submit-queue':
+      try:
+        payload = self._read_json_body()
+        result = run_round_automation_submit_queue(
+          str(payload.get('group') or payload.get('groupName') or '').strip(),
+          payload.get('orders'),
+        )
+        self._json(200, result)
+      except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/trae-round-automation-round-prompt-queue':
+      try:
+        payload = self._read_json_body()
+        result = run_round_automation_round_prompt_queue(
+          str(payload.get('group') or payload.get('groupName') or '').strip(),
+          payload.get('orders'),
+          target_rounds=int(payload.get('targetRounds') or payload.get('target_rounds') or 5),
+        )
+        self._json(200, result)
+      except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/trae-round-automation-prepare-submit':
+      try:
+        payload = self._read_json_body()
+        result = run_round_automation_prepare_submit(
+          str(payload.get('group') or payload.get('groupName') or '').strip(),
+          str(payload.get('order') or '').strip(),
+          dry_run=bool(payload.get('dryRun') or payload.get('dry_run')),
+          require_window=bool(payload.get('requireWindow') or payload.get('require_window')),
+        )
+        self._json(200, result)
+      except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/trae-round-automation-fast-submit':
+      try:
+        payload = self._read_json_body()
+        result = run_round_automation_fast_submit(
+          str(payload.get('group') or payload.get('groupName') or '').strip(),
+          str(payload.get('order') or '').strip(),
+          should_run=not (payload.get('run') is False or payload.get('shouldRun') is False),
+          include_screenshot=not (payload.get('includeScreenshot') is False or payload.get('include_screenshot') is False),
+        )
+        self._json(200, result)
+      except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/trae-round-automation-ax-probe':
+      try:
+        payload = self._read_json_body()
+        result = run_round_automation_ax_probe(
+          str(payload.get('group') or payload.get('groupName') or '').strip(),
+          str(payload.get('order') or '').strip(),
+          focus=bool(payload.get('focus')),
+        )
+        self._json(200, result)
+      except Exception as err:
+        self._json(500, {'ok': False, 'error': str(err)})
+      return
+
+    if parsed.path == '/api/trae-round-automation-restore-window':
+      try:
+        payload = self._read_json_body()
+        result = run_round_automation_restore_window(
+          str(payload.get('group') or payload.get('groupName') or '').strip(),
+          str(payload.get('order') or '').strip(),
+        )
         self._json(200, result)
       except Exception as err:
         self._json(500, {'ok': False, 'error': str(err)})

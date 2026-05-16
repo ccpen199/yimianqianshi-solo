@@ -34,6 +34,7 @@ const batchTraeStatus = document.getElementById('batchTraeStatus');
 const openBatchSessionsButton = document.getElementById('openBatchSessions');
 const batchProjectList = document.getElementById('batchProjectList');
 const batchGroupSelect = document.getElementById('batchGroupSelect');
+const batchGroupListEl = document.getElementById('batchGroupList');
 const batchGroupNameInput = document.getElementById('batchGroupName');
 const addToBatchGroupButton = document.getElementById('addToBatchGroup');
 const saveBatchGroupButton = document.getElementById('saveBatchGroup');
@@ -56,10 +57,34 @@ const watchCurrentBatchGroupButton = document.getElementById('watchCurrentBatchG
 const autoBatchWatchedGroupsEl = document.getElementById('autoBatchWatchedGroups');
 const llmAgentModelListEl = document.getElementById('llmAgentModelList');
 const llmAgentStatusEl = document.getElementById('llmAgentStatus');
+const runLlmDissatisfactionAnnotationButton = document.getElementById('runLlmDissatisfactionAnnotation');
 const copyNextBatchScreenshotButton = document.getElementById('copyNextBatchScreenshot');
 const pasteBatchScreenshotsToFeishuButton = document.getElementById('pasteBatchScreenshotsToFeishu');
 const pasteBatchAllToFeishuButton = document.getElementById('pasteBatchAllToFeishu');
 const batchSessionRefreshStatus = document.getElementById('batchSessionRefreshStatus');
+const showBatchGroupTabButton = document.getElementById('showBatchGroupTab');
+const showRoundAutomationTabButton = document.getElementById('showRoundAutomationTab');
+const batchGroupTabPanel = document.getElementById('batchGroupTabPanel');
+const roundAutomationTabPanel = document.getElementById('roundAutomationTabPanel');
+const roundAutomationGroupNameInput = document.getElementById('roundAutomationGroupName');
+const roundAutomationTargetRoundsInput = document.getElementById('roundAutomationTargetRounds');
+const roundAutomationGroupListEl = document.getElementById('roundAutomationGroupList');
+const startRoundAutomationButton = document.getElementById('startRoundAutomation');
+const stopRoundAutomationButton = document.getElementById('stopRoundAutomation');
+const runRoundAutomationProbeButton = document.getElementById('runRoundAutomationProbe');
+const runRoundAutomationRoundDetectButton = document.getElementById('runRoundAutomationRoundDetect');
+const runRoundAutomationRuntimeButton = document.getElementById('runRoundAutomationRuntime');
+const runRoundAutomationBrowserButton = document.getElementById('runRoundAutomationBrowser');
+const runRoundAutomationDraftsButton = document.getElementById('runRoundAutomationDrafts');
+const runRoundAutomationQueueButton = document.getElementById('runRoundAutomationQueue');
+const runRoundPromptQueueButton = document.getElementById('runRoundPromptQueue');
+const restoreRoundAutomationWindowButton = document.getElementById('restoreRoundAutomationWindow');
+const probeRoundAutomationWindowButton = document.getElementById('probeRoundAutomationWindow');
+const prepareRoundAutomationSubmitButton = document.getElementById('prepareRoundAutomationSubmit');
+const fastRoundAutomationSubmitButton = document.getElementById('fastRoundAutomationSubmit');
+const roundAutomationStatusEl = document.getElementById('roundAutomationStatus');
+const roundAutomationSummaryEl = document.getElementById('roundAutomationSummary');
+const roundAutomationDraftPreviewEl = document.getElementById('roundAutomationDraftPreview');
 
 let candidates = [];
 let prompts = [];
@@ -78,6 +103,10 @@ let currentBatchSessionRows = [];
 let currentBatchSessionOrders = [];
 let currentBatchSessionGroupName = '';
 let sessionLoadRequestId = 0;
+const MIN_VISIBLE_ORDER_NUMBER = 979;
+const DEFAULT_TARGET_ROUNDS = 5;
+const TARGET_ROUNDS_STORAGE_KEY = 'batchTargetRounds';
+const DEFAULT_GITHUB_REPO_URL = 'git@github.com:ccpen199/Trae-solo.git';
 const refreshingSessionOrders = new Set();
 const sessionRefreshPollTimers = new Map();
 const sessionFetchTimeoutMs = 30000;
@@ -87,10 +116,15 @@ let batchScreenshotCopyQueue = [];
 let batchScreenshotCopyIndex = 0;
 let promptPreviewVisible = localStorage.getItem('promptPreviewVisible') !== 'false';
 let batchMissingRefreshInProgress = false;
+let batchMissingRefreshRunId = 0;
+let batchMissingRefreshActiveGroup = '';
 let batchPasteInProgress = false;
 let autoBatchMissingEnabled = localStorage.getItem('autoBatchMissingSessions') === 'true';
 let autoBatchMissingTimer = null;
 let autoBatchWatchedGroups = new Set(loadStoredStringList('autoBatchWatchedGroups'));
+let roundAutomationSelectedGroups = new Set(loadStoredStringList('roundAutomationSelectedGroups'));
+let roundAutomationJobId = localStorage.getItem('roundAutomationJobId') || '';
+let roundAutomationPollTimer = null;
 let llmAnnotationModels = [];
 let selectedLlmAnnotationModelId = localStorage.getItem('llmAnnotationModelId') || '';
 const scenePrefix = {
@@ -104,7 +138,7 @@ const scenePrefix = {
   news_weather: 'xw',
   art_design: 'ys',
   fun_leisure: 'qx',
-  local_projects: 'xm',
+  local_projects: 'may',
 };
 
 const domainAliases = {
@@ -191,9 +225,7 @@ function isCompleted(promptId) {
 }
 
 function orderPrefix(prompt) {
-  if (String(prompt?.id || '').startsWith('prd_300_may_')) return 'may';
-  const domain = normalizeDomainName(prompt.business_domain);
-  return scenePrefix[domain] || 'x';
+  return 'may';
 }
 
 function orderToken(prompt, value) {
@@ -205,7 +237,7 @@ function orderToken(prompt, value) {
   if (!text) return `${prefix}-${prompt.global_order}`;
   if (/^\d+$/.test(text)) return `${prefix}-${Number.parseInt(text, 10)}`;
   const match = text.match(/^([a-zA-Z]+)-(\d+)$/);
-  if (match) return `${match[1].toLowerCase()}-${Number.parseInt(match[2], 10)}`;
+  if (match) return `may-${Number.parseInt(match[2], 10)}`;
   return text;
 }
 
@@ -220,13 +252,21 @@ function orderNumber(value) {
 function orderPrefixRank(value) {
   const prefix = String(value ?? '').trim().split('-')[0].toLowerCase();
   if (prefix === 'may') return 0;
-  if (prefix === 'xm') return 1;
-  return 2;
+  return 1;
 }
 
 function getOrder(prompt) {
   const raw = promptState.orders?.[prompt.id];
-  return orderToken(prompt, raw || `${orderPrefix(prompt)}-${prompt.global_order}`);
+  return orderToken(prompt, raw || prompt.order_folder || prompt.orderFolder || `${orderPrefix(prompt)}-${prompt.global_order}`);
+}
+
+function isVisiblePrompt(prompt) {
+  const number = orderNumber(getOrder(prompt));
+  return !Number.isInteger(number) || number >= MIN_VISIBLE_ORDER_NUMBER;
+}
+
+function visiblePromptList() {
+  return prompts.filter(isVisiblePrompt);
 }
 
 function comparePromptOrder(a, b) {
@@ -268,9 +308,9 @@ function normalizeBatchOrders(items) {
   for (const item of items || []) {
     let text = String(item || '').trim();
     if (!text) continue;
-    if (/^\d+$/.test(text)) text = `xm-${Number.parseInt(text, 10)}`;
+    if (/^\d+$/.test(text)) text = `may-${Number.parseInt(text, 10)}`;
     const match = text.match(/^([a-zA-Z]+)-(\d+)$/);
-    if (match) text = `${match[1].toLowerCase()}-${Number.parseInt(match[2], 10)}`;
+    if (match) text = `may-${Number.parseInt(match[2], 10)}`;
     if (!seen.has(text)) {
       seen.add(text);
       orders.push(text);
@@ -295,8 +335,38 @@ function currentBatchGroupName() {
   return String(batchGroupNameInput?.value || activeBatchGroup || '').trim();
 }
 
+function normalizeTargetRounds(value) {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 99) : DEFAULT_TARGET_ROUNDS;
+}
+
+function targetRoundCount() {
+  return normalizeTargetRounds(
+    batchSessionMinRowsInput?.value
+      || autoBatchMinRowsInput?.value
+      || roundAutomationTargetRoundsInput?.value
+      || localStorage.getItem(TARGET_ROUNDS_STORAGE_KEY),
+  );
+}
+
+function syncTargetRoundInputs(value, persist = true) {
+  const normalized = normalizeTargetRounds(value);
+  [batchSessionMinRowsInput, autoBatchMinRowsInput, roundAutomationTargetRoundsInput].forEach((input) => {
+    if (input) input.value = String(normalized);
+  });
+  if (persist) {
+    localStorage.setItem(TARGET_ROUNDS_STORAGE_KEY, String(normalized));
+    localStorage.setItem('autoBatchMinRows', String(normalized));
+  }
+  return normalized;
+}
+
 function persistAutoBatchWatchedGroups() {
   saveStoredStringList('autoBatchWatchedGroups', autoBatchWatchedGroups);
+}
+
+function persistRoundAutomationSelectedGroups() {
+  saveStoredStringList('roundAutomationSelectedGroups', roundAutomationSelectedGroups);
 }
 
 function pruneAutoBatchWatchedGroups() {
@@ -311,9 +381,20 @@ function pruneAutoBatchWatchedGroups() {
   if (changed) persistAutoBatchWatchedGroups();
 }
 
+function pruneRoundAutomationSelectedGroups() {
+  const validNames = new Set(Object.keys(batchGroups || {}));
+  let changed = false;
+  for (const name of Array.from(roundAutomationSelectedGroups)) {
+    if (!validNames.has(name)) {
+      roundAutomationSelectedGroups.delete(name);
+      changed = true;
+    }
+  }
+  if (changed) persistRoundAutomationSelectedGroups();
+}
+
 function autoBatchThreshold() {
-  const value = Number.parseInt(String(autoBatchMinRowsInput?.value || batchSessionMinRowsInput?.value || ''), 10);
-  return Number.isInteger(value) && value > 0 ? value : 5;
+  return targetRoundCount();
 }
 
 function updateWatchCurrentBatchGroupButton() {
@@ -392,9 +473,685 @@ function renderLlmAgentModels() {
   setLlmAgentStatus(message, current?.available === false);
 }
 
+async function runCurrentGroupDissatisfactionAnnotation() {
+  if (!runLlmDissatisfactionAnnotationButton) return;
+  const model = selectedLlmAnnotationModel();
+  if (!model || model.available === false) {
+    setLlmAgentStatus('当前模型不可用，不能重跑不满意列', true);
+    return;
+  }
+  const { groupName, orders: collectedOrders } = collectBatchOrders();
+  const orders = normalizeBatchOrders(currentBatchSessionOrders.length ? currentBatchSessionOrders : collectedOrders);
+  if (!orders.length) {
+    setLlmAgentStatus('当前组没有可标注项目', true);
+    return;
+  }
+  runLlmDissatisfactionAnnotationButton.disabled = true;
+  runLlmDissatisfactionAnnotationButton.dataset.originalLabel = runLlmDissatisfactionAnnotationButton.dataset.originalLabel || runLlmDissatisfactionAnnotationButton.textContent;
+  runLlmDissatisfactionAnnotationButton.textContent = '标注中';
+  setLlmAgentStatus(`正在使用 ${model.name || model.id} 重跑 ${orders.length} 个项目的不满意列`);
+  try {
+    const response = await fetchWithTimeout('/api/annotate-dissatisfaction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orders,
+        model_id: model.id || '',
+        force: true,
+      }),
+    }, 0);
+    const payload = await response.json();
+    if (!payload.ok) throw new Error(payload.error || '标注失败');
+    const failedOrders = Array.isArray(payload.failedOrders) ? payload.failedOrders : [];
+    const failedText = failedOrders.length ? `，失败 ${failedOrders.length} 个：${failedOrders.join(', ')}` : '';
+    setLlmAgentStatus(`已写回不满意列：${payload.changedRows || 0}/${payload.totalRows || 0} 行，模型 ${payload.modelId || model.id}${failedText}`);
+    if (batchSessionModal?.open || currentBatchSessionRows.length) {
+      const refreshedRows = await fetchBatchRowsForOrders(currentBatchSessionGroupName || groupName, orders);
+      renderBatchSessionRows({ groupName: currentBatchSessionGroupName || groupName, orders, rows: refreshedRows });
+    }
+  } catch (error) {
+    setLlmAgentStatus(`不满意列标注失败：${error.message || error}`, true);
+  } finally {
+    runLlmDissatisfactionAnnotationButton.disabled = false;
+    runLlmDissatisfactionAnnotationButton.textContent = runLlmDissatisfactionAnnotationButton.dataset.originalLabel || '重跑当前组不满意列';
+  }
+}
+
+function syncRoundAutomationGroupName() {
+  if (!roundAutomationGroupNameInput) return;
+  const selected = Array.from(roundAutomationSelectedGroups).sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }));
+  if (!selected.length) {
+    roundAutomationGroupNameInput.value = '';
+  } else if (selected.length === 1) {
+    roundAutomationGroupNameInput.value = selected[0];
+  } else {
+    roundAutomationGroupNameInput.value = `${selected.length} 组：${selected.join('，')}`;
+  }
+}
+
+function renderRoundAutomationGroupList() {
+  if (!roundAutomationGroupListEl) return;
+  pruneRoundAutomationSelectedGroups();
+  const names = Object.keys(batchGroups || {}).sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }));
+  roundAutomationGroupListEl.innerHTML = '';
+  if (!names.length) {
+    const empty = document.createElement('div');
+    empty.className = 'round-auto-empty';
+    empty.textContent = '暂无批量组，先在项目组里保存一组项目';
+    roundAutomationGroupListEl.appendChild(empty);
+    syncRoundAutomationGroupName();
+    return;
+  }
+  for (const name of names) {
+    roundAutomationGroupListEl.appendChild(createBatchGroupListItem(name, { mode: 'automation' }));
+  }
+  syncRoundAutomationGroupName();
+}
+
+function groupOrderSummary(orders) {
+  const list = normalizeBatchOrders(orders || []);
+  if (!list.length) return '空组';
+  const first = list[0];
+  const last = list[list.length - 1];
+  return first === last ? first : `${first} - ${last}`;
+}
+
+function createBatchGroupListItem(name, options = {}) {
+  const mode = options.mode || 'project';
+  const orders = normalizeBatchOrders(batchGroups[name] || []);
+  const selectedForAutomation = roundAutomationSelectedGroups.has(name);
+  const isAutomation = mode === 'automation';
+  const isActiveGroup = !isAutomation && activeBatchGroup === name;
+  const item = document.createElement('div');
+  item.className = 'batch-group-item';
+  item.classList.toggle('is-project-mode', !isAutomation);
+  item.classList.toggle('is-active', isActiveGroup);
+  item.classList.toggle('is-selected', selectedForAutomation);
+  item.innerHTML = `
+    <span class="batch-group-control">
+      <input type="checkbox" ${selectedForAutomation ? 'checked' : ''} aria-label="纳入 ${escapeHtml(name)}" />
+    </span>
+    <span class="batch-group-content">
+      <span class="batch-group-title">${escapeHtml(name)}</span>
+      <span class="batch-group-meta">
+        <b>${orders.length}</b> 个项目
+        <em>${escapeHtml(groupOrderSummary(orders))}</em>
+      </span>
+    </span>
+    <span class="batch-group-badges">
+      ${isActiveGroup ? '<i>当前</i>' : ''}
+      ${selectedForAutomation ? '<i>自动化</i>' : ''}
+    </span>
+  `;
+  const input = item.querySelector('input');
+  input.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+  input.addEventListener('change', (event) => {
+    event.stopPropagation();
+    if (input.checked) {
+      roundAutomationSelectedGroups.add(name);
+    } else {
+      roundAutomationSelectedGroups.delete(name);
+    }
+    if (!isAutomation) {
+      activeBatchGroup = name;
+      if (batchGroupSelect) batchGroupSelect.value = name;
+      if (batchGroupNameInput) batchGroupNameInput.value = name;
+      if (batchTraeInput) batchTraeInput.value = normalizeBatchOrders(batchGroups[name] || []).join(',');
+      selectedBatchOrders = new Set();
+      renderBatchProjectList();
+      renderAutoBatchWatchedGroups();
+    }
+    persistRoundAutomationSelectedGroups();
+    renderBatchGroups();
+    renderRoundAutomationGroupList();
+    setBatchStatus(roundAutomationSelectedGroups.size ? `已纳入多轮自动化：${roundAutomationSelectedGroups.size} 个组` : '未纳入任何自动化组', !roundAutomationSelectedGroups.size);
+    setRoundAutomationStatus(roundAutomationSelectedGroups.size ? `已选择 ${roundAutomationSelectedGroups.size} 个组` : '未选择自动化组', !roundAutomationSelectedGroups.size);
+  });
+  item.addEventListener('click', () => {
+    if (isAutomation) {
+      input.checked = !input.checked;
+      input.dispatchEvent(new Event('change', { bubbles: false }));
+      return;
+    }
+    loadBatchGroup(name);
+    setBatchStatus(`当前组已切换：${name}`);
+  });
+  return item;
+}
+
+function setBatchPanelTab(tabName) {
+  const isAutomation = tabName === 'automation';
+  if (batchGroupTabPanel) batchGroupTabPanel.hidden = isAutomation;
+  if (roundAutomationTabPanel) roundAutomationTabPanel.hidden = !isAutomation;
+  showBatchGroupTabButton?.classList.toggle('is-active', !isAutomation);
+  showRoundAutomationTabButton?.classList.toggle('is-active', isAutomation);
+  if (isAutomation) {
+    renderRoundAutomationGroupList();
+    syncRoundAutomationGroupName();
+  }
+}
+
+function setRoundAutomationStatus(text, isError = false) {
+  if (!roundAutomationStatusEl) return;
+  roundAutomationStatusEl.textContent = text || '';
+  roundAutomationStatusEl.classList.toggle('error', Boolean(isError));
+}
+
+function roundAutomationPayload() {
+  const selected = Array.from(roundAutomationSelectedGroups).sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }));
+  if (!selected.length) throw new Error('请先勾选一个自动化项目组');
+  if (selected.length > 1) throw new Error('高级单步工具一次只处理一个组；多组请用一键开启多轮自动化');
+  const groupName = selected[0];
+  const orders = normalizeBatchOrders(batchGroups[groupName] || []);
+  if (!orders.length) throw new Error('当前组没有项目');
+  return {
+    group: groupName,
+    orders,
+    targetRounds: targetRoundCount(),
+  };
+}
+
+function automationDataLink(pathValue, label) {
+  const text = String(pathValue || '').trim();
+  if (!text) return '';
+  const marker = '/docs/data/';
+  const index = text.indexOf(marker);
+  const href = index >= 0 ? `/data/${encodeURI(text.slice(index + marker.length))}` : '';
+  return href ? `<a href="${href}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a>` : escapeHtml(text);
+}
+
+function renderRoundAutomationProbe(payload) {
+  const projects = payload?.report?.projects || [];
+  const cards = projects.map((project) => {
+    const listening = (project.ports || []).filter((item) => item.listening).map((item) => item.port);
+    const httpOk = (project.http || []).filter((item) => item.ok).length;
+    const status = listening.length ? '可访问' : '未启动';
+    const cls = listening.length ? 'ok' : 'warn';
+    return `
+      <article class="round-auto-result-card ${cls}">
+        <b>${escapeHtml(project.order || '-')}</b>
+        <span>${status}</span>
+        <small>前端 ${escapeHtml((project.frontendPorts || []).join(',') || '-')} / 后端 ${escapeHtml((project.backendPorts || []).join(',') || '-')}</small>
+        <small>监听 ${escapeHtml(listening.join(',') || '-')} / HTTP OK ${httpOk}</small>
+      </article>
+    `;
+  }).join('');
+  if (roundAutomationSummaryEl) {
+    roundAutomationSummaryEl.innerHTML = `
+      <div class="round-auto-links">${automationDataLink(payload.reportPath, 'probe.json')}</div>
+      <div class="round-auto-result-grid">${cards || '<span>没有探测结果</span>'}</div>
+    `;
+  }
+  if (roundAutomationDraftPreviewEl) {
+    roundAutomationDraftPreviewEl.textContent = JSON.stringify({
+      group: payload.group,
+      orders: payload.orders,
+      traeWindows: payload.report?.traeWindows || [],
+    }, null, 2);
+  }
+}
+
+function renderRoundAutomationRoundDetect(payload) {
+  const items = Array.isArray(payload?.items) ? payload.items : [];
+  const cards = items.map((item) => {
+    const completed = Number.parseInt(String(item.completedRounds ?? 0), 10) || 0;
+    const target = Number.parseInt(String(item.targetRounds ?? payload.targetRounds ?? 0), 10) || '-';
+    const reached = Boolean(item.reachedTarget);
+    const nextRound = reached ? '-' : item.nextRound || completed + 1;
+    const cls = reached ? 'ok' : completed > 0 ? 'warn' : 'error';
+    const diagnostics = [
+      `来源 ${item.source || 'cache'}`,
+      `缓存 ${item.cachedRounds ?? 0}`,
+      item.sentRoundCount != null ? `发送成功 ${item.sentRoundCount}` : '',
+      item.effectiveInputCount != null ? `有效输入 ${item.effectiveInputCount}` : '',
+      item.rawInputCount != null ? `原始输入 ${item.rawInputCount}` : '',
+      item.duplicateInputCount ? `重复/重试 ${item.duplicateInputCount}` : '',
+    ].filter(Boolean).join(' · ');
+    return `
+      <article class="round-auto-result-card ${cls}">
+        <b>${escapeHtml(item.order || '-')}</b>
+        <span>${reached ? '已达标' : '未达标'} · 已完成 ${escapeHtml(completed)} / 目标 ${escapeHtml(target)} · 下一轮 ${escapeHtml(nextRound)}</span>
+        <small>${escapeHtml(diagnostics || (item.cacheExists ? '读取本地会话缓存' : '没有本地会话缓存，按 0 轮处理'))}</small>
+        ${item.detectError ? `<small>检测提示：${escapeHtml(item.detectError)}</small>` : ''}
+      </article>
+    `;
+  }).join('');
+  if (roundAutomationSummaryEl) {
+    roundAutomationSummaryEl.innerHTML = `
+      <div class="round-auto-links">轮次检测完成：${escapeHtml(payload.group || '-')} · 本地精确检测优先，缓存兜底，不触发深扫拉取</div>
+      <div class="round-auto-result-grid">${cards || '<span>没有轮次检测结果</span>'}</div>
+    `;
+  }
+  if (roundAutomationDraftPreviewEl) {
+    roundAutomationDraftPreviewEl.textContent = JSON.stringify(payload, null, 2);
+  }
+}
+
+function renderRoundAutomationBrowser(payload) {
+  const results = payload?.results || [];
+  const cards = results.map((item) => {
+    const cls = item.ok ? 'ok' : item.skipped ? 'warn' : 'error';
+    const detail = item.skipped ? item.reason : item.error || `console ${item.consoleCount || 0} / request ${item.requestFailureCount || 0} / response ${item.responseErrorCount || 0}`;
+    return `
+      <article class="round-auto-result-card ${cls}">
+        <b>${escapeHtml(item.order || '-')}</b>
+        <span>${item.ok ? '浏览器检查完成' : item.skipped ? '跳过' : '失败'}</span>
+        <small>${escapeHtml(item.url || detail || '-')}</small>
+        <small>${automationDataLink(item.reportPath, '报告')}${item.screenshotPath ? ' · ' + automationDataLink(item.screenshotPath, '截图') : ''}</small>
+      </article>
+    `;
+  }).join('');
+  if (roundAutomationSummaryEl) {
+    roundAutomationSummaryEl.innerHTML = `
+      <div class="round-auto-links">完成 ${payload.checked || 0} 个，跳过 ${payload.skipped || 0} 个</div>
+      <div class="round-auto-result-grid">${cards || '<span>没有浏览器检查结果</span>'}</div>
+    `;
+  }
+  if (roundAutomationDraftPreviewEl) {
+    roundAutomationDraftPreviewEl.textContent = JSON.stringify(results, null, 2);
+  }
+}
+
+function renderRoundAutomationRuntime(payload) {
+  const results = payload?.report?.results || [];
+  const cards = results.map((item) => {
+    const cls = item.ok ? 'ok' : item.blocked?.length ? 'error' : 'warn';
+    const started = (item.started || []).map((entry) => `${entry.scope}:${entry.port}`).join(',') || '-';
+    const errors = (item.errors || []).map((entry) => typeof entry === 'string' ? entry : entry.reason || JSON.stringify(entry)).join('；');
+    const detail = item.ok ? `${item.frontendUrl || '-'} / ${item.backendHealthUrl || '-'}` : errors || '未形成完整运行态';
+    return `
+      <article class="round-auto-result-card ${cls}">
+        <b>${escapeHtml(item.order || '-')}</b>
+        <span>${item.ok ? '运行态可用' : item.blocked?.length ? '端口阻塞' : '需处理'}</span>
+        <small>启动 ${escapeHtml(started)} / 前端 ${escapeHtml((item.frontendPorts || []).join(',') || '-')} / 后端 ${escapeHtml((item.backendPorts || []).join(',') || '-')}</small>
+        <small>${escapeHtml(detail)}</small>
+      </article>
+    `;
+  }).join('');
+  if (roundAutomationSummaryEl) {
+    roundAutomationSummaryEl.innerHTML = `
+      <div class="round-auto-links">${automationDataLink(payload.reportPath, 'runtime_start_report.json')}</div>
+      <div class="round-auto-result-grid">${cards || '<span>没有启动结果</span>'}</div>
+    `;
+  }
+  if (roundAutomationDraftPreviewEl) {
+    roundAutomationDraftPreviewEl.textContent = JSON.stringify(results, null, 2);
+  }
+}
+
+function renderRoundAutomationDrafts(payload) {
+  const drafts = payload?.drafts || [];
+  const cards = drafts.map((item) => `
+    <article class="round-auto-result-card ${item.issues?.length ? 'warn' : 'ok'}">
+      <b>${escapeHtml(item.order || '-')}</b>
+      <span>问题 ${item.issues?.length || 0} / 证据 ${item.evidence?.length || 0}</span>
+      <small>${escapeHtml((item.issues || [])[0] || '已生成草稿')}</small>
+    </article>
+  `).join('');
+  if (roundAutomationSummaryEl) {
+    roundAutomationSummaryEl.innerHTML = `
+      <div class="round-auto-links">${automationDataLink(payload.markdownPath, 'next_prompt_drafts.md')} · ${automationDataLink(payload.jsonPath, 'next_prompt_drafts.json')}</div>
+      <div class="round-auto-result-grid">${cards || '<span>没有草稿结果</span>'}</div>
+    `;
+  }
+  if (roundAutomationDraftPreviewEl) {
+    roundAutomationDraftPreviewEl.textContent = payload.markdownPreview || JSON.stringify(drafts, null, 2);
+  }
+}
+
+function renderRoundAutomationQueue(payload) {
+  const queue = payload?.queue || [];
+  const skipped = payload?.skipped || [];
+  const cards = queue.map((item) => {
+    const cls = item.priority === 'high' ? 'error' : item.priority === 'medium' ? 'warn' : 'ok';
+    const firstIssue = (item.issues || [])[0] || item.reason || '待提交';
+    return `
+      <article class="round-auto-result-card ${cls}">
+        <b>${escapeHtml(item.order || '-')}</b>
+        <span>${escapeHtml(item.priority || 'normal')} · 分数 ${escapeHtml(item.score ?? '-')}</span>
+        <small>${escapeHtml(firstIssue)}</small>
+        <small>窗口 ${item.windowAvailable ? '已匹配' : '未匹配'} / 前端 ${escapeHtml(item.frontendUrl || '-')}</small>
+      </article>
+    `;
+  }).join('');
+  const skippedText = skipped.length ? `，跳过 ${skipped.length} 个：${skipped.map((item) => item.order).join(', ')}` : '';
+  if (roundAutomationSummaryEl) {
+    roundAutomationSummaryEl.innerHTML = `
+      <div class="round-auto-links">${automationDataLink(payload.markdownPath, 'submit_queue.md')} · ${automationDataLink(payload.jsonPath, 'submit_queue.json')}</div>
+      <div class="round-auto-links">待提交 ${queue.length} 个${skippedText}</div>
+      <div class="round-auto-result-grid">${cards || '<span>没有待提交项目</span>'}</div>
+    `;
+  }
+  if (roundAutomationDraftPreviewEl) {
+    roundAutomationDraftPreviewEl.textContent = payload.markdownPreview || JSON.stringify({ queue, skipped }, null, 2);
+  }
+}
+
+function renderRoundAutomationPrepare(payload) {
+  const focus = payload?.focus || {};
+  const cls = payload.blocked ? 'error' : focus.matched ? 'ok' : 'warn';
+  if (roundAutomationSummaryEl) {
+    roundAutomationSummaryEl.innerHTML = `
+      <div class="round-auto-result-grid">
+        <article class="round-auto-result-card ${cls}">
+          <b>${escapeHtml(payload.order || '-')}</b>
+          <span>${payload.blocked ? '已阻止准备' : payload.clipboardWritten ? '已复制 prompt 到剪贴板' : '未写剪贴板'} · ${focus.matched ? '窗口已聚焦' : '未匹配窗口'}</span>
+          <small>${escapeHtml((payload.issues || [])[0] || '已准备队列首项')}</small>
+          <small>${escapeHtml(payload.blockReason || focus.window || '请先恢复并确认 Trae 窗口可见')}</small>
+        </article>
+      </div>
+    `;
+  }
+  if (roundAutomationDraftPreviewEl) {
+    roundAutomationDraftPreviewEl.textContent = payload.promptPreview || JSON.stringify(payload, null, 2);
+  }
+}
+
+function renderRoundAutomationFastSubmit(payload) {
+  const submit = payload?.submit || {};
+  const cls = submit.matched ? 'ok' : 'error';
+  if (roundAutomationSummaryEl) {
+    roundAutomationSummaryEl.innerHTML = `
+      <div class="round-auto-result-grid">
+        <article class="round-auto-result-card ${cls}">
+          <b>${escapeHtml(payload.order || '-')}</b>
+          <span>${submit.matched ? '已执行快捷键粘贴运行' : '未匹配目标窗口'}</span>
+          <small>prompt ${escapeHtml(payload.promptLength ?? 0)} 字 · ${escapeHtml(submit.window || '没有匹配窗口')}</small>
+          <small>${escapeHtml(payload.note || '读取已有提交队列，不重扫、不重建、不截图')}</small>
+        </article>
+      </div>
+    `;
+  }
+  if (roundAutomationDraftPreviewEl) {
+    roundAutomationDraftPreviewEl.textContent = JSON.stringify(payload, null, 2);
+  }
+}
+
+function renderRoundAutomationJob(payload) {
+  const job = payload?.job || payload || {};
+  const groups = Array.isArray(job.groups) ? job.groups : [];
+  const orders = job.orders || {};
+  const events = Array.isArray(job.events) ? job.events.slice(-12).reverse() : [];
+  const running = job.status === 'running' || job.status === 'stopping';
+  const orderEntries = Object.entries(orders).sort((a, b) => a[0].localeCompare(b[0], 'zh-CN', { numeric: true }));
+  const completedOrders = orderEntries.filter(([, state]) => state?.status === 'completed').map(([order]) => order);
+  const pendingOrders = orderEntries.filter(([, state]) => state?.status === 'pending').map(([order]) => order);
+  const blockedOrders = orderEntries.filter(([, state]) => state?.status === 'blocked' || state?.status === 'failed').map(([order]) => order);
+  const readyOrders = orderEntries.filter(([, state]) => !['completed', 'pending', 'blocked', 'failed'].includes(state?.status || '')).map(([order]) => order);
+  const compactOrders = (items) => items.length ? items.slice(0, 10).join('，') + (items.length > 10 ? ` 等 ${items.length} 个` : '') : '-';
+  const orderCards = orderEntries.map(([order, state]) => {
+    const status = state?.status || '-';
+    const cls = status === 'completed' ? 'ok' : status === 'blocked' || status === 'failed' ? 'error' : status === 'pending' || status === 'running' || status === 'submitted' ? 'warn' : 'ok';
+    const statusText = status === 'completed' ? '已达标' : status === 'pending' ? '等待确认' : status === 'blocked' ? '已阻塞' : status === 'ready' ? '待提交' : status;
+    const completedRounds = Number.parseInt(String(state?.completedRounds ?? 0), 10) || 0;
+    const targetRounds = Number.parseInt(String(state?.targetRounds ?? job.targetRounds ?? 0), 10) || '-';
+    const nextRound = state?.pendingRound || (Number.isInteger(targetRounds) ? Math.min(completedRounds + 1, targetRounds) : completedRounds + 1);
+    const roundText = `已完成 ${completedRounds} / 目标 ${targetRounds}`;
+    const pending = state?.pendingRound ? `，待确认第 ${state.pendingRound} 轮` : '';
+    return `
+      <article class="round-auto-result-card ${cls}">
+        <b>${escapeHtml(order)}</b>
+        <span>${escapeHtml(statusText)} · ${escapeHtml(roundText)} · 下一轮 ${escapeHtml(nextRound)}${escapeHtml(pending)}</span>
+        <small>${escapeHtml(state?.message || state?.lastError || state?.group || '')}</small>
+      </article>
+    `;
+  }).join('');
+  const eventText = events.map((event) => {
+    const order = event.order ? `${event.order} ` : '';
+    const round = event.round ? `R${event.round} ` : '';
+    return `${event.time || ''} ${order}${round}${event.message || event.action || ''}`;
+  }).join('\n');
+  if (roundAutomationSummaryEl) {
+    roundAutomationSummaryEl.innerHTML = `
+      <div class="round-auto-links">状态 ${escapeHtml(job.status || '-')} · 组 ${groups.length} · 轮次 ${escapeHtml(job.targetRounds ?? '-')} · job ${escapeHtml(job.id || '-')}</div>
+      <div class="round-auto-links">已达标 ${completedOrders.length} · 等待确认 ${pendingOrders.length} · 待提交 ${readyOrders.length} · 异常 ${blockedOrders.length}</div>
+      <div class="round-auto-links">已达标项目：${escapeHtml(compactOrders(completedOrders))}</div>
+      <div class="round-auto-result-grid">${orderCards || '<span>还没有项目状态</span>'}</div>
+    `;
+  }
+  if (roundAutomationDraftPreviewEl) {
+    roundAutomationDraftPreviewEl.textContent = eventText || JSON.stringify(job, null, 2);
+  }
+  setRoundAutomationStatus(
+    job.status === 'running'
+      ? `多轮自动化运行中：${groups.join('，') || '-'}`
+      : job.status === 'completed'
+        ? `多轮自动化已完成：${groups.join('，') || '-'}`
+        : job.status === 'stopped'
+          ? '多轮自动化已停止'
+          : `多轮自动化状态：${job.status || '-'}`,
+    job.status === 'failed',
+  );
+  if (startRoundAutomationButton) startRoundAutomationButton.disabled = running;
+  if (stopRoundAutomationButton) stopRoundAutomationButton.disabled = !running || job.status === 'stopping';
+}
+
+async function pollRoundAutomationJob(immediate = false) {
+  if (!roundAutomationJobId) return;
+  if (roundAutomationPollTimer) {
+    window.clearTimeout(roundAutomationPollTimer);
+    roundAutomationPollTimer = null;
+  }
+  const run = async () => {
+    try {
+      const response = await fetch(`/api/trae-round-automation-job-status?id=${encodeURIComponent(roundAutomationJobId)}`);
+      const payload = await response.json();
+      if (!payload.ok) throw new Error(payload.error || '读取调度状态失败');
+      renderRoundAutomationJob(payload);
+      const status = payload.job?.status || '';
+      if (status === 'running' || status === 'stopping') {
+        roundAutomationPollTimer = window.setTimeout(() => pollRoundAutomationJob(true), 5000);
+      }
+    } catch (error) {
+      setRoundAutomationStatus(`读取调度状态失败：${error.message || error}`, true);
+    }
+  };
+  if (immediate) {
+    await run();
+  } else {
+    roundAutomationPollTimer = window.setTimeout(run, 5000);
+  }
+}
+
+async function startRoundAutomation() {
+  const groups = Array.from(roundAutomationSelectedGroups).sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }));
+  if (!groups.length) {
+    setRoundAutomationStatus('请先勾选要纳入多轮自动化的批量组', true);
+    return;
+  }
+  if (startRoundAutomationButton) startRoundAutomationButton.disabled = true;
+  if (stopRoundAutomationButton) stopRoundAutomationButton.disabled = false;
+  setRoundAutomationStatus(`正在开启 ${groups.length} 个组的多轮自动化...`);
+  let started = false;
+  try {
+    const response = await fetchWithTimeout('/api/trae-round-automation-start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        groups,
+        targetRounds: targetRoundCount(),
+      }),
+    }, 0);
+    const payload = await response.json();
+    if (!payload.ok) throw new Error(payload.error || '开启失败');
+    roundAutomationJobId = payload.job?.id || payload.id || '';
+    if (roundAutomationJobId) localStorage.setItem('roundAutomationJobId', roundAutomationJobId);
+    started = true;
+    renderRoundAutomationJob(payload);
+    await pollRoundAutomationJob(true);
+  } catch (error) {
+    setRoundAutomationStatus(`开启多轮自动化失败：${error.message || error}`, true);
+  } finally {
+    if (!started && startRoundAutomationButton) startRoundAutomationButton.disabled = false;
+  }
+}
+
+async function stopRoundAutomation() {
+  if (!roundAutomationJobId) {
+    setRoundAutomationStatus('当前没有运行中的多轮自动化任务');
+    return;
+  }
+  if (stopRoundAutomationButton) stopRoundAutomationButton.disabled = true;
+  try {
+    const response = await fetchWithTimeout('/api/trae-round-automation-stop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: roundAutomationJobId }),
+    }, 0);
+    const payload = await response.json();
+    if (!payload.ok) throw new Error(payload.error || '停止失败');
+    renderRoundAutomationJob(payload);
+    await pollRoundAutomationJob(true);
+  } catch (error) {
+    setRoundAutomationStatus(`停止失败：${error.message || error}`, true);
+  } finally {
+    if (stopRoundAutomationButton) stopRoundAutomationButton.disabled = false;
+  }
+}
+
+function renderRoundAutomationAxProbe(payload) {
+  const cls = payload.ok ? 'ok' : 'warn';
+  if (roundAutomationSummaryEl) {
+    roundAutomationSummaryEl.innerHTML = `
+      <div class="round-auto-result-grid">
+        <article class="round-auto-result-card ${cls}">
+          <b>${escapeHtml(payload.order || '-')}</b>
+          <span>${payload.ok ? 'AX 窗口已匹配' : 'AX 未匹配'}</span>
+          <small>${automationDataLink(payload.path, 'AX 树报告')} · 行数 ${escapeHtml(payload.lineCount ?? '-')}</small>
+          <small>${payload.focused ? '已聚焦窗口' : '未聚焦，仅探测'}</small>
+        </article>
+      </div>
+    `;
+  }
+  if (roundAutomationDraftPreviewEl) {
+    roundAutomationDraftPreviewEl.textContent = payload.preview || JSON.stringify(payload, null, 2);
+  }
+}
+
+function renderRoundAutomationRestore(payload) {
+  const ax = payload?.ax || {};
+  const open = payload?.open || {};
+  const cls = ax.ok ? 'ok' : 'warn';
+  if (roundAutomationSummaryEl) {
+    roundAutomationSummaryEl.innerHTML = `
+      <div class="round-auto-result-grid">
+        <article class="round-auto-result-card ${cls}">
+          <b>${escapeHtml(payload.order || '-')}</b>
+          <span>${ax.ok ? '窗口已恢复并匹配' : '已尝试恢复，仍未匹配'}</span>
+          <small>打开方式 ${escapeHtml(open.launchMode || '-')} / ${automationDataLink(ax.path, 'AX 树报告')}</small>
+          <small>${escapeHtml(ax.preview || ax.window || '没有可枚举窗口时，请切到目标 Trae 所在桌面后重试')}</small>
+        </article>
+      </div>
+    `;
+  }
+  if (roundAutomationDraftPreviewEl) {
+    roundAutomationDraftPreviewEl.textContent = JSON.stringify({
+      order: payload.order,
+      open: {
+        ok: open.ok,
+        launchMode: open.launchMode,
+        folder: open.folder,
+        userDataDir: open.userDataDir,
+      },
+      ax,
+    }, null, 2);
+  }
+}
+
+async function runRoundAutomationStep(step) {
+  const endpointMap = {
+    probe: '/api/trae-round-automation-probe',
+    roundDetect: '/api/trae-round-automation-round-detect',
+    runtime: '/api/trae-round-automation-runtime-start',
+    browser: '/api/trae-round-automation-browser-check',
+    drafts: '/api/trae-round-automation-drafts',
+    queue: '/api/trae-round-automation-submit-queue',
+    roundQueue: '/api/trae-round-automation-round-prompt-queue',
+    restore: '/api/trae-round-automation-restore-window',
+    ax: '/api/trae-round-automation-ax-probe',
+    prepare: '/api/trae-round-automation-prepare-submit',
+    submit: '/api/trae-round-automation-fast-submit',
+  };
+  const buttonMap = {
+    probe: runRoundAutomationProbeButton,
+    roundDetect: runRoundAutomationRoundDetectButton,
+    runtime: runRoundAutomationRuntimeButton,
+    browser: runRoundAutomationBrowserButton,
+    drafts: runRoundAutomationDraftsButton,
+    queue: runRoundAutomationQueueButton,
+    roundQueue: runRoundPromptQueueButton,
+    restore: restoreRoundAutomationWindowButton,
+    ax: probeRoundAutomationWindowButton,
+    prepare: prepareRoundAutomationSubmitButton,
+    submit: fastRoundAutomationSubmitButton,
+  };
+  const labelMap = {
+    probe: '探测',
+    roundDetect: '轮次检测',
+    runtime: '安全启动运行态',
+    browser: '浏览器检查',
+    drafts: '反馈草稿',
+    queue: '提交队列',
+    roundQueue: '轮次输入队列',
+    restore: '恢复窗口',
+    ax: '窗口探测',
+    prepare: '准备首项',
+    submit: '快速粘贴运行',
+  };
+  const endpoint = endpointMap[step];
+  const button = buttonMap[step];
+  if (!endpoint) return;
+  let payload;
+  try {
+    payload = roundAutomationPayload();
+    if (step === 'prepare') payload.requireWindow = true;
+    if (step === 'submit') payload.run = true;
+  } catch (error) {
+    setRoundAutomationStatus(error.message || String(error), true);
+    return;
+  }
+  const buttons = [runRoundAutomationProbeButton, runRoundAutomationRoundDetectButton, runRoundAutomationRuntimeButton, runRoundAutomationBrowserButton, runRoundAutomationDraftsButton, runRoundAutomationQueueButton, runRoundPromptQueueButton, restoreRoundAutomationWindowButton, probeRoundAutomationWindowButton, prepareRoundAutomationSubmitButton, fastRoundAutomationSubmitButton].filter(Boolean);
+  buttons.forEach((item) => { item.disabled = true; });
+  if (button) {
+    button.dataset.originalLabel = button.dataset.originalLabel || button.textContent;
+    button.textContent = '执行中';
+  }
+  setRoundAutomationStatus(`正在执行${labelMap[step]}：${payload.group}`);
+  try {
+    const response = await fetchWithTimeout(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }, 0);
+    const result = await response.json();
+    if (!result.ok) throw new Error(result.error || `${labelMap[step]}失败`);
+    if (step === 'probe') renderRoundAutomationProbe(result);
+    if (step === 'roundDetect') renderRoundAutomationRoundDetect(result);
+    if (step === 'runtime') renderRoundAutomationRuntime(result);
+    if (step === 'browser') renderRoundAutomationBrowser(result);
+    if (step === 'drafts') renderRoundAutomationDrafts(result);
+    if (step === 'queue') renderRoundAutomationQueue(result);
+    if (step === 'roundQueue') renderRoundAutomationQueue(result);
+    if (step === 'restore') renderRoundAutomationRestore(result);
+    if (step === 'ax') renderRoundAutomationAxProbe(result);
+    if (step === 'prepare') renderRoundAutomationPrepare(result);
+    if (step === 'submit') renderRoundAutomationFastSubmit(result);
+    setRoundAutomationStatus(`${labelMap[step]}完成：${payload.group}`);
+  } catch (error) {
+    console.error('Trae 多轮自动化失败:', error);
+    setRoundAutomationStatus(`${labelMap[step]}失败：${error.message || error}`, true);
+  } finally {
+    buttons.forEach((item) => { item.disabled = false; });
+    if (button) button.textContent = button.dataset.originalLabel || labelMap[step];
+  }
+}
+
 function renderBatchGroups() {
   if (!batchGroupSelect) return;
   pruneAutoBatchWatchedGroups();
+  pruneRoundAutomationSelectedGroups();
   const previous = activeBatchGroup || batchGroupSelect.value;
   batchGroupSelect.innerHTML = '';
   const names = Object.keys(batchGroups).sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }));
@@ -416,7 +1173,26 @@ function renderBatchGroups() {
     batchGroupSelect.value = names[0];
     activeBatchGroup = names[0];
   }
+  renderBatchGroupList(names);
   renderAutoBatchWatchedGroups();
+}
+
+function renderBatchGroupList(names = null) {
+  if (!batchGroupListEl) return;
+  const groupNames = Array.isArray(names)
+    ? names
+    : Object.keys(batchGroups || {}).sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }));
+  batchGroupListEl.innerHTML = '';
+  if (!groupNames.length) {
+    const empty = document.createElement('div');
+    empty.className = 'batch-group-empty';
+    empty.textContent = '暂无批量组';
+    batchGroupListEl.appendChild(empty);
+    return;
+  }
+  for (const name of groupNames) {
+    batchGroupListEl.appendChild(createBatchGroupListItem(name, { mode: 'project' }));
+  }
 }
 
 function loadBatchGroup(name) {
@@ -427,6 +1203,9 @@ function loadBatchGroup(name) {
   selectedBatchOrders = new Set();
   renderBatchProjectList();
   renderAutoBatchWatchedGroups();
+  renderBatchGroupList();
+  renderRoundAutomationGroupList();
+  syncRoundAutomationGroupName();
 }
 
 async function fetchBatchGroups() {
@@ -436,6 +1215,7 @@ async function fetchBatchGroups() {
     if (!payload.ok) throw new Error(payload.error || '读取组失败');
     batchGroups = payload.groups || {};
     renderBatchGroups();
+    renderRoundAutomationGroupList();
     if (activeBatchGroup && batchGroups[activeBatchGroup]) {
       loadBatchGroup(activeBatchGroup);
     } else if (Object.keys(batchGroups).length && !batchTraeInput?.value) {
@@ -470,6 +1250,7 @@ async function saveBatchGroup(name, orders) {
   renderBatchGroups();
   loadBatchGroup(activeBatchGroup);
   renderAutoBatchWatchedGroups();
+  renderRoundAutomationGroupList();
   setBatchStatus(`已保存组 ${activeBatchGroup}：${normalizedOrders.length} 个项目`);
   return true;
 }
@@ -489,9 +1270,12 @@ async function deleteActiveBatchGroup() {
   if (!payload.ok) throw new Error(payload.error || '删除组失败');
   batchGroups = payload.groups || {};
   autoBatchWatchedGroups.delete(groupName);
+  roundAutomationSelectedGroups.delete(groupName);
   persistAutoBatchWatchedGroups();
+  persistRoundAutomationSelectedGroups();
   activeBatchGroup = '';
   renderBatchGroups();
+  renderRoundAutomationGroupList();
   if (Object.keys(batchGroups).length) {
     loadBatchGroup(Object.keys(batchGroups).sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }))[0]);
   } else {
@@ -561,7 +1345,7 @@ function renderBatchProjectList() {
   if (!batchProjectList) return;
   syncBatchSelectionFromInput();
   batchProjectList.innerHTML = '';
-  const sorted = [...prompts].sort(comparePromptOrder);
+  const sorted = visiblePromptList().sort(comparePromptOrder);
   for (const prompt of sorted) {
     const order = getOrder(prompt);
     const label = document.createElement('label');
@@ -675,12 +1459,13 @@ function fillSelect(select, values, label, formatValue = (value) => value) {
 }
 
 function renderStats() {
-  const candidateCount = new Set(prompts.map((prompt) => prompt.candidate_id)).size;
-  const completedCount = Object.keys(promptState.completed || {}).length;
+  const visiblePrompts = visiblePromptList();
+  const candidateCount = new Set(visiblePrompts.map((prompt) => prompt.candidate_id)).size;
+  const completedCount = visiblePrompts.filter((prompt) => isCompleted(prompt.id)).length;
   const cards = [
     ['素材', atoms.length],
     ['方案', candidateCount],
-    ['Prompt', prompts.length],
+    ['Prompt', visiblePrompts.length],
     ['完成', completedCount],
     ['当前筛选', filteredPrompts.length],
   ];
@@ -712,7 +1497,7 @@ function applyFilters() {
   const scenario = scenarioFilter.value;
   const keyword = searchInput.value.trim();
 
-  filteredPrompts = prompts.filter((prompt) => {
+  filteredPrompts = visiblePromptList().filter((prompt) => {
     if (domain && prompt.business_domain !== domain) return false;
     if (user && prompt.target_user !== user) return false;
     if (platform && prompt.product_form !== platform) return false;
@@ -785,7 +1570,7 @@ function displaySessionId(value) {
 }
 
 function sessionColumnText(row) {
-  return displaySessionId(row?.sessionId || row?.sessionComposite || row?.logTraceId || '-');
+  return String(row?.sessionId || row?.sessionComposite || row?.logTraceId || '-').trim() || '-';
 }
 
 function normalizeSessionRow(row) {
@@ -898,7 +1683,7 @@ function sessionLogTraceText(row) {
   if (logTrace.includes('source: local-trae-logs') || logTrace.includes('Core Timeline:')) {
     return '未找到真实日志轨迹文件/内容';
   }
-  if (logTrace && !isCompositeTraeSessionId(logTrace)) return logTrace;
+  if (logTrace) return logTrace;
   return '未找到真实日志轨迹文件/内容';
 }
 
@@ -1278,6 +2063,7 @@ async function rowsForFeishuBatchPaste(rows) {
     prepared.push({
       order,
       indexInOrder,
+      sessionId: spreadsheetColumnText(sessionColumnText(row)),
       conversation: spreadsheetColumnText(row?.conversation || ''),
       dissatisfactionReason: spreadsheetColumnText(dissatisfactionReasonText(row?.dissatisfactionReason)),
       logTrace: spreadsheetColumnText(sessionLogTraceText(row)),
@@ -1341,7 +2127,7 @@ async function pasteBatchAllToFeishu() {
   pasteBatchAllToFeishuButton.dataset.originalLabel = pasteBatchAllToFeishuButton.dataset.originalLabel || pasteBatchAllToFeishuButton.textContent;
   pasteBatchAllToFeishuButton.textContent = '粘贴中';
   try {
-    setBatchSessionRefreshStatus(`正在自动粘贴 ${rows.length} 行：请确认飞书 User Prompt 第一行单元格已选中`);
+    setBatchSessionRefreshStatus(`正在自动粘贴 ${rows.length} 行：请确认飞书“Session”第一行单元格已选中`);
     const preparedRows = await rowsForFeishuBatchPaste(rows);
     const response = await fetch('/api/paste-feishu-batch-sessions', {
       method: 'POST',
@@ -1354,7 +2140,7 @@ async function pasteBatchAllToFeishu() {
     const payload = await response.json();
     if (!payload.ok) throw new Error(payload.error || '自动粘贴失败');
     setBatchSessionRefreshStatus(
-      `已自动粘贴主要列：文本列 ${payload.textColumns || 0}，图片 ${payload.screenshots?.pasted || 0}，空截图 ${payload.screenshots?.empty || 0}；Session 未粘贴`,
+      `已自动粘贴：Session、会话、不满意原因、序号、日志轨迹和截图；文本列 ${payload.textColumns || 0}，图片 ${payload.screenshots?.pasted || 0}，空截图 ${payload.screenshots?.empty || 0}`,
     );
     markCopied(pasteBatchAllToFeishuButton, '已粘贴');
   } catch (error) {
@@ -1380,28 +2166,24 @@ function makeScreenshotCell(row) {
     td.appendChild(textEl);
   } else {
     const imageWrap = document.createElement('div');
-    imageWrap.className = 'session-screenshot-wrap';
-    const first = screenshots[0];
-    if (first.url) {
-      const img = document.createElement('img');
-      img.className = 'session-screenshot-thumb';
-      img.src = first.url;
-      img.alt = '截图';
-      img.loading = 'lazy';
-      img.title = first.resourceId || first.path || '截图';
-      imageWrap.appendChild(img);
-    } else {
-      const badge = document.createElement('span');
-      badge.className = 'session-screenshot-badge';
-      badge.textContent = '已找到ID';
-      badge.title = first.resourceId || '';
-      imageWrap.appendChild(badge);
-    }
-    if (screenshots.length > 1) {
-      const count = document.createElement('span');
-      count.className = 'session-screenshot-count';
-      count.textContent = `+${screenshots.length - 1}`;
-      imageWrap.appendChild(count);
+    imageWrap.className = `session-screenshot-wrap${screenshots.length > 1 ? ' is-multiple' : ''}`;
+    imageWrap.title = screenshots.length > 1 ? `共 ${screenshots.length} 张截图` : '';
+    for (const [index, screenshot] of screenshots.entries()) {
+      if (screenshot.url) {
+        const img = document.createElement('img');
+        img.className = 'session-screenshot-thumb';
+        img.src = screenshot.url;
+        img.alt = `截图 ${index + 1}`;
+        img.loading = 'lazy';
+        img.title = screenshot.resourceId || screenshot.path || `截图 ${index + 1}`;
+        imageWrap.appendChild(img);
+      } else {
+        const badge = document.createElement('span');
+        badge.className = 'session-screenshot-badge';
+        badge.textContent = `图${index + 1}`;
+        badge.title = screenshot.resourceId || '';
+        imageWrap.appendChild(badge);
+      }
     }
     td.appendChild(imageWrap);
   }
@@ -1470,6 +2252,19 @@ function renderBatchSessionRows(payload) {
   const rows = rowsWithScreenshotsShiftedBack(rawRows);
   currentBatchSessionRows = rows;
   const groupName = payload?.groupName || currentBatchGroupName() || '-';
+  if (
+    batchMissingRefreshInProgress
+    && batchMissingRefreshActiveGroup
+    && !batchMissingRefreshActiveGroup.startsWith('auto:')
+    && batchMissingRefreshActiveGroup !== groupName
+  ) {
+    batchMissingRefreshRunId += 1;
+    batchMissingRefreshInProgress = false;
+    batchMissingRefreshActiveGroup = '';
+    if (refreshBatchMissingSessionsButton) refreshBatchMissingSessionsButton.disabled = false;
+    if (autoBatchMissingSessionsButton) autoBatchMissingSessionsButton.disabled = false;
+    setBatchSessionRefreshStatus('');
+  }
   const orders = normalizeBatchOrders(payload?.orders || currentBatchSessionOrders || []);
   currentBatchSessionOrders = orders;
   currentBatchSessionGroupName = groupName;
@@ -1574,8 +2369,7 @@ function batchSessionRowCounts(rows = currentBatchSessionRows) {
 }
 
 function batchCopyLimit() {
-  const value = Number.parseInt(String(batchSessionMinRowsInput?.value || ''), 10);
-  return Number.isInteger(value) && value > 0 ? value : Infinity;
+  return targetRoundCount();
 }
 
 function batchRowsForColumnCopy(rows = currentBatchSessionRows) {
@@ -1956,7 +2750,8 @@ function sessionRowsValidCount(rows) {
 async function refreshMissingSessionOrder(order, threshold, options = {}) {
   const targetOrder = String(order || '').trim();
   const startedAt = Date.now();
-  const maxWaitMs = 420000;
+  const maxWaitMs = Math.max(30000, Number.parseInt(String(options.maxWaitMs || 180000), 10) || 180000);
+  const requestTimeoutMs = Math.max(10000, Number.parseInt(String(options.requestTimeoutMs || sessionRefreshTimeoutMs), 10) || sessionRefreshTimeoutMs);
   let lastPayload = null;
   const report = (text) => {
     if (typeof options.onProgress === 'function') options.onProgress(targetOrder, text);
@@ -1966,11 +2761,14 @@ async function refreshMissingSessionOrder(order, threshold, options = {}) {
   refreshingSessionOrders.add(targetOrder);
   try {
     while (Date.now() - startedAt < maxWaitMs) {
+      if (typeof options.isActive === 'function' && !options.isActive()) {
+        return { payload: lastPayload, rowCount: sessionPayloadRowCount(lastPayload), complete: false, cancelled: true };
+      }
       const response = await fetchWithTimeout('/api/refresh-trae-session-rounds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order: targetOrder, force: true, discover: true }),
-      }, 0);
+      }, requestTimeoutMs);
       const payload = await response.json();
       if (!payload.ok) throw new Error(payload.busy ? '刷新繁忙，请稍后再点' : (payload.error || '刷新失败'));
       lastPayload = payload;
@@ -2002,16 +2800,22 @@ async function refreshMissingSessionOrder(order, threshold, options = {}) {
 
 async function refreshBatchMissingSessions(options = {}) {
   if (!refreshBatchMissingSessionsButton) return;
-  if (batchMissingRefreshInProgress) {
-    if (!options.auto) setBatchSessionRefreshStatus('已有未达标刷新正在进行中');
-    return false;
-  }
-  const threshold = Number.parseInt(String(batchSessionMinRowsInput?.value || ''), 10);
+  const threshold = syncTargetRoundInputs(targetRoundCount());
   if (!Number.isInteger(threshold) || threshold <= 0) {
     setBatchSessionRefreshStatus('请输入大于 0 的最低记录数', true);
     return;
   }
   const { groupName, orders: collectedOrders } = collectBatchOrders();
+  const refreshGroupName = currentBatchSessionGroupName || groupName || '-';
+  if (batchMissingRefreshInProgress) {
+    if (!batchMissingRefreshActiveGroup || batchMissingRefreshActiveGroup === refreshGroupName) {
+      if (!options.auto) setBatchSessionRefreshStatus(`已有未达标刷新正在进行中：${batchMissingRefreshActiveGroup || refreshGroupName}`);
+      return false;
+    }
+    batchMissingRefreshRunId += 1;
+    batchMissingRefreshInProgress = false;
+    batchMissingRefreshActiveGroup = '';
+  }
   const orders = normalizeBatchOrders(currentBatchSessionOrders.length ? currentBatchSessionOrders : collectedOrders);
   if (!orders.length) {
     setBatchSessionRefreshStatus('当前组没有项目', true);
@@ -2025,10 +2829,17 @@ async function refreshBatchMissingSessions(options = {}) {
   }
 
   batchMissingRefreshInProgress = true;
+  batchMissingRefreshActiveGroup = refreshGroupName;
+  const runId = ++batchMissingRefreshRunId;
+  const isCurrentRun = () => batchMissingRefreshRunId === runId && batchMissingRefreshActiveGroup === refreshGroupName;
+  const setRunStatus = (text, isError = false) => {
+    if (isCurrentRun()) setBatchSessionRefreshStatus(text, isError);
+  };
   refreshBatchMissingSessionsButton.disabled = true;
   if (autoBatchMissingSessionsButton) autoBatchMissingSessionsButton.disabled = true;
   const progress = new Map(missingOrders.map((order) => [order, '等待']));
   const summarizeProgress = () => {
+    if (!isCurrentRun()) return;
     const finished = Array.from(progress.values()).filter((value) => value.startsWith('完成') || value.startsWith('失败')).length;
     const running = missingOrders
       .filter((order) => {
@@ -2037,21 +2848,27 @@ async function refreshBatchMissingSessions(options = {}) {
       })
       .slice(0, 3);
     const runningText = running.length ? `；进行中：${running.join(', ')}` : '';
-    setBatchSessionRefreshStatus(`${options.auto ? '自动检测' : '并行刷新'} ${finished}/${missingOrders.length}${runningText}`);
+    setRunStatus(`${options.auto ? '自动检测' : '并行刷新'} ${finished}/${missingOrders.length}${runningText}`);
   };
-  setBatchSessionRefreshStatus(`待刷新 ${missingOrders.length} 项，并行上限 3：${missingOrders.join(', ')}`);
+  setRunStatus(`待刷新 ${missingOrders.length} 项，并行上限 3：${missingOrders.join(', ')}`);
   try {
     await runWithConcurrency(missingOrders, 3, async (order) => {
+      if (!isCurrentRun()) return { cancelled: true, rowCount: counts.get(order) || 0 };
       const beforeCount = counts.get(order) || 0;
       progress.set(order, `启动 ${beforeCount}/${threshold}`);
       summarizeProgress();
       try {
         const result = await refreshMissingSessionOrder(order, threshold, {
+          maxWaitMs: options.auto ? 90000 : 180000,
+          requestTimeoutMs: sessionRefreshTimeoutMs,
+          isActive: isCurrentRun,
           onProgress: (_, text) => {
+            if (!isCurrentRun()) return;
             progress.set(order, text);
             summarizeProgress();
           },
         });
+        if (result?.cancelled) return result;
         progress.set(order, `完成 ${result.rowCount}/${threshold}`);
         summarizeProgress();
         return result;
@@ -2061,23 +2878,28 @@ async function refreshBatchMissingSessions(options = {}) {
         throw error;
       }
     });
-    setBatchSessionRefreshStatus('已发起未达标项目刷新，正在重新读取批量会话...');
+    if (!isCurrentRun()) return false;
+    setRunStatus('已发起未达标项目刷新，正在重新读取批量会话...');
     const results = await fetchBatchRowsForOrders(currentBatchSessionGroupName || groupName, orders);
+    if (!isCurrentRun()) return false;
     renderBatchSessionRows({ groupName: currentBatchSessionGroupName || groupName, orders, rows: results });
     const nextCounts = batchSessionRowCounts(results);
     const stillMissing = orders.filter((order) => (nextCounts.get(order) || 0) < threshold);
-    setBatchSessionRefreshStatus(
+    setRunStatus(
       stillMissing.length
         ? `已刷新一次，仍未达标：${stillMissing.join(', ')}`
         : `刷新完成，全部达到 ${threshold} 条`,
       stillMissing.length > 0,
     );
   } catch (error) {
-    setBatchSessionRefreshStatus(`批量刷新失败：${error.message || error}`, true);
+    setRunStatus(`批量刷新失败：${error.name === 'AbortError' ? '请求超时' : (error.message || error)}`, true);
   } finally {
-    batchMissingRefreshInProgress = false;
-    refreshBatchMissingSessionsButton.disabled = false;
-    if (autoBatchMissingSessionsButton) autoBatchMissingSessionsButton.disabled = false;
+    if (isCurrentRun()) {
+      batchMissingRefreshInProgress = false;
+      batchMissingRefreshActiveGroup = '';
+      refreshBatchMissingSessionsButton.disabled = false;
+      if (autoBatchMissingSessionsButton) autoBatchMissingSessionsButton.disabled = false;
+    }
   }
   return true;
 }
@@ -2123,22 +2945,35 @@ async function runAutoBatchMissingCheck() {
       setAutoBatchStatus('自动检测暂停：检测组里没有项目', true);
       return;
     }
+    const autoRunGroupName = `auto:${watchedGroups.join('|')}`;
     batchMissingRefreshInProgress = true;
+    batchMissingRefreshActiveGroup = autoRunGroupName;
+    const autoRunId = ++batchMissingRefreshRunId;
+    const isAutoRunCurrent = () => (
+      autoBatchMissingEnabled
+      && batchMissingRefreshRunId === autoRunId
+      && batchMissingRefreshActiveGroup === autoRunGroupName
+    );
+    const setAutoRunStatus = (text, isError = false) => {
+      if (isAutoRunCurrent()) setAutoBatchStatus(text, isError);
+    };
     startedRefresh = true;
     if (refreshBatchMissingSessionsButton) refreshBatchMissingSessionsButton.disabled = true;
     if (autoBatchMissingSessionsButton) autoBatchMissingSessionsButton.disabled = true;
-    setAutoBatchStatus(`自动检测 ${watchedGroups.length} 组，读取 ${orders.length} 个项目...`);
+    setAutoRunStatus(`自动检测 ${watchedGroups.length} 组，读取 ${orders.length} 个项目...`);
 
     const rowsByOrder = new Map();
     await runWithConcurrency(orders, 6, async (order) => {
+      if (!isAutoRunCurrent()) return [];
       const rows = await fetchSessionRowsForOrder(order);
       rowsByOrder.set(order, rows);
       return rows;
     });
+    if (!isAutoRunCurrent()) return;
 
     const missingOrders = orders.filter((order) => sessionRowsValidCount(rowsByOrder.get(order) || []) < threshold);
     if (!missingOrders.length) {
-      setAutoBatchStatus(`自动检测通过：${watchedGroups.length} 组全部达到 ${threshold} 轮`);
+      setAutoRunStatus(`自动检测通过：${watchedGroups.length} 组全部达到 ${threshold} 轮`);
       return;
     }
 
@@ -2151,19 +2986,25 @@ async function runAutoBatchMissingCheck() {
           return value && !value.startsWith('等待') && !value.startsWith('完成') && !value.startsWith('失败');
         })
         .slice(0, 4);
-      setAutoBatchStatus(`自动拉取 ${finished}/${missingOrders.length}${running.length ? `；进行中：${running.join(', ')}` : ''}`);
+      setAutoRunStatus(`自动拉取 ${finished}/${missingOrders.length}${running.length ? `；进行中：${running.join(', ')}` : ''}`);
     };
 
     await runWithConcurrency(missingOrders, 3, async (order) => {
+      if (!isAutoRunCurrent()) return { cancelled: true };
       progress.set(order, `启动 ${sessionRowsValidCount(rowsByOrder.get(order) || [])}/${threshold}`);
       summarize();
       try {
         const result = await refreshMissingSessionOrder(order, threshold, {
+          maxWaitMs: 90000,
+          requestTimeoutMs: sessionRefreshTimeoutMs,
+          isActive: isAutoRunCurrent,
           onProgress: (_, text) => {
+            if (!isAutoRunCurrent()) return;
             progress.set(order, text);
             summarize();
           },
         });
+        if (result?.cancelled) return result;
         progress.set(order, `完成 ${result.rowCount}/${threshold}`);
         summarize();
         return result;
@@ -2173,10 +3014,12 @@ async function runAutoBatchMissingCheck() {
         return null;
       }
     });
+    if (!isAutoRunCurrent()) return;
 
-    setAutoBatchStatus(`自动检测完成：本轮处理 ${missingOrders.length} 个未达标项目`);
+    setAutoRunStatus(`自动检测完成：本轮处理 ${missingOrders.length} 个未达标项目`);
     if (batchSessionModal?.open && currentBatchSessionOrders.length) {
       const results = await fetchBatchRowsForOrders(currentBatchSessionGroupName || currentBatchGroupName(), currentBatchSessionOrders);
+      if (!isAutoRunCurrent()) return;
       renderBatchSessionRows({
         groupName: currentBatchSessionGroupName || currentBatchGroupName(),
         orders: currentBatchSessionOrders,
@@ -2184,8 +3027,9 @@ async function runAutoBatchMissingCheck() {
       });
     }
   } finally {
-    if (startedRefresh) {
+    if (startedRefresh && batchMissingRefreshActiveGroup.startsWith('auto:')) {
       batchMissingRefreshInProgress = false;
+      batchMissingRefreshActiveGroup = '';
       if (refreshBatchMissingSessionsButton) refreshBatchMissingSessionsButton.disabled = false;
       if (autoBatchMissingSessionsButton) autoBatchMissingSessionsButton.disabled = false;
     }
@@ -2194,6 +3038,11 @@ async function runAutoBatchMissingCheck() {
 }
 
 async function setCompleted(promptId, completed) {
+  const prompt = prompts.find((item) => item.id === promptId);
+  if (completed && prompt && !isVisiblePrompt(prompt)) {
+    setBatchStatus(`小于 ${MIN_VISIBLE_ORDER_NUMBER} 的序号不属于第二期，不保存完成状态`);
+    return;
+  }
   const response = await fetch('/api/prompt-state', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -2549,7 +3398,7 @@ async function loadWorkbenchConfig() {
     const response = await fetch('/api/workbench-config', { cache: 'no-store' });
     const payload = await response.json();
     if (!payload.ok) throw new Error(payload.error || '读取配置失败');
-    if (githubRepoUrlInput) githubRepoUrlInput.value = String(payload.default_github_repo_url || '').trim();
+    if (githubRepoUrlInput) githubRepoUrlInput.value = DEFAULT_GITHUB_REPO_URL;
     if (feishuTaskUrlInput) feishuTaskUrlInput.value = String(payload.default_feishu_task_url || '').trim();
     llmAnnotationModels = Array.isArray(payload.llm_annotation_models) ? payload.llm_annotation_models : [];
     if (!selectedLlmAnnotationModelId) {
@@ -2573,10 +3422,14 @@ function bindBatchTraeControls() {
         batchGroups[activeBatchGroup] = normalizeBatchOrders(parseBatchOrders());
       }
       renderAutoBatchWatchedGroups();
+      syncRoundAutomationGroupName();
     });
   }
   if (batchGroupNameInput) {
-    batchGroupNameInput.addEventListener('input', updateWatchCurrentBatchGroupButton);
+    batchGroupNameInput.addEventListener('input', () => {
+      updateWatchCurrentBatchGroupButton();
+      syncRoundAutomationGroupName();
+    });
   }
   if (batchGroupSelect) {
     batchGroupSelect.addEventListener('change', () => loadBatchGroup(batchGroupSelect.value));
@@ -2624,7 +3477,7 @@ if (openBatchSessionsButton) {
 
 
 function renderSceneButtons() {
-  const domains = uniqueSorted(prompts.map((prompt) => prompt.business_domain));
+  const domains = uniqueSorted(visiblePromptList().map((prompt) => prompt.business_domain));
   sceneButtons.innerHTML = '';
   for (const domain of domains) {
     const button = document.createElement('button');
@@ -2642,10 +3495,11 @@ function renderSceneButtons() {
 }
 
 function bindFilters() {
-  fillSelect(domainFilter, uniqueSorted(prompts.map((prompt) => prompt.business_domain)), '业务', displayDomainName);
-  fillSelect(userFilter, uniqueSorted(prompts.map((prompt) => prompt.target_user)), '用户');
-  fillSelect(platformFilter, uniqueSorted(prompts.map((prompt) => prompt.product_form)), '平台');
-  fillSelect(scenarioFilter, uniqueSorted(prompts.map((prompt) => prompt.scenario)), '场景');
+  const visiblePrompts = visiblePromptList();
+  fillSelect(domainFilter, uniqueSorted(visiblePrompts.map((prompt) => prompt.business_domain)), '业务', displayDomainName);
+  fillSelect(userFilter, uniqueSorted(visiblePrompts.map((prompt) => prompt.target_user)), '用户');
+  fillSelect(platformFilter, uniqueSorted(visiblePrompts.map((prompt) => prompt.product_form)), '平台');
+  fillSelect(scenarioFilter, uniqueSorted(visiblePrompts.map((prompt) => prompt.scenario)), '场景');
   for (const control of [domainFilter, userFilter, platformFilter, scenarioFilter, searchInput]) {
     control.addEventListener('input', applyFilters);
     control.addEventListener('change', applyFilters);
@@ -2753,6 +3607,8 @@ async function loadPromptFactory() {
   renderSceneButtons();
   renderBatchProjectList();
   applyFilters();
+  renderRoundAutomationGroupList();
+  if (roundAutomationJobId) pollRoundAutomationJob(true);
 }
 
 
@@ -2880,6 +3736,111 @@ if (copyLogTraceColumnButton) {
   });
 }
 
+if (showBatchGroupTabButton) {
+  showBatchGroupTabButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setBatchPanelTab('group');
+  });
+}
+
+if (showRoundAutomationTabButton) {
+  showRoundAutomationTabButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setBatchPanelTab('automation');
+  });
+}
+
+if (startRoundAutomationButton) {
+  startRoundAutomationButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await startRoundAutomation();
+  });
+}
+
+if (stopRoundAutomationButton) {
+  stopRoundAutomationButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await stopRoundAutomation();
+  });
+}
+
+if (runRoundAutomationProbeButton) {
+  runRoundAutomationProbeButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await runRoundAutomationStep('probe');
+  });
+}
+
+if (runRoundAutomationRoundDetectButton) {
+  runRoundAutomationRoundDetectButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await runRoundAutomationStep('roundDetect');
+  });
+}
+
+if (runRoundAutomationRuntimeButton) {
+  runRoundAutomationRuntimeButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await runRoundAutomationStep('runtime');
+  });
+}
+
+if (runRoundAutomationBrowserButton) {
+  runRoundAutomationBrowserButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await runRoundAutomationStep('browser');
+  });
+}
+
+if (runRoundAutomationDraftsButton) {
+  runRoundAutomationDraftsButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await runRoundAutomationStep('drafts');
+  });
+}
+
+if (runRoundAutomationQueueButton) {
+  runRoundAutomationQueueButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await runRoundAutomationStep('queue');
+  });
+}
+
+if (runRoundPromptQueueButton) {
+  runRoundPromptQueueButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await runRoundAutomationStep('roundQueue');
+  });
+}
+
+if (restoreRoundAutomationWindowButton) {
+  restoreRoundAutomationWindowButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await runRoundAutomationStep('restore');
+  });
+}
+
+if (probeRoundAutomationWindowButton) {
+  probeRoundAutomationWindowButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await runRoundAutomationStep('ax');
+  });
+}
+
+if (prepareRoundAutomationSubmitButton) {
+  prepareRoundAutomationSubmitButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await runRoundAutomationStep('prepare');
+  });
+}
+
+if (fastRoundAutomationSubmitButton) {
+  fastRoundAutomationSubmitButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await runRoundAutomationStep('submit');
+  });
+}
+
 if (batchSessionModal) {
   batchSessionModal.addEventListener('cancel', () => batchSessionModal.close());
   batchSessionModal.addEventListener('click', (event) => {
@@ -2918,19 +3879,21 @@ if (watchCurrentBatchGroupButton) {
   });
 }
 
-if (autoBatchMinRowsInput) {
-  const storedAutoThreshold = Number.parseInt(String(localStorage.getItem('autoBatchMinRows') || ''), 10);
-  if (Number.isInteger(storedAutoThreshold) && storedAutoThreshold > 0) {
-    autoBatchMinRowsInput.value = String(storedAutoThreshold);
-  }
-  autoBatchMinRowsInput.addEventListener('change', () => {
-    const threshold = autoBatchThreshold();
-    autoBatchMinRowsInput.value = String(threshold);
-    localStorage.setItem('autoBatchMinRows', String(threshold));
-    setAutoBatchStatus(`自动检测目标已设为 ${threshold} 轮`);
-    scheduleAutoBatchMissingCheck(autoBatchMissingEnabled ? 1000 : 0);
+syncTargetRoundInputs(
+  localStorage.getItem(TARGET_ROUNDS_STORAGE_KEY)
+    || localStorage.getItem('autoBatchMinRows')
+    || DEFAULT_TARGET_ROUNDS,
+);
+
+[batchSessionMinRowsInput, autoBatchMinRowsInput, roundAutomationTargetRoundsInput]
+  .filter(Boolean)
+  .forEach((input) => {
+    input.addEventListener('change', () => {
+      const threshold = syncTargetRoundInputs(input.value);
+      setAutoBatchStatus(`全局目标轮次已设为 ${threshold} 轮`);
+      scheduleAutoBatchMissingCheck(autoBatchMissingEnabled ? 1000 : 0);
+    });
   });
-}
 
 if (copyNextBatchScreenshotButton) {
   copyNextBatchScreenshotButton.addEventListener('click', async (event) => {
@@ -2950,6 +3913,13 @@ if (pasteBatchAllToFeishuButton) {
   pasteBatchAllToFeishuButton.addEventListener('click', async (event) => {
     event.stopPropagation();
     await pasteBatchAllToFeishu();
+  });
+}
+
+if (runLlmDissatisfactionAnnotationButton) {
+  runLlmDissatisfactionAnnotationButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    await runCurrentGroupDissatisfactionAnnotation();
   });
 }
 

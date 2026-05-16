@@ -1,0 +1,33 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-14T16:25:48.313Z",
+  "order": "may-4777",
+  "url": "http://127.0.0.1:47772/",
+  "status": 200,
+  "title": "网易云音乐私藏推荐",
+  "navigationError": "",
+  "screenshotPath": "docs/data/generated/automation_probe/may-4776-may-4779-第13组/may-4777-frontend.png",
+  "bodyTextPreview": "",
+  "consoleMessages": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "http://127.0.0.1:47772/@vite/client",
+        "lineNumber": 494,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "http://127.0.0.1:47772/@vite/client",
+        "lineNumber": 617,
+        "columnNumber": 14
+      }
+    }
+  ],
+  "requestFailures": [],
+  "responseErrors": []
+}

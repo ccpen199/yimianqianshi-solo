@@ -1,0 +1,114 @@
+{
+  "id": "round-20260515-181218-99facff2",
+  "status": "stopped",
+  "createdAt": "2026-05-15T18:12:57",
+  "updatedAt": "2026-05-15T18:14:03",
+  "groups": [
+    "may-4789-may-4793-第15组"
+  ],
+  "groupDetails": [
+    {
+      "name": "may-4789-may-4793-第15组",
+      "orders": [
+        "may-4789",
+        "may-4791",
+        "may-4792",
+        "may-4793"
+      ]
+    }
+  ],
+  "targetRounds": 5,
+  "intervalSeconds": 8,
+  "maxCycles": 500,
+  "cycle": 1,
+  "orders": {
+    "may-4789": {
+      "order": "may-4789",
+      "group": "may-4789-may-4793-第15组",
+      "status": "ready",
+      "completedRounds": 1,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "轮次检测：1/5，等待提交下一轮",
+      "roundDetect": {
+        "cachedRounds": 1,
+        "sentRoundCount": 1,
+        "rawInputCount": 6,
+        "effectiveInputCount": 1,
+        "duplicateInputCount": 5,
+        "source": "precise-local"
+      },
+      "lastError": ""
+    },
+    "may-4791": {
+      "order": "may-4791",
+      "group": "may-4789-may-4793-第15组",
+      "status": "ready",
+      "completedRounds": 1,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "启动前轮次检测：1/5",
+      "roundDetect": {
+        "cachedRounds": 1,
+        "sentRoundCount": 1,
+        "rawInputCount": 6,
+        "effectiveInputCount": 1,
+        "duplicateInputCount": 5,
+        "source": "precise-local"
+      }
+    },
+    "may-4792": {
+      "order": "may-4792",
+      "group": "may-4789-may-4793-第15组",
+      "status": "ready",
+      "completedRounds": 1,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "启动前轮次检测：1/5",
+      "roundDetect": {
+        "cachedRounds": 1,
+        "sentRoundCount": 1,
+        "rawInputCount": 5,
+        "effectiveInputCount": 1,
+        "duplicateInputCount": 4,
+        "source": "precise-local"
+      }
+    },
+    "may-4793": {
+      "order": "may-4793",
+      "group": "may-4789-may-4793-第15组",
+      "status": "ready",
+      "completedRounds": 1,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "启动前轮次检测：1/5",
+      "roundDetect": {
+        "cachedRounds": 1,
+        "sentRoundCount": 1,
+        "rawInputCount": 7,
+        "effectiveInputCount": 1,
+        "duplicateInputCount": 6,
+        "source": "precise-local"
+      }
+    }
+  },
+  "events": [
+    {
+      "time": "2026-05-15T18:12:57",
+      "action": "start",
+      "message": "开始多轮自动化：1 个组，目标 5 轮"
+    },
+    {
+      "time": "2026-05-15T18:13:54",
+      "action": "stop-requested",
+      "message": "收到停止请求"
+    },
+    {
+      "time": "2026-05-15T18:14:03",
+      "action": "stopped",
+      "message": "已手动停止"
+    }
+  ],
+  "stopRequested": true,
+  "message": "已手动停止"
+}

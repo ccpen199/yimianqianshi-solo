@@ -1,0 +1,82 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-14 19:50:45",
+  "group": "may-4776-may-4779-第13组",
+  "orders": [
+    "may-4776"
+  ],
+  "install": false,
+  "results": [
+    {
+      "order": "may-4776",
+      "projectPath": "/Users/chen/Documents/trae_projects/local_projects/may-4776",
+      "ok": true,
+      "started": [],
+      "skipped": [
+        {
+          "scope": "backend",
+          "port": 14776,
+          "reason": "已在当前项目运行"
+        },
+        {
+          "scope": "frontend",
+          "port": 24776,
+          "reason": "已在当前项目运行"
+        }
+      ],
+      "blocked": [],
+      "errors": [],
+      "frontendUrl": "http://[::1]:24776/",
+      "backendHealthUrl": "http://127.0.0.1:14776/health",
+      "frontendPorts": [
+        24776
+      ],
+      "backendPorts": [
+        14776
+      ],
+      "http": [
+        {
+          "url": "http://127.0.0.1:14776/api/health",
+          "ok": false,
+          "status": 404,
+          "elapsedMs": 5,
+          "bodyPreview": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Cannot GET /api/health</pre>\n</body>\n</html>\n"
+        },
+        {
+          "url": "http://[::1]:14776/api/health",
+          "ok": false,
+          "status": 404,
+          "elapsedMs": 5,
+          "bodyPreview": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Cannot GET /api/health</pre>\n</body>\n</html>\n"
+        },
+        {
+          "url": "http://127.0.0.1:14776/health",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 5,
+          "bodyPreview": "{\"success\":true,\"message\":\"服务器运行正常\"}"
+        },
+        {
+          "url": "http://[::1]:14776/health",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 5,
+          "bodyPreview": "{\"success\":true,\"message\":\"服务器运行正常\"}"
+        },
+        {
+          "url": "http://127.0.0.1:24776/",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 5
+        },
+        {
+          "url": "http://[::1]:24776/",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 7,
+          "bodyPreview": "<!DOCTYPE html>\n<html lang=\"zh-CN\">\n<head>\n  <script type=\"module\">import { injectIntoGlobalHook } from \"/@react-refresh\";\ninjectIntoGlobalHook(window);\nwindow.$RefreshReg$ = () => {};\nwindow.$RefreshSig$ = () => (type) => type;</script>\n\n  <script type=\"module\" src=\"/@vite/client\"></script>\n\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>映客 - 直播社交平台</title>\n  <style>\n    * { margin: 0; padding: 0; box-sizing: border-box"
+        }
+      ]
+    }
+  ]
+}

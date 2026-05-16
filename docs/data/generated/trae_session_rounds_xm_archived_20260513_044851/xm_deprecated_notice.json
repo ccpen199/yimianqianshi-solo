@@ -1,0 +1,9 @@
+{
+  "deprecatedPrefix": "xm",
+  "status": "archived-only",
+  "currentPrefix": "may",
+  "movedFrom": "docs/data/generated/trae_session_rounds",
+  "rule": "These files are previous-batch session caches and must not be loaded by the current Workbench data-list chain.",
+  "updatedAt": "2026-05-13",
+  "fileCount": 134
+}

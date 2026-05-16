@@ -1,0 +1,474 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-15 15:55:44",
+  "group": "may-4780-may-4788-第14组",
+  "orders": [
+    "may-4780",
+    "may-4783",
+    "may-4784",
+    "may-4788"
+  ],
+  "localProjectRoot": "/Users/chen/Documents/trae_projects/local_projects",
+  "traeWindowCount": 8,
+  "traeWindows": [
+    "MyPage.jsx — may-4772",
+    "LiveRoom.jsx — may-4773",
+    "user.js — may-4775",
+    "routes.js — may-4774",
+    "index.html — may-4783",
+    "Home.jsx — may-4780",
+    "ProfilePage.jsx — may-4784",
+    "HomePage.jsx — may-4788"
+  ],
+  "projects": [
+    {
+      "order": "may-4780",
+      "projectPath": "/Users/chen/Documents/trae_projects/local_projects/may-4780",
+      "projectExists": true,
+      "traeWindows": [
+        "Home.jsx — may-4780"
+      ],
+      "hasFrontendPackage": true,
+      "hasBackendPackage": true,
+      "hasFrontendNodeModules": true,
+      "hasBackendNodeModules": true,
+      "env": {
+        "PORT_BACKEND": "47801",
+        "PORT_FRONTEND": "47802",
+        "NODE_ENV": "development",
+        "JWT_SECRET": "maoe_fm_secret_key_2024_4780",
+        "DB_PATH": "./data/app.sqlite",
+        "UPLOAD_PATH": "./uploads"
+      },
+      "envSources": {
+        "PORT_BACKEND": "/Users/chen/Documents/trae_projects/local_projects/may-4780/.env",
+        "PORT_FRONTEND": "/Users/chen/Documents/trae_projects/local_projects/may-4780/.env",
+        "NODE_ENV": "/Users/chen/Documents/trae_projects/local_projects/may-4780/.env",
+        "JWT_SECRET": "/Users/chen/Documents/trae_projects/local_projects/may-4780/.env",
+        "DB_PATH": "/Users/chen/Documents/trae_projects/local_projects/may-4780/.env",
+        "UPLOAD_PATH": "/Users/chen/Documents/trae_projects/local_projects/may-4780/.env"
+      },
+      "frontendPorts": [
+        47802
+      ],
+      "backendPorts": [
+        47801
+      ],
+      "ports": [
+        {
+          "port": 47802,
+          "listening": true,
+          "listeners": [
+            {
+              "command": "node",
+              "pid": "73734",
+              "user": "chen",
+              "protocol": "IPv6",
+              "name": "[::1]:47802 (LISTEN)"
+            }
+          ],
+          "raw": [
+            "COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME",
+            "node    73734 chen   23u  IPv6 0x7204b3433e1bf109      0t0  TCP [::1]:47802 (LISTEN)"
+          ]
+        },
+        {
+          "port": 47801,
+          "listening": true,
+          "listeners": [
+            {
+              "command": "node",
+              "pid": "75284",
+              "user": "chen",
+              "protocol": "IPv6",
+              "name": "*:47801 (LISTEN)"
+            }
+          ],
+          "raw": [
+            "COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME",
+            "node    75284 chen   16u  IPv6 0x7204b3433ae0c909      0t0  TCP *:47801 (LISTEN)"
+          ]
+        }
+      ],
+      "http": [
+        {
+          "url": "http://127.0.0.1:47801/api/health",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 41,
+          "bodyPreview": "{\"success\":true,\"message\":\"服务器运行正常\",\"timestamp\":\"2026-05-15T12:55:45.001Z\"}"
+        },
+        {
+          "url": "http://[::1]:47801/api/health",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 6,
+          "bodyPreview": "{\"success\":true,\"message\":\"服务器运行正常\",\"timestamp\":\"2026-05-15T12:55:45.008Z\"}"
+        },
+        {
+          "url": "http://127.0.0.1:47801/health",
+          "ok": false,
+          "status": 404,
+          "elapsedMs": 7,
+          "bodyPreview": "{\"success\":false,\"message\":\"接口不存在\"}"
+        },
+        {
+          "url": "http://[::1]:47801/health",
+          "ok": false,
+          "status": 404,
+          "elapsedMs": 6,
+          "bodyPreview": "{\"success\":false,\"message\":\"接口不存在\"}"
+        },
+        {
+          "url": "http://127.0.0.1:47802/",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 8
+        },
+        {
+          "url": "http://[::1]:47802/",
+          "ok": false,
+          "error": "timed out",
+          "elapsedMs": 3007
+        }
+      ]
+    },
+    {
+      "order": "may-4783",
+      "projectPath": "/Users/chen/Documents/trae_projects/local_projects/may-4783",
+      "projectExists": true,
+      "traeWindows": [
+        "index.html — may-4783"
+      ],
+      "hasFrontendPackage": true,
+      "hasBackendPackage": true,
+      "hasFrontendNodeModules": true,
+      "hasBackendNodeModules": true,
+      "env": {
+        "PORT": "47830",
+        "FRONTEND_PORT": "47831",
+        "NODE_ENV": "development",
+        "DATABASE_URL": "./data/app.sqlite",
+        "JWT_SECRET": "video-player-secret-key-2024",
+        "CORS_ORIGIN": "http://localhost:47831"
+      },
+      "envSources": {
+        "PORT": "/Users/chen/Documents/trae_projects/local_projects/may-4783/.env",
+        "FRONTEND_PORT": "/Users/chen/Documents/trae_projects/local_projects/may-4783/.env",
+        "NODE_ENV": "/Users/chen/Documents/trae_projects/local_projects/may-4783/.env",
+        "DATABASE_URL": "/Users/chen/Documents/trae_projects/local_projects/may-4783/.env",
+        "JWT_SECRET": "/Users/chen/Documents/trae_projects/local_projects/may-4783/.env",
+        "CORS_ORIGIN": "/Users/chen/Documents/trae_projects/local_projects/may-4783/.env"
+      },
+      "frontendPorts": [
+        47831
+      ],
+      "backendPorts": [
+        47830
+      ],
+      "ports": [
+        {
+          "port": 47831,
+          "listening": true,
+          "listeners": [
+            {
+              "command": "node",
+              "pid": "95037",
+              "user": "chen",
+              "protocol": "IPv4",
+              "name": "*:47831 (LISTEN)"
+            }
+          ],
+          "raw": [
+            "COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME",
+            "node    95037 chen   19u  IPv4 0x7204b348098489d9      0t0  TCP *:47831 (LISTEN)"
+          ]
+        },
+        {
+          "port": 47830,
+          "listening": true,
+          "listeners": [
+            {
+              "command": "node",
+              "pid": "95610",
+              "user": "chen",
+              "protocol": "IPv6",
+              "name": "*:47830 (LISTEN)"
+            }
+          ],
+          "raw": [
+            "COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME",
+            "node    95610 chen   20u  IPv6 0x7204b3433be2f909      0t0  TCP *:47830 (LISTEN)"
+          ]
+        }
+      ],
+      "http": [
+        {
+          "url": "http://127.0.0.1:47830/api/health",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 9,
+          "bodyPreview": "{\"success\":true,\"message\":\"服务运行正常\",\"timestamp\":\"2026-05-15T12:55:48.401Z\"}"
+        },
+        {
+          "url": "http://[::1]:47830/api/health",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 7,
+          "bodyPreview": "{\"success\":true,\"message\":\"服务运行正常\",\"timestamp\":\"2026-05-15T12:55:48.408Z\"}"
+        },
+        {
+          "url": "http://127.0.0.1:47830/health",
+          "ok": false,
+          "status": 404,
+          "elapsedMs": 8,
+          "bodyPreview": "{\"success\":false,\"message\":\"接口不存在\"}"
+        },
+        {
+          "url": "http://[::1]:47830/health",
+          "ok": false,
+          "status": 404,
+          "elapsedMs": 6,
+          "bodyPreview": "{\"success\":false,\"message\":\"接口不存在\"}"
+        },
+        {
+          "url": "http://127.0.0.1:47831/",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 14,
+          "bodyPreview": "<!doctype html>\n<html lang=\"zh-CN\">\n  <head>\n    <script type=\"module\">import { injectIntoGlobalHook } from \"/@react-refresh\";\ninjectIntoGlobalHook(window);\nwindow.$RefreshReg$ = () => {};\nwindow.$RefreshSig$ = () => (type) => type;</script>\n\n    <script type=\"module\" src=\"/@vite/client\"></script>\n\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/vite.svg\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>XX网视频播放器<"
+        },
+        {
+          "url": "http://[::1]:47831/",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 17
+        }
+      ]
+    },
+    {
+      "order": "may-4784",
+      "projectPath": "/Users/chen/Documents/trae_projects/local_projects/may-4784",
+      "projectExists": true,
+      "traeWindows": [
+        "ProfilePage.jsx — may-4784"
+      ],
+      "hasFrontendPackage": true,
+      "hasBackendPackage": true,
+      "hasFrontendNodeModules": true,
+      "hasBackendNodeModules": true,
+      "env": {
+        "PORT": "47842",
+        "JWT_SECRET": "short-video-jwt-secret-key-2024",
+        "JWT_EXPIRES_IN": "7d",
+        "DB_PATH": "./data/app.sqlite",
+        "UPLOAD_PATH": "./uploads",
+        "VITE_API_URL": "http://localhost:47842",
+        "VITE_APP_NAME": "短视频"
+      },
+      "envSources": {
+        "PORT": "/Users/chen/Documents/trae_projects/local_projects/may-4784/backend/.env",
+        "JWT_SECRET": "/Users/chen/Documents/trae_projects/local_projects/may-4784/backend/.env",
+        "JWT_EXPIRES_IN": "/Users/chen/Documents/trae_projects/local_projects/may-4784/backend/.env",
+        "DB_PATH": "/Users/chen/Documents/trae_projects/local_projects/may-4784/backend/.env",
+        "UPLOAD_PATH": "/Users/chen/Documents/trae_projects/local_projects/may-4784/backend/.env",
+        "VITE_API_URL": "/Users/chen/Documents/trae_projects/local_projects/may-4784/frontend/.env",
+        "VITE_APP_NAME": "/Users/chen/Documents/trae_projects/local_projects/may-4784/frontend/.env"
+      },
+      "frontendPorts": [
+        47841
+      ],
+      "backendPorts": [
+        47842
+      ],
+      "ports": [
+        {
+          "port": 47841,
+          "listening": true,
+          "listeners": [
+            {
+              "command": "node",
+              "pid": "77288",
+              "user": "chen",
+              "protocol": "IPv6",
+              "name": "[::1]:47841 (LISTEN)"
+            }
+          ],
+          "raw": [
+            "COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME",
+            "node    77288 chen   33u  IPv6 0x7204b3433e1b5909      0t0  TCP [::1]:47841 (LISTEN)"
+          ]
+        },
+        {
+          "port": 47842,
+          "listening": true,
+          "listeners": [
+            {
+              "command": "node",
+              "pid": "44483",
+              "user": "chen",
+              "protocol": "IPv6",
+              "name": "*:47842 (LISTEN)"
+            }
+          ],
+          "raw": [
+            "COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME",
+            "node    44483 chen   19u  IPv6 0x7204b3433e1ae909      0t0  TCP *:47842 (LISTEN)"
+          ]
+        }
+      ],
+      "http": [
+        {
+          "url": "http://127.0.0.1:47842/api/health",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 11,
+          "bodyPreview": "{\"success\":true,\"message\":\"Server is running\"}"
+        },
+        {
+          "url": "http://[::1]:47842/api/health",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 5,
+          "bodyPreview": "{\"success\":true,\"message\":\"Server is running\"}"
+        },
+        {
+          "url": "http://127.0.0.1:47842/health",
+          "ok": false,
+          "status": 404,
+          "elapsedMs": 7,
+          "bodyPreview": "{\"success\":false,\"message\":\"接口不存在\"}"
+        },
+        {
+          "url": "http://[::1]:47842/health",
+          "ok": false,
+          "status": 404,
+          "elapsedMs": 7,
+          "bodyPreview": "{\"success\":false,\"message\":\"接口不存在\"}"
+        },
+        {
+          "url": "http://127.0.0.1:47841/",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 5
+        },
+        {
+          "url": "http://[::1]:47841/",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 12,
+          "bodyPreview": "<!doctype html>\n<html lang=\"zh-CN\">\n  <head>\n    <script type=\"module\">import { injectIntoGlobalHook } from \"/@react-refresh\";\ninjectIntoGlobalHook(window);\nwindow.$RefreshReg$ = () => {};\nwindow.$RefreshSig$ = () => (type) => type;</script>\n\n    <script type=\"module\" src=\"/@vite/client\"></script>\n\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/vite.svg\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>短视频</title>\n   "
+        }
+      ]
+    },
+    {
+      "order": "may-4788",
+      "projectPath": "/Users/chen/Documents/trae_projects/local_projects/may-4788",
+      "projectExists": true,
+      "traeWindows": [
+        "HomePage.jsx — may-4788"
+      ],
+      "hasFrontendPackage": true,
+      "hasBackendPackage": true,
+      "hasFrontendNodeModules": true,
+      "hasBackendNodeModules": true,
+      "env": {
+        "PORT": "47881",
+        "JWT_SECRET": "short-video-app-secret-key-2024",
+        "DB_PATH": "./data/app.sqlite",
+        "UPLOAD_PATH": "./uploads"
+      },
+      "envSources": {
+        "PORT": "/Users/chen/Documents/trae_projects/local_projects/may-4788/backend/.env",
+        "JWT_SECRET": "/Users/chen/Documents/trae_projects/local_projects/may-4788/backend/.env",
+        "DB_PATH": "/Users/chen/Documents/trae_projects/local_projects/may-4788/backend/.env",
+        "UPLOAD_PATH": "/Users/chen/Documents/trae_projects/local_projects/may-4788/backend/.env"
+      },
+      "frontendPorts": [
+        47882
+      ],
+      "backendPorts": [
+        47881
+      ],
+      "ports": [
+        {
+          "port": 47882,
+          "listening": true,
+          "listeners": [
+            {
+              "command": "node",
+              "pid": "33193",
+              "user": "chen",
+              "protocol": "IPv6",
+              "name": "[::1]:47882 (LISTEN)"
+            }
+          ],
+          "raw": [
+            "COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME",
+            "node    33193 chen   21u  IPv6 0x7204b3433e1ac909      0t0  TCP [::1]:47882 (LISTEN)"
+          ]
+        },
+        {
+          "port": 47881,
+          "listening": true,
+          "listeners": [
+            {
+              "command": "node",
+              "pid": "31992",
+              "user": "chen",
+              "protocol": "IPv6",
+              "name": "*:47881 (LISTEN)"
+            }
+          ],
+          "raw": [
+            "COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME",
+            "node    31992 chen   18u  IPv6 0x7204b3433be0f909      0t0  TCP *:47881 (LISTEN)"
+          ]
+        }
+      ],
+      "http": [
+        {
+          "url": "http://127.0.0.1:47881/api/health",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 8,
+          "bodyPreview": "{\"success\":true,\"message\":\"Server is running\",\"timestamp\":\"2026-05-15T12:55:49.164Z\"}"
+        },
+        {
+          "url": "http://[::1]:47881/api/health",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 6,
+          "bodyPreview": "{\"success\":true,\"message\":\"Server is running\",\"timestamp\":\"2026-05-15T12:55:49.171Z\"}"
+        },
+        {
+          "url": "http://127.0.0.1:47881/health",
+          "ok": false,
+          "status": 404,
+          "elapsedMs": 15,
+          "bodyPreview": "{\"success\":false,\"message\":\"Endpoint not found\"}"
+        },
+        {
+          "url": "http://[::1]:47881/health",
+          "ok": false,
+          "status": 404,
+          "elapsedMs": 5,
+          "bodyPreview": "{\"success\":false,\"message\":\"Endpoint not found\"}"
+        },
+        {
+          "url": "http://127.0.0.1:47882/",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 6
+        },
+        {
+          "url": "http://[::1]:47882/",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 9,
+          "bodyPreview": "<!DOCTYPE html>\n<html lang=\"zh-CN\">\n  <head>\n    <script type=\"module\">import { injectIntoGlobalHook } from \"/@react-refresh\";\ninjectIntoGlobalHook(window);\nwindow.$RefreshReg$ = () => {};\nwindow.$RefreshSig$ = () => (type) => type;</script>\n\n    <script type=\"module\" src=\"/@vite/client\"></script>\n\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>短视频</title>\n  </head>\n  <body>\n    <div id=\"root\"></div>\n    <script type=\"mo"
+        }
+      ]
+    }
+  ]
+}

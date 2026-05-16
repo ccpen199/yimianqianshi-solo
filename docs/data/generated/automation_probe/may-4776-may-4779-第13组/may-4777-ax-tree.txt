@@ -1,0 +1,44 @@
+MATCHED=true
+WINDOW=键盘快捷键 — may-4777
+role=AXWindow subrole=AXStandardWindow name=键盘快捷键 — may-4777 desc=标准窗口 value=missing value enabled=missing value
+  role=AXGroup subrole=missing value name=键盘快捷键 — may-4777 desc= value= enabled=true
+    role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+      role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+        role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+          role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+            role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+              role=AXWebArea subrole=missing value name=键盘快捷键 — may-4777 desc= value= enabled=true
+                role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                  role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                    role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                      role=AXGroup subrole=missing value name=missing value desc=SOLO value= enabled=true
+                        role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                      role=AXStaticText subrole=missing value name=伦 desc= value=伦 enabled=true
+                      role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                        role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                    role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                      role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                        role=AXStaticText subrole=missing value name=伖 desc= value=伖 enabled=true
+                        role=AXStaticText subrole=missing value name=搜索 desc= value=搜索 enabled=true
+                  role=AXGroup subrole=AXWebApplication name=missing value desc= value= enabled=true
+                    role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                      role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                        role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                        role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                    role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                      role=AXGroup subrole=AXApplicationAlert name=missing value desc= value= enabled=true
+                        role=AXStaticText subrole=missing value name=19 个结果 desc= value=19 个结果 enabled=true
+                      role=AXGroup subrole=AXApplicationAlert name=missing value desc= value= enabled=true
+                      role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                      role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                    role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                  role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                  role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                  role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+                  role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+            role=AXGroup subrole=missing value name=missing value desc= value= enabled=true
+  role=AXButton subrole=AXCloseButton name=missing value desc=关闭按钮 value=missing value enabled=true
+  role=AXButton subrole=AXFullScreenButton name=missing value desc=全屏幕按钮 value=missing value enabled=true
+    role=AXGroup subrole=missing value name=missing value desc=组 value=missing value enabled=missing value
+      role=AXGroup subrole=missing value name=missing value desc=组 value=missing value enabled=missing value
+  role=AXButton subrole=AXMinimizeButton name=missing value desc=最小化按钮 value=missing value enabled=true

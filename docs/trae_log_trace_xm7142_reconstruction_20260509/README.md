@@ -1644,17 +1644,58 @@ workspaceStorage 中：
 
 规则：
   只统计 dict item
-  连续重复 inputText 且无 multiMedia 的记录去重
-  带 multiMedia 的记录保留，因为它可能对应独立轮次
+  用 inputText + multiMedia/images 资源 ID 组成轮次签名
+  连续重复签名视为同一轮重试，保留最后一次
+  同一序号中只保留第一个完整项目生成需求
+    完整项目生成需求特征：长文本，且包含“落地要求/组件约束/端口约束/验收约束”等通用后缀
+    后续不同业务名的完整项目生成需求通常是 workspace input_history 污染，不应插入当前序号轮次
+  后续不同签名继续顺序往下排，不能因为前面有重试就吞掉后面的真实轮次
 
 这个计数只用于决定是否需要 deepScan，
 不直接生成前三列内容。
 ```
 
+`may-1269` 的边界：
+
+```text
+raw input_history 中同时出现：
+  LinkWorld 完整项目需求
+  PMCAFF 完整项目需求
+
+同一序号只能有一个首轮完整项目需求。PMCAFF 属于同 workspace 残留/串入的另一个项目需求，
+不能作为 may-1269 第 3 轮插入。
+
+去除污染后有效顺序：
+  1. LinkWorld 初始需求
+  2. 首页没有数据，各个模块产品设计/用户研究没有数据
+  3. 分类标签内容全都一样，没有分类处理
+  4. 没有遵守业务规则，页面链路存在缺陷没有内容
+  5. 普通用户登录不成功，没有任何响应信息
+```
+
+`may-1267` 的边界：
+
+```text
+raw input_history = 9
+有效轮次 = 4
+
+第 3-7 条：
+  inputText 相同：“问题已解决，新的问题，秒杀页没有任何内容。”
+  multiMedia 相同：同一张截图
+  结论：这是连续重试，只保留最后一次
+
+第 8-9 条：
+  inputText 相同：“产品和直播图渲染太慢，也没有显示两秒的logo.”
+  multiMedia 相同：同一张截图
+  结论：同样折叠为最后一次，并作为下一轮继续保留
+```
+
 边界要求保持不变：
 
 ```text
-deepScan 只在“缓存行数少于 workspace 有效轮次”时触发。
+deepScan 在“缓存行数少于或多于 workspace 有效轮次”时触发。
+  少于：说明缺轮次，需要补拉
+  多于：说明旧缓存保留了重复重试轮次，需要收缩
 已有行的前三列语义仍保持：
   Session       = row.sessionId 复合 ID
   会话          = row.conversation
@@ -1750,3 +1791,15 @@ order 列显示为彩色胶囊，便于在 20 行混排中区分 may-979/may-980
 
 设置 DEEPSEEK_API_KEY 后，规则无法覆盖的模糊反馈会走 deepseek-v4-pro。
 ```
+
+## 2026-05-16 v14.5：Session 列回归复合 ID 组织形式
+
+本次确认 Session 列继续沿用 v11/v13 规则，不允许改成 raw session，也不允许用 `input-history:*` 占位：
+
+```text
+Session = row.sessionId Trae CN 复合 ID
+格式 = .<userId>:<traceId>_<rawSessionId>.<responseMessageId>.<userMessageId>:Trae CN.T(<time>)
+前端展示/复制时允许沿用既有 displaySessionId 缩短显示，但不能破坏组合来源。
+```
+
+`input_history` 只用于辅助轮次计数、重复折叠和截图对齐，不能单独生成主表前三列。只有 `input_history`、没有复合 Session 证据的旧占位行，读取时必须从主表移除；不能显示为 `input-history:<rawSessionId>:<roundIndex>`。

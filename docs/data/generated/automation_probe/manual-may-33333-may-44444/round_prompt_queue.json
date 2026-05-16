@@ -1,0 +1,33 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-15 12:32:40",
+  "group": "manual-may-33333-may-44444",
+  "targetRounds": 5,
+  "queue": [
+    {
+      "order": "may-44444",
+      "priority": "smoke-test",
+      "score": 100,
+      "currentRoundCount": 1,
+      "nextRoundIndex": 2,
+      "targetRounds": 5,
+      "sourceRowIndex": 0,
+      "sessionId": "",
+      "issues": [
+        "第 2 轮自动化链路烟测"
+      ],
+      "conversation": "第 1 轮已提交，日志已确认助手回复：已收到 may-44444 自动化烟测。",
+      "dissatisfactionReason": "",
+      "hasScreenshots": false,
+      "logTraceDigest": "上一轮依据：Trae Modular 日志确认第 1 轮助手回复。",
+      "prompt": "这是 may-44444 的第 2 轮自动化链路烟测。\n\n上一轮依据：Trae 日志已经确认第 1 轮助手回复“已收到 may-44444 自动化烟测。”。\n\n本轮只验证多轮自动化能否读取上一轮结果后继续下一轮。请不要修改任何文件，不要运行命令，不要创建项目，不要启动服务。\n\n请只在对话里回复：已收到 may-44444 第 2 轮自动化烟测。"
+    }
+  ],
+  "skipped": [],
+  "counts": {
+    "queued": 1,
+    "skipped": 0,
+    "orders": 1
+  },
+  "source": "manual-smoke-round-2"
+}

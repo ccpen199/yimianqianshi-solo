@@ -1,15 +1,15 @@
 # Trae SessionId 链路构建与排障指南
 
-更新时间：2026-05-05
+更新时间：2026-05-16
 
 这份文档记录 Workbench 中 Trae 会话轮次的完整抽取链路。它用于两个场景：
 
 - 以后 `sessionId`、会话内容、日志轨迹再次错位时，有固定排查依据。
 - 在其他电脑上部署同一套 Workbench 时，知道 Trae 本地数据库、日志和页面字段如何对齐。
 
-## 目标格式
+## 目标字段
 
-页面 `sessionId` 列和 `日志轨迹` 列都应展示完整 Trae 复合轨迹，而不是只展示 24 位原始会话 id：
+页面 `Session` 列展示完整 Trae 复合轨迹，而不是只展示 24 位原始会话 id：
 
 ```text
 .{userId}:{traceId}_{rawSessionId}.{responseMessageId}.{chatMessageId}:Trae CN.T(YYYY/M/D HH:MM:SS)
@@ -30,7 +30,9 @@
 - `chatMessageId`：用户输入对应的消息 id，用于定位一轮对话。
 - `Trae CN.T(...)`：本轮输入的规范时间。当前代码优先取 ai-agent `create message` 日志时间；没有日志时间时，退回 `chatMessageId` 的 ObjectId 时间，再退回第二段 `response/task` id 的 ObjectId 时间；不能用后续 renderer 展示时间或刷新时间覆盖。
 
-页面顶部的 `当前会话` 仍保留 24 位原始 session id；表格每一行的 `sessionId` 和 `日志轨迹` 才是完整复合轨迹。接口行数据同时保留 `rawSessionId`，方便程序内部继续使用原始 id。
+页面顶部的 `当前会话` 仍保留 24 位原始 session id；表格每一行的 `Session/sessionId` 才是完整复合轨迹。接口行数据同时保留 `rawSessionId`，方便程序内部继续使用原始 id。
+
+`日志轨迹/logTrace` 是另一列：它必须是 Trae 官方复制日志轨迹正文，或按同一 `traceId` 从 Modular HistoryEvent 组装出的执行正文。找不到真实正文时只能标记 `not-found-real-file` / “未找到真实日志轨迹文件/内容”，不能用 `Session` 复合 ID 冒充日志轨迹。
 
 ## 代码入口
 
@@ -80,7 +82,8 @@ Trae 的关键本地数据：
 11. 按规范时间排序，再把输入历史与消息 id 对齐。
 12. 输出行数据：
     - `sessionId`：完整复合轨迹。
-    - `logTrace`：完整复合轨迹。
+    - `logTraceId/sessionComposite`：完整复合轨迹的定位副本。
+    - `logTrace`：官方复制日志轨迹正文，或同一 `traceId` 的 Modular 执行正文；没有正文时留空并标记缺失。
     - `rawSessionId`：24 位原始 session id。
     - `conversation`：该轮用户输入。
 
@@ -89,7 +92,7 @@ Trae 的关键本地数据：
 单个序号打开后，表格应满足：
 
 - `sessionId` 列不是 `69f...` 这种 24 位短 id，而是以 `.` 开头的完整复合轨迹。
-- `日志轨迹` 列与 `sessionId` 列一致。
+- `日志轨迹` 列不是 `sessionId` 复合串，而是执行轨迹正文；找不到正文时明确显示缺失。
 - `rawSessionId` 等于页面顶部 `当前会话` 的 24 位 id。
 - 时间是本轮用户消息创建时间，不是后来刷新页面或 renderer 打印展示日志的时间。
 - 多轮会话按真实发生时间排列，不能把第二轮、第三轮的 prompt 和 trace 对错。
@@ -181,6 +184,7 @@ docs/data-bak/
 - 旧服务占用 `8090` 时，浏览器可能仍在访问旧代码。统一执行 `sh start_workbench.sh`，不要只刷新页面。
 - 浏览器可能缓存旧 `app.js`。如果前端逻辑改过，需要同步提高 `index.html` 里的 `app.js?v=...`。
 - 不能把 `sessionId` 列归一化成 24 位短 id。用户要复制的是完整复合轨迹。
+- 不能把 `Session` 复合轨迹兜底显示到 `日志轨迹` 列；这会污染飞书粘贴结果。
 - renderer 日志时间通常晚于真实输入时间，只能兜底补字段，不能作为首选时间。
 - `launchctl` 启动的服务 PATH 可能找不到 `rg`。如果终端里是 3 条而 HTTP 刷新只有 2 条，先查后端是否还在依赖 PATH。
 - ChatStore 可能缺历史轮次，需要合并 ai-agent session 日志。
@@ -193,7 +197,8 @@ docs/data-bak/
 | 现象 | 优先检查 |
 |---|---|
 | `sessionId` 只显示 24 位短 id | 检查后端 `normalize_trae_session_rows` 和前端 `normalizeSessionRow` 是否把复合轨迹覆盖掉 |
-| `日志轨迹` 为空 | 检查 ai-agent 日志是否存在，`TRAE_LOG_SCAN_LIMIT` 是否覆盖到对应日期 |
+| `日志轨迹` 为空 | 检查官方复制正文、Modular HistoryEvent 和 `traceId` 精确匹配；不能用 `sessionId` 兜底 |
+| `日志轨迹` 显示 `.userId:trace_session...` | 前端/复制链路错把 `sessionId/sessionComposite/logTraceId` 当作 `logTrace`，必须退回真实正文或缺失标记 |
 | 时间显示成刷新时间 | 检查是否缺少 ai-agent `create message`，不要用 renderer 后续展示日志覆盖 |
 | prompt 和 trace 错位 | 检查 `ChatStore` turn id 排序、日志回填、按时间排序和 input history 对齐 |
 | 终端调用 3 条，HTTP 刷新只有 2 条 | 检查 `rg` 是否只在终端 PATH 存在；服务进程应使用显式 `rg` 候选路径，并比较 `full/precise` 行数 |
@@ -206,7 +211,8 @@ docs/data-bak/
 每次修改 session 链路后，至少验证：
 
 - `python3 scripts/check_trae_session_rounds.py` 输出 `OK`。
-- `sessionId == logTrace`。
+- `sessionId` 是完整复合轨迹。
+- `logTrace` 不是 `sessionId`；它要么是真实执行正文，要么是明确缺失标记。
 - `rawSessionId == payload.sessionId`。
 - 复合轨迹符合目标格式。
 - 已知样本时间与 ai-agent `create message` 时间一致。

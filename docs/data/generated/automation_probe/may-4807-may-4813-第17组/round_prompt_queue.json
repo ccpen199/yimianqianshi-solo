@@ -1,0 +1,35 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-15 22:12:25",
+  "group": "may-4807-may-4813-第17组",
+  "targetRounds": 5,
+  "queue": [
+    {
+      "order": "may-4812",
+      "priority": "runtime-repair",
+      "score": 95,
+      "currentRoundCount": 1,
+      "nextRoundIndex": 2,
+      "targetRounds": 5,
+      "sourceRowIndex": -1,
+      "sessionId": "",
+      "issues": [
+        "第二轮：选择学生身份并点击“确认进入”后，页面显示“加载失败”，没有进入学生端首页。"
+      ],
+      "conversation": "",
+      "dissatisfactionReason": "",
+      "hasScreenshots": true,
+      "logTraceDigest": "快速网页验收已通过；访问地址：http://localhost:48122/；页面标题：随身老师 - 一对一家教平台；已完成页面截图。",
+      "prompt": "第二轮：选择学生身份并点击“确认进入”后，页面显示“加载失败”，没有进入学生端首页。",
+      "browserReportPath": "/Users/chen/Desktop/Cursor_project/ai_money/yimianqianshi/docs/data/generated/automation_probe/may-4807-may-4813-第17组/may-4812-browser-report.json"
+    }
+  ],
+  "skipped": [],
+  "counts": {
+    "queued": 1,
+    "skipped": 0,
+    "orders": 1
+  },
+  "source": "trae_session_rounds",
+  "roundStatePath": "/Users/chen/Desktop/Cursor_project/ai_money/yimianqianshi/docs/data/generated/automation_round_state.json"
+}

@@ -1,0 +1,82 @@
+{
+  "id": "round-20260515-140701-caefd180",
+  "status": "stopped",
+  "createdAt": "2026-05-15T14:07:01",
+  "updatedAt": "2026-05-15T14:08:15",
+  "groups": [
+    "may-4780-may-4788-第14组"
+  ],
+  "groupDetails": [
+    {
+      "name": "may-4780-may-4788-第14组",
+      "orders": [
+        "may-4780",
+        "may-4783",
+        "may-4784",
+        "may-4788"
+      ]
+    }
+  ],
+  "targetRounds": 5,
+  "intervalSeconds": 8,
+  "maxCycles": 500,
+  "cycle": 1,
+  "orders": {
+    "may-4780": {
+      "order": "may-4780",
+      "group": "may-4780-may-4788-第14组",
+      "status": "ready",
+      "completedRounds": 2,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "轮次检测：2/5，等待提交下一轮",
+      "lastError": ""
+    },
+    "may-4783": {
+      "order": "may-4783",
+      "group": "may-4780-may-4788-第14组",
+      "status": "ready",
+      "completedRounds": 0,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "等待调度"
+    },
+    "may-4784": {
+      "order": "may-4784",
+      "group": "may-4780-may-4788-第14组",
+      "status": "ready",
+      "completedRounds": 0,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "等待调度"
+    },
+    "may-4788": {
+      "order": "may-4788",
+      "group": "may-4780-may-4788-第14组",
+      "status": "ready",
+      "completedRounds": 0,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "等待调度"
+    }
+  },
+  "events": [
+    {
+      "time": "2026-05-15T14:07:01",
+      "action": "start",
+      "message": "开始多轮自动化：1 个组，目标 5 轮"
+    },
+    {
+      "time": "2026-05-15T14:07:18",
+      "action": "stop-requested",
+      "message": "收到停止请求"
+    },
+    {
+      "time": "2026-05-15T14:08:15",
+      "action": "stopped",
+      "message": "已手动停止"
+    }
+  ],
+  "stopRequested": true,
+  "message": "已手动停止"
+}

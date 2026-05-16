@@ -3,7 +3,7 @@
 ## 不可破坏的 sessionId 规则
 
 1. 缓存行只能写真实 composite sessionId：
-   `.userId:traceId_sessionId.userMessageId.taskMessageId:Trae CN.T(createMessageTime)`。
+   `.userId:traceId_sessionId.responseOrTaskMessageId.userMessageId:Trae CN.T(createMessageTime)`。
 2. 优先使用用户消息的 `create message, chat_session_id, message_id` 行。
 3. 后续 tool、snapshot、renderer 行只允许补 trace 或 task 信息，不能覆盖用户消息创建时间。
 4. 找不到真实 32 位 `trace_id` 或用户 messageId 时，不写 `missing_trace`，不复用其他轮次 trace，不造假 composite。
@@ -24,6 +24,7 @@
 7. 新结果行数少于已有缓存时，不允许覆盖旧缓存；避免 3 条被刷回 2 条。
 8. 行数相同但 `precise` 找到真实 response/task message id 时，必须用 `precise` 覆盖 `chatMessageId.chatMessageId` 保底结果。
 9. 缓存保护只防止真实 response/task id 被降级，不阻止保底缓存升级成真实 response/task id。
+10. 找不到真实 response/task id 但已有同轮 `create message` / ChatStore 用户消息证据时，可以保留 `chatMessageId.chatMessageId` 保底行，并标记 `sessionIdQuality=fallback_user_message`；不能因为缺第二段就丢掉整轮。
 
 ## 典型判断
 

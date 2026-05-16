@@ -1,0 +1,36 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-15 17:05:56",
+  "group": "may-4772-may-4775-第12组",
+  "targetRounds": 5,
+  "queue": [],
+  "skipped": [
+    {
+      "order": "may-4772",
+      "reason": "已达到 5 轮",
+      "currentRoundCount": 5
+    },
+    {
+      "order": "may-4773",
+      "reason": "已达到 5 轮",
+      "currentRoundCount": 5
+    },
+    {
+      "order": "may-4774",
+      "reason": "已达到 5 轮",
+      "currentRoundCount": 6
+    },
+    {
+      "order": "may-4775",
+      "reason": "已达到 5 轮",
+      "currentRoundCount": 6
+    }
+  ],
+  "counts": {
+    "queued": 0,
+    "skipped": 4,
+    "orders": 4
+  },
+  "source": "trae_session_rounds",
+  "roundStatePath": "/Users/chen/Desktop/Cursor_project/ai_money/yimianqianshi/docs/data/generated/automation_round_state.json"
+}

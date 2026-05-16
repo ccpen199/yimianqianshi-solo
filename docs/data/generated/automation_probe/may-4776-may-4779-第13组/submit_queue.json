@@ -1,0 +1,87 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-14 19:52:45",
+  "group": "may-4776-may-4779-第13组",
+  "queue": [
+    {
+      "order": "may-4777",
+      "priority": "high",
+      "score": 90,
+      "reason": "高优先级：影响页面可见内容、运行态或工程入口",
+      "issues": [
+        "页面 HTTP 200 但正文没有可见文本，疑似根组件未渲染、路由空挂载或页面白屏。"
+      ],
+      "frontendUrl": "http://127.0.0.1:47772/",
+      "backendHealthUrl": "http://127.0.0.1:47771/api/health",
+      "windowAvailable": false,
+      "traeWindows": [],
+      "runtimeOk": false,
+      "prompt": "当前 http://127.0.0.1:47772/ 可以打开，后端健康检查 http://127.0.0.1:47771/api/health 可用，说明已有运行态可以进入浏览器验收。\n\n已核对到的证据：项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4777；配置端口：前端 [47772]，后端 [47771]；正在监听的项目端口：[47772, 47771]；浏览器访问 http://127.0.0.1:47772/ 返回 HTTP 200，页面标题为“网易云音乐私藏推荐”；后端健康检查地址：http://127.0.0.1:47771/api/health。\n\n需要优先修复的问题：页面 HTTP 200 但正文没有可见文本，疑似根组件未渲染、路由空挂载或页面白屏。\n\n请按以下顺序处理：优先检查前端入口挂载、路由默认页、根组件渲染条件和接口初始化异常，确保首页有可见业务内容而不是空白 DOM。\n\n修复后请重新启动当前项目端口（前端 [47772]，后端 [47771]），只处理当前项目进程，不要杀死其他项目端口，并用浏览器截图和 API 请求验证主链路。"
+    },
+    {
+      "order": "may-4779",
+      "priority": "high",
+      "score": 90,
+      "reason": "高优先级：影响页面可见内容、运行态或工程入口",
+      "issues": [
+        "配置端口当前均未监听，前后端没有可访问运行态。",
+        "未发现 frontend/package.json，前端工程启动入口缺失或目录结构不标准。",
+        "未发现 backend/package.json，后端工程启动入口缺失或目录结构不标准。"
+      ],
+      "frontendUrl": "",
+      "backendHealthUrl": "",
+      "windowAvailable": false,
+      "traeWindows": [],
+      "runtimeOk": false,
+      "prompt": "当前项目还没有形成稳定可访问的运行态，需要先把前后端启动链路补齐。\n\n已核对到的证据：项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4779。\n\n需要优先修复的问题：配置端口当前均未监听，前后端没有可访问运行态；未发现 frontend/package.json，前端工程启动入口缺失或目录结构不标准；未发现 backend/package.json，后端工程启动入口缺失或目录结构不标准。\n\n请按以下顺序处理：先恢复标准前后端工程入口，补齐 package.json、启动脚本和端口配置，再进入浏览器与 API 验收；按当前项目配置端口启动前后端，只处理本项目端口；不要 killall/pkill 全局 Node 进程。"
+    },
+    {
+      "order": "may-4778",
+      "priority": "medium",
+      "score": 60,
+      "reason": "中优先级：影响核心资源、接口或媒体加载",
+      "issues": [
+        "favicon.ico 返回 404，静态资源兜底不完整。",
+        "请求失败：GET https://www.w3schools.com/html/mov_bbb.mp4 net::ERR_ABORTED"
+      ],
+      "frontendUrl": "http://127.0.0.1:47782/",
+      "backendHealthUrl": "http://127.0.0.1:47781/api/health",
+      "windowAvailable": false,
+      "traeWindows": [],
+      "runtimeOk": false,
+      "prompt": "当前 http://127.0.0.1:47782/ 可以打开，后端健康检查 http://127.0.0.1:47781/api/health 可用，说明已有运行态可以进入浏览器验收。\n\n已核对到的证据：项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4778；配置端口：前端 [47782]，后端 [47781]；正在监听的项目端口：[47782, 47781]；浏览器访问 http://127.0.0.1:47782/ 返回 HTTP 200，页面标题为“短视频”；后端健康检查地址：http://127.0.0.1:47781/api/health。\n\n需要优先修复的问题：favicon.ico 返回 404，静态资源兜底不完整；请求失败：GET https://www.w3schools.com/html/mov_bbb.mp4 net::ERR_ABORTED。\n\n请按以下顺序处理：检查失败资源或接口的来源，避免核心页面依赖不可控外链；必要时改成本地静态资源、后端代理或可见兜底封面。\n\n修复后请重新启动当前项目端口（前端 [47782]，后端 [47781]），只处理当前项目进程，不要杀死其他项目端口，并用浏览器截图和 API 请求验证主链路。"
+    }
+  ],
+  "skipped": [
+    {
+      "order": "may-4776",
+      "priority": "skip",
+      "score": 0,
+      "reason": "只有低优先级静态资源/开发提示问题",
+      "issues": [
+        "favicon.ico 返回 404，静态资源兜底不完整。"
+      ],
+      "frontendUrl": "http://[::1]:24776/",
+      "backendHealthUrl": "http://127.0.0.1:14776/health",
+      "windowAvailable": true,
+      "traeWindows": [
+        "Home.jsx — may-4776"
+      ],
+      "runtimeOk": true,
+      "prompt": "当前 http://[::1]:24776/ 可以打开，后端健康检查 http://127.0.0.1:14776/health 可用，说明已有运行态可以进入浏览器验收。\n\n已核对到的证据：项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4776；配置端口：前端 [24776]，后端 [14776]；正在监听的项目端口：[24776, 14776]；浏览器访问 http://[::1]:24776/ 返回 HTTP 200，页面标题为“映客 - 直播社交平台”；后端健康检查地址：http://127.0.0.1:14776/health。\n\n需要优先修复的问题：favicon.ico 返回 404，静态资源兜底不完整。\n\n请按以下顺序处理：按当前业务需求继续补齐核心页面和主链路，并用浏览器与 API 共同验收。\n\n修复后请重新启动当前项目端口（前端 [24776]，后端 [14776]），只处理当前项目进程，不要杀死其他项目端口，并用浏览器截图和 API 请求验证主链路。",
+      "skipReason": "只有低优先级静态资源/开发提示问题"
+    }
+  ],
+  "counts": {
+    "queued": 3,
+    "skipped": 1,
+    "high": 2,
+    "medium": 1,
+    "normal": 0
+  },
+  "source": {
+    "draftsPath": "/Users/chen/Desktop/Cursor_project/ai_money/yimianqianshi/docs/data/generated/automation_probe/may-4776-may-4779-第13组/next_prompt_drafts.json",
+    "probePath": "/Users/chen/Desktop/Cursor_project/ai_money/yimianqianshi/docs/data/generated/automation_probe/may-4776-may-4779-第13组/probe.json",
+    "runtimePath": "/Users/chen/Desktop/Cursor_project/ai_money/yimianqianshi/docs/data/generated/automation_probe/may-4776-may-4779-第13组/runtime_start_report.json"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "deprecatedPrefix": "xm",
+  "status": "disabled",
+  "currentPrefix": "may",
+  "scope": "Workbench current data-list, batch groups, Trae session refresh, and frontend order normalization",
+  "rules": [
+    "xm-* belongs to the previous project batch and must not be used by the current Workbench data-list chain.",
+    "Current frontend data and batch groups must use may-* only.",
+    "If historical input contains xm-123, the runtime must normalize it to may-123 instead of reading old xm data.",
+    "Old xm JSON/cache files may remain as archived evidence only; they must not be selected as active data sources."
+  ],
+  "updatedAt": "2026-05-13"
+}

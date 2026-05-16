@@ -18,11 +18,11 @@
       "logTraceFormatVersion": "20260509_v13_trace_time_locator",
       "logTraceScanVersion": "20260509_v13_trace_time_locator",
       "officialCopiedLogTrace": true,
-      "dissatisfactionReason": "点击预订页面没有任何反应",
+      "dissatisfactionReason": "产物不满意：首轮完成去哪儿机票页面和接口后，预订按钮点击没有任何反应，搜索结果到订单创建的核心转化链路断开。过程不满意：日志验证了城市、航班、价格趋势和多程 API，但没有在浏览器里点击预订按钮，也没有检查按钮事件和订单接口联动。",
       "annotationHash": "d9c7723fdcb9c3e023e51ef3386f5156b9fce8c6",
-      "annotationVersion": "20260509_v10_detailed_permission_issue",
-      "annotationUpdatedAt": "2026-05-10T01:15:35",
-      "annotationSource": "next-row-direct"
+      "annotationVersion": "manual_dual_axis_quality_audit_20260511_v2",
+      "annotationUpdatedAt": "2026-05-11T22:45:00",
+      "annotationSource": "manual-dual-axis-audit"
     },
     {
       "sessionId": ".3792634309254663:3efc29342243d9abb93d32602b6efe0a_69ff535eb88fb1a0b30c66bf.69ff66d8b88fb1a0b30c6aa4.69ff66d76451b283073c3639:Trae CN.T(2026/5/9 19:54:48)",
@@ -47,11 +47,11 @@
       "logTraceFormatVersion": "20260509_v13_trace_time_locator",
       "logTraceScanVersion": "20260509_v13_trace_time_locator",
       "officialCopiedLogTrace": true,
-      "dissatisfactionReason": "关键按钮无响应",
+      "dissatisfactionReason": "产物不满意：预订按钮修复后，酒店和旅行导航标签点击仍没有任何反应，顶部服务切换入口不可用。过程不满意：本轮只给机票预订绑定订单接口，未顺手核对导航栏各标签事件、默认状态和切换后的页面内容。",
       "annotationHash": "0ad130bf20e1eeb6b09af85d1918d93c8a00cbd4",
-      "annotationVersion": "20260509_v10_detailed_permission_issue",
-      "annotationUpdatedAt": "2026-05-10T01:15:35",
-      "annotationSource": "next-row-direct"
+      "annotationVersion": "manual_dual_axis_quality_audit_20260511_v2",
+      "annotationUpdatedAt": "2026-05-11T22:45:00",
+      "annotationSource": "manual-dual-axis-audit"
     },
     {
       "sessionId": ".3792634309254663:0e49831c28ed06576ec46db2501ae2f5_69ff535eb88fb1a0b30c66bf.69ff7688b88fb1a0b30c6b79.69ff76886451b283073c363a:Trae CN.T(2026/5/9 21:01:44)",
@@ -76,11 +76,11 @@
       "logTraceFormatVersion": "20260509_v13_trace_time_locator",
       "logTraceScanVersion": "20260509_v13_trace_time_locator",
       "officialCopiedLogTrace": true,
-      "dissatisfactionReason": "但却只显示9号的机票",
+      "dissatisfactionReason": "产物不满意：酒店和旅行标签修复后，日期范围搜索仍只显示 5 月 9 日机票，无法覆盖 5 月 9 日到 5 月 14 日的多日航班结果。过程不满意：本轮只是让导航切换显示提示，没有检查航班搜索参数、后端日期范围查询和结果按日期分组展示。",
       "annotationHash": "11c8bed4ede9305546a90b164b8a95268278172b",
-      "annotationVersion": "20260509_v10_detailed_permission_issue",
-      "annotationUpdatedAt": "2026-05-10T01:15:35",
-      "annotationSource": "next-row-direct"
+      "annotationVersion": "manual_dual_axis_quality_audit_20260511_v2",
+      "annotationUpdatedAt": "2026-05-11T22:45:00",
+      "annotationSource": "manual-dual-axis-audit"
     },
     {
       "sessionId": ".3792634309254663:61bbefab8e3f407da66abf20d236d73d_69ff535eb88fb1a0b30c66bf.69ff9e97b88fb1a0b30c6d89.69ff9e946451b283073c363b:Trae CN.T(2026/5/9 23:52:39)",
@@ -105,11 +105,11 @@
       "logTraceFormatVersion": "20260509_v13_trace_time_locator",
       "logTraceScanVersion": "20260509_v13_trace_time_locator",
       "officialCopiedLogTrace": true,
-      "dissatisfactionReason": "酒店页面错误的显示机票的页面",
+      "dissatisfactionReason": "产物不满意：日期范围搜索修复后，酒店页面仍错误显示机票页面，酒店业务没有独立搜索表单、结果和预订展示。过程不满意：日志专注后端 `dateStart/dateEnd` 与机票结果分组，没有回归服务标签切换后的 DOM 内容和页面隔离。",
       "annotationHash": "28fe9a898c9d43ee7679f33825fa0bf9e17beb28",
-      "annotationVersion": "20260509_v10_detailed_permission_issue",
-      "annotationUpdatedAt": "2026-05-10T02:00:38",
-      "annotationSource": "next-row-direct"
+      "annotationVersion": "manual_dual_axis_quality_audit_20260511_v2",
+      "annotationUpdatedAt": "2026-05-11T22:45:00",
+      "annotationSource": "manual-dual-axis-audit"
     },
     {
       "sessionId": ".3792634309254663:291c9b0c8ccfd0635209fefbf52492fd_69ff535eb88fb1a0b30c66bf.69ffb86eb88fb1a0b30c70c3.69ffb86d6451b283073c363c:Trae CN.T(2026/5/10 01:42:54)",
@@ -134,11 +134,11 @@
       "logTraceFormatVersion": "20260509_v13_trace_time_locator",
       "logTraceScanVersion": "20260509_v13_trace_time_locator",
       "officialCopiedLogTrace": true,
-      "dissatisfactionReason": "",
+      "dissatisfactionReason": "产物不满意：本轮给酒店页补了本地示例搜索和酒店列表，但酒店预订仍偏演示，旅行和攻略也只是占位，整体服务切换没有形成真实业务闭环。过程不满意：修复集中在前端条件渲染和本地样例，没有接入酒店 API、订单链路、空状态和浏览器多标签回归验收。",
       "annotationHash": "3de6e5c50c8d3859684eed8ab6742279d1116cf9",
-      "annotationVersion": "20260509_v10_detailed_permission_issue",
-      "annotationUpdatedAt": "2026-05-10T02:00:38",
-      "annotationSource": "next-row-empty"
+      "annotationVersion": "manual_dual_axis_quality_audit_20260511_v2",
+      "annotationUpdatedAt": "2026-05-11T22:45:00",
+      "annotationSource": "manual-dual-axis-audit"
     }
   ],
   "deepScan": false,

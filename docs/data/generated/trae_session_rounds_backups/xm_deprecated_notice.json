@@ -1,0 +1,8 @@
+{
+  "deprecatedPrefix": "xm",
+  "status": "archived-only",
+  "currentPrefix": "may",
+  "rule": "Do not load files in this directory for the current Workbench data-list chain. Historical xm-* rows are previous-batch evidence only.",
+  "replacement": "Use docs/data/generated/trae_session_rounds/may-*.json and normalize any xm-123 input to may-123.",
+  "updatedAt": "2026-05-13"
+}

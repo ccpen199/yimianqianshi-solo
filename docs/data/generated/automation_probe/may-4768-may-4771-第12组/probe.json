@@ -1,0 +1,283 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-15 14:12:48",
+  "group": "may-4768-may-4771-第12组",
+  "orders": [
+    "may-4768",
+    "may-4769",
+    "may-4770",
+    "may-4771"
+  ],
+  "localProjectRoot": "/Users/chen/Documents/trae_projects/local_projects",
+  "traeWindowCount": 8,
+  "traeWindows": [
+    "Home.jsx — may-4780",
+    "server.ts — may-4783",
+    "Home.jsx — may-4775",
+    "server.js — may-4774",
+    "Posts.jsx — may-4773",
+    "App.jsx — may-4772",
+    "ResetPasswordPage.jsx — may-4784",
+    "HomePage.jsx — may-4788"
+  ],
+  "projects": [
+    {
+      "order": "may-4768",
+      "projectPath": "/Users/chen/Documents/trae_projects/local_projects/may-4768",
+      "projectExists": true,
+      "traeWindows": [],
+      "hasFrontendPackage": true,
+      "hasBackendPackage": true,
+      "hasFrontendNodeModules": true,
+      "hasBackendNodeModules": true,
+      "env": {
+        "PORT": "47681",
+        "NODE_ENV": "development",
+        "CORS_ORIGIN": "http://localhost:47682"
+      },
+      "envSources": {
+        "PORT": "/Users/chen/Documents/trae_projects/local_projects/may-4768/backend/.env",
+        "NODE_ENV": "/Users/chen/Documents/trae_projects/local_projects/may-4768/backend/.env",
+        "CORS_ORIGIN": "/Users/chen/Documents/trae_projects/local_projects/may-4768/backend/.env"
+      },
+      "frontendPorts": [
+        47682
+      ],
+      "backendPorts": [
+        47681
+      ],
+      "ports": [
+        {
+          "port": 47682,
+          "listening": false,
+          "listeners": [],
+          "raw": []
+        },
+        {
+          "port": 47681,
+          "listening": false,
+          "listeners": [],
+          "raw": []
+        }
+      ],
+      "http": [
+        {
+          "url": "http://127.0.0.1:47681/api/health",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 32
+        },
+        {
+          "url": "http://[::1]:47681/api/health",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 9
+        },
+        {
+          "url": "http://127.0.0.1:47681/health",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 7
+        },
+        {
+          "url": "http://[::1]:47681/health",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 6
+        },
+        {
+          "url": "http://127.0.0.1:47682/",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 8
+        },
+        {
+          "url": "http://[::1]:47682/",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 5
+        }
+      ]
+    },
+    {
+      "order": "may-4769",
+      "projectPath": "/Users/chen/Documents/trae_projects/local_projects/may-4769",
+      "projectExists": true,
+      "traeWindows": [],
+      "hasFrontendPackage": false,
+      "hasBackendPackage": false,
+      "hasFrontendNodeModules": false,
+      "hasBackendNodeModules": true,
+      "env": {},
+      "envSources": {},
+      "frontendPorts": [],
+      "backendPorts": [],
+      "ports": [],
+      "http": []
+    },
+    {
+      "order": "may-4770",
+      "projectPath": "/Users/chen/Documents/trae_projects/local_projects/may-4770",
+      "projectExists": true,
+      "traeWindows": [],
+      "hasFrontendPackage": true,
+      "hasBackendPackage": true,
+      "hasFrontendNodeModules": true,
+      "hasBackendNodeModules": true,
+      "env": {
+        "FRONTEND_PORT": "47701",
+        "BACKEND_PORT": "47702",
+        "DATABASE_PATH": "./data/app.sqlite",
+        "JWT_SECRET": "may-4770-jwt-secret-key-2024",
+        "CODE_EXPIRE_MINUTES": "5",
+        "VITE_API_URL": "http://localhost:47702"
+      },
+      "envSources": {
+        "FRONTEND_PORT": "/Users/chen/Documents/trae_projects/local_projects/may-4770/.env",
+        "BACKEND_PORT": "/Users/chen/Documents/trae_projects/local_projects/may-4770/.env",
+        "DATABASE_PATH": "/Users/chen/Documents/trae_projects/local_projects/may-4770/.env",
+        "JWT_SECRET": "/Users/chen/Documents/trae_projects/local_projects/may-4770/.env",
+        "CODE_EXPIRE_MINUTES": "/Users/chen/Documents/trae_projects/local_projects/may-4770/.env",
+        "VITE_API_URL": "/Users/chen/Documents/trae_projects/local_projects/may-4770/frontend/.env"
+      },
+      "frontendPorts": [
+        47701
+      ],
+      "backendPorts": [
+        47702
+      ],
+      "ports": [
+        {
+          "port": 47701,
+          "listening": false,
+          "listeners": [],
+          "raw": []
+        },
+        {
+          "port": 47702,
+          "listening": false,
+          "listeners": [],
+          "raw": []
+        }
+      ],
+      "http": [
+        {
+          "url": "http://127.0.0.1:47702/api/health",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 5
+        },
+        {
+          "url": "http://[::1]:47702/api/health",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 5
+        },
+        {
+          "url": "http://127.0.0.1:47702/health",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 5
+        },
+        {
+          "url": "http://[::1]:47702/health",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 5
+        },
+        {
+          "url": "http://127.0.0.1:47701/",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 5
+        },
+        {
+          "url": "http://[::1]:47701/",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 5
+        }
+      ]
+    },
+    {
+      "order": "may-4771",
+      "projectPath": "/Users/chen/Documents/trae_projects/local_projects/may-4771",
+      "projectExists": true,
+      "traeWindows": [],
+      "hasFrontendPackage": true,
+      "hasBackendPackage": true,
+      "hasFrontendNodeModules": false,
+      "hasBackendNodeModules": true,
+      "env": {
+        "PORT": "47711",
+        "JWT_SECRET": "weiguang_jwt_secret_key_2024",
+        "DB_PATH": "./data/app.sqlite",
+        "NODE_ENV": "development"
+      },
+      "envSources": {
+        "PORT": "/Users/chen/Documents/trae_projects/local_projects/may-4771/backend/.env",
+        "JWT_SECRET": "/Users/chen/Documents/trae_projects/local_projects/may-4771/backend/.env",
+        "DB_PATH": "/Users/chen/Documents/trae_projects/local_projects/may-4771/backend/.env",
+        "NODE_ENV": "/Users/chen/Documents/trae_projects/local_projects/may-4771/backend/.env"
+      },
+      "frontendPorts": [
+        47712
+      ],
+      "backendPorts": [
+        47711
+      ],
+      "ports": [
+        {
+          "port": 47712,
+          "listening": false,
+          "listeners": [],
+          "raw": []
+        },
+        {
+          "port": 47711,
+          "listening": false,
+          "listeners": [],
+          "raw": []
+        }
+      ],
+      "http": [
+        {
+          "url": "http://127.0.0.1:47711/api/health",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 5
+        },
+        {
+          "url": "http://[::1]:47711/api/health",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 5
+        },
+        {
+          "url": "http://127.0.0.1:47711/health",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 5
+        },
+        {
+          "url": "http://[::1]:47711/health",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 5
+        },
+        {
+          "url": "http://127.0.0.1:47712/",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 5
+        },
+        {
+          "url": "http://[::1]:47712/",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 5
+        }
+      ]
+    }
+  ]
+}

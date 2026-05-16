@@ -1,0 +1,208 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-15T18:41:07.455Z",
+  "order": "may-4812",
+  "url": "http://localhost:48122/",
+  "initialUrl": "http://localhost:48122/",
+  "finalUrl": "http://localhost:48122/",
+  "status": 200,
+  "title": "随身老师 - 一对一家教平台",
+  "initialTitle": "随身老师 - 一对一家教平台",
+  "navigationError": "",
+  "screenshotPath": "docs/data/generated/automation_probe/may-4807-may-4813-第17组/may-4812-frontend.png",
+  "issueTextPreview": "",
+  "targetReason": "身份选择后进入错误页",
+  "targetKind": "runtime-error",
+  "targetMatched": true,
+  "targetActions": [
+    {
+      "action": "click",
+      "label": "选择学生身份",
+      "ok": true
+    },
+    {
+      "action": "fill",
+      "label": "填写手机号",
+      "ok": true
+    },
+    {
+      "action": "click",
+      "label": "确认进入",
+      "ok": true
+    },
+    {
+      "action": "target-visible-error",
+      "label": "身份进入后出现页面错误",
+      "ok": true,
+      "finalUrl": "http://localhost:48122/"
+    }
+  ],
+  "initialBodyTextPreview": "欢迎使用随身老师\n请选择您的身份开始使用\n我是学生\n发布辅导需求，寻找合适的老师\n我是老师\n在线接单，提供一对一家教服务\n确认进入",
+  "bodyTextPreview": "加载失败\n抱歉，页面发生了错误，请点击重试\n点击重试\n登录成功",
+  "apiBase": "http://localhost:48121",
+  "apiResponses": [
+    {
+      "status": 200,
+      "url": "http://localhost:48122/api/users/select-role"
+    }
+  ],
+  "apiChecks": [
+    {
+      "method": "GET",
+      "url": "http://localhost:48121/api/health",
+      "path": "/api/health",
+      "status": 200,
+      "ok": true,
+      "bodyPreview": "{\"success\":true,\"message\":\"服务运行正常\",\"timestamp\":1778870467297}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:48121/api/users/select-role",
+      "path": "/api/users/select-role",
+      "status": 200,
+      "ok": true,
+      "bodyPreview": "{\"success\":false,\"message\":\"用户不存在\"}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:48121/api/teachers",
+      "path": "/api/teachers",
+      "status": 404,
+      "ok": false,
+      "bodyPreview": "{\"success\":false,\"message\":\"接口不存在\"}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:48121/api/courses",
+      "path": "/api/courses",
+      "status": 404,
+      "ok": false,
+      "bodyPreview": "{\"success\":false,\"message\":\"接口不存在\"}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:48121/api/bookings",
+      "path": "/api/bookings",
+      "status": 404,
+      "ok": false,
+      "bodyPreview": "{\"success\":false,\"message\":\"接口不存在\"}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:48121/api/orders",
+      "path": "/api/orders",
+      "status": 200,
+      "ok": true,
+      "bodyPreview": "{\"success\":true,\"data\":[]}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:48121/api/auth/me",
+      "path": "/api/auth/me",
+      "status": 404,
+      "ok": false,
+      "bodyPreview": "{\"success\":false,\"message\":\"接口不存在\"}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:48121/api/users/profile",
+      "path": "/api/users/profile",
+      "status": 200,
+      "ok": true,
+      "bodyPreview": "{\"success\":false,\"message\":\"用户不存在\"}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:48121/api/user/profile",
+      "path": "/api/user/profile",
+      "status": 404,
+      "ok": false,
+      "bodyPreview": "{\"success\":false,\"message\":\"接口不存在\"}"
+    }
+  ],
+  "consoleMessages": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "http://localhost:48122/@vite/client",
+        "lineNumber": 494,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "http://localhost:48122/@vite/client",
+        "lineNumber": 617,
+        "columnNumber": 14
+      }
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold",
+      "location": {
+        "url": "http://localhost:48122/node_modules/.vite/deps/chunk-PJEEZAML.js?v=74b3c8cb",
+        "lineNumber": 21550,
+        "columnNumber": 24
+      }
+    },
+    {
+      "type": "warning",
+      "text": "⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.",
+      "location": {
+        "url": "http://localhost:48122/node_modules/.vite/deps/react-router-dom.js?v=20eb0524",
+        "lineNumber": 4435,
+        "columnNumber": 12
+      }
+    },
+    {
+      "type": "warning",
+      "text": "⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.",
+      "location": {
+        "url": "http://localhost:48122/node_modules/.vite/deps/react-router-dom.js?v=20eb0524",
+        "lineNumber": 4435,
+        "columnNumber": 12
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "location": {
+        "url": "http://localhost:48122/favicon.ico",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Warning: [antd: message] Static function can not consume context like dynamic theme. Please use 'App' component instead.",
+      "location": {
+        "url": "http://localhost:48122/node_modules/.vite/deps/chunk-ZDBJOGHJ.js?v=74b3c8cb",
+        "lineNumber": 1247,
+        "columnNumber": 14
+      }
+    },
+    {
+      "type": "error",
+      "text": "The above error occurred in the <AuthGuard> component:\n\n    at AuthGuard (http://localhost:48122/src/components/AuthGuard.jsx:20:22)\n    at RenderedRoute (http://localhost:48122/node_modules/.vite/deps/react-router-dom.js?v=20eb0524:4131:5)\n    at Routes (http://localhost:48122/node_modules/.vite/deps/react-router-dom.js?v=20eb0524:4601:5)\n    at Router (http://localhost:48122/node_modules/.vite/deps/react-router-dom.js?v=20eb0524:4544:15)\n    at BrowserRouter (http://localhost:48122/node_modules/.vite/deps/react-router-dom.js?v=20eb0524:5290:5)\n    at App (http://localhost:48122/src/App.jsx:28:16)\n    at LocaleProvider (http://localhost:48122/node_modules/.vite/deps/antd.js?v=3e864160:3732:13)\n    at MotionWrapper (http://localhost:48122/node_modules/.vite/deps/antd.js?v=3e864160:6266:32)\n    at ProviderChildren (http://localhost:48122/node_modules/.vite/deps/antd.js?v=3e864160:6374:5)\n    at ConfigProvider (http://localhost:48122/node_modules/.vite/deps/antd.js?v=3e864160:6665:27)\n    at ErrorBoundary (http://localhost:48122/src/components/ErrorBoundary.jsx:8:5)\n\nReact will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.",
+      "location": {
+        "url": "http://localhost:48122/node_modules/.vite/deps/chunk-PJEEZAML.js?v=74b3c8cb",
+        "lineNumber": 14031,
+        "columnNumber": 30
+      }
+    },
+    {
+      "type": "error",
+      "text": "ErrorBoundary caught an error: SyntaxError: \"undefined\" is not valid JSON\n    at JSON.parse (<anonymous>)\n    at getUser (http://localhost:48122/src/api/index.js:102:25)\n    at AuthGuard (http://localhost:48122/src/components/AuthGuard.jsx:23:16)\n    at renderWithHooks (http://localhost:48122/node_modules/.vite/deps/chunk-PJEEZAML.js?v=74b3c8cb:11548:26)\n    at mountIndeterminateComponent (http://localhost:48122/node_modules/.vite/deps/chunk-PJEEZAML.js?v=74b3c8cb:14926:21)\n    at beginWork (http://localhost:48122/node_modules/.vite/deps/chunk-PJEEZAML.js?v=74b3c8cb:15914:22)\n    at beginWork$1 (http://localhost:48122/node_modules/.vite/deps/chunk-PJEEZAML.js?v=74b3c8cb:19753:22)\n    at performUnitOfWork (http://localhost:48122/node_modules/.vite/deps/chunk-PJEEZAML.js?v=74b3c8cb:19198:20)\n    at workLoopSync (http://localhost:48122/node_modules/.vite/deps/chunk-PJEEZAML.js?v=74b3c8cb:19137:13)\n    at renderRootSync (http://localhost:48122/node_modules/.vite/deps/chunk-PJEEZAML.js?v=74b3c8cb:19116:15) {componentStack: \n    at AuthGuard (http://localhost:48122/src/comp…lhost:48122/src/components/ErrorBoundary.jsx:8:5)}",
+      "location": {
+        "url": "http://localhost:48122/src/components/ErrorBoundary.jsx",
+        "lineNumber": 14,
+        "columnNumber": 12
+      }
+    }
+  ],
+  "requestFailures": [],
+  "responseErrors": []
+}

@@ -18,11 +18,11 @@
       "logTraceFormatVersion": "20260509_v13_trace_time_locator",
       "logTraceScanVersion": "20260509_v13_trace_time_locator",
       "officialCopiedLogTrace": true,
-      "dissatisfactionReason": "没有按照要求进行启动，导致服务不可用",
+      "dissatisfactionReason": "产物不满意：首轮餐饮扫码点餐平台声明已启动，但实际服务不可用，到店直接消费、排队取号、点菜、结账和评价流程都无法访问。过程不满意：日志创建了前后端和大量功能后直接给出访问地址，缺少端口监听、前端响应、浏览器页面和关键流程操作验证。",
       "annotationHash": "8f8d634678e94a00243465c3ee5899dcaa2355b3",
-      "annotationVersion": "20260509_v10_detailed_permission_issue",
-      "annotationUpdatedAt": "2026-05-10T03:50:45",
-      "annotationSource": "next-row-direct"
+      "annotationVersion": "manual_dual_axis_quality_audit_20260511_v2",
+      "annotationUpdatedAt": "2026-05-11T22:45:00",
+      "annotationSource": "manual-dual-axis-audit"
     },
     {
       "sessionId": ".3792634309254663:4c75cc1980dfb0ac041e55a3ed0c9be6_69ff9c3eb88fb1a0b30c6c03.69ffb7aa3b5243f9911b99f2.69ffb7aa3b5243f9911b99f2:Trae CN.T(2026/5/10 01:39:38)",
@@ -47,11 +47,11 @@
       "logTraceFormatVersion": "20260509_v13_trace_time_locator",
       "logTraceScanVersion": "20260509_v13_trace_time_locator",
       "officialCopiedLogTrace": true,
-      "dissatisfactionReason": "页面是黑的，没有任何提示信息",
+      "dissatisfactionReason": "产物不满意：服务恢复后页面仍是黑屏且没有错误提示，扫码点餐入口无法进入。过程不满意：本轮使用 `pkill -f \"node\"` 这类全局进程清理方式，存在误停其他项目风险，且启动脚本完成后没有充分定位前端黑屏原因。",
       "annotationHash": "e9d0e3e9439bcae3a7277a2c86e0ee8065a64ac3",
-      "annotationVersion": "20260509_v10_detailed_permission_issue",
-      "annotationUpdatedAt": "2026-05-10T03:50:45",
-      "annotationSource": "next-row-direct"
+      "annotationVersion": "manual_dual_axis_quality_audit_20260511_v2",
+      "annotationUpdatedAt": "2026-05-11T22:45:00",
+      "annotationSource": "manual-dual-axis-audit"
     },
     {
       "sessionId": ".3792634309254663:b05c6ce9555204dcd668bc1cf2d0c83b_69ff9c3eb88fb1a0b30c6c03.69ffd2e83ec8e40a46fb88b6.69ffd2e83ec8e40a46fb88b6:Trae CN.T(2026/5/10 03:35:52)",
@@ -76,11 +76,11 @@
       "logTraceFormatVersion": "20260509_v13_trace_time_locator",
       "logTraceScanVersion": "20260509_v13_trace_time_locator",
       "officialCopiedLogTrace": true,
-      "dissatisfactionReason": "没有按照要求正确启动前后端，页面空白的",
+      "dissatisfactionReason": "产物不满意：继续启动后前端页面依然空白，餐厅信息、直接就餐和排队等待入口没有显示。过程不满意：日志先判断服务运行，再修默认数据和路由，但没有用浏览器截图确认渲染，也没有验证 API 失败时页面兜底是否生效。",
       "annotationHash": "5ec6f829bb0f38551a7c87d7c60bd60daa7283cc",
-      "annotationVersion": "20260509_v10_detailed_permission_issue",
-      "annotationUpdatedAt": "2026-05-10T15:38:42",
-      "annotationSource": "next-row-direct"
+      "annotationVersion": "manual_dual_axis_quality_audit_20260511_v2",
+      "annotationUpdatedAt": "2026-05-11T22:45:00",
+      "annotationSource": "manual-dual-axis-audit"
     },
     {
       "sessionId": ".3792634309254663:2d197427cece4af39760db30b72e0017_69ff9c3eb88fb1a0b30c6c03.6a00722b3ec8e40a46fb88b7.6a00722b3ec8e40a46fb88b7:Trae CN.T(2026/5/10 14:55:23)",
@@ -105,11 +105,11 @@
       "logTraceFormatVersion": "20260509_v13_trace_time_locator",
       "logTraceScanVersion": "20260509_v13_trace_time_locator",
       "officialCopiedLogTrace": true,
-      "dissatisfactionReason": "过程不满意：没有验证规划里的验证服务可用性",
+      "dissatisfactionReason": "产物不满意：前端仍未稳定启动，页面内容缺失，扫码点餐的首页入口无法完成验收。过程不满意：本轮反复清理 Vite 和 node 服务并检查端口，过程重点是恢复进程，缺少前端实际页面、控制台和刷新缓存后的完整验证。",
       "annotationHash": "6a81944267ad0826848c537e9e6483aed3d15a8b",
-      "annotationVersion": "20260509_v10_detailed_permission_issue",
-      "annotationUpdatedAt": "2026-05-10T15:38:42",
-      "annotationSource": "next-row-direct"
+      "annotationVersion": "manual_dual_axis_quality_audit_20260511_v2",
+      "annotationUpdatedAt": "2026-05-11T22:45:00",
+      "annotationSource": "manual-dual-axis-audit"
     },
     {
       "sessionId": ".3792634309254663:846d80485ec29ce8eb17ed3e00b8d8e2_69ff9c3eb88fb1a0b30c6c03.6a0075943ec8e40a46fb88b8.6a0075943ec8e40a46fb88b8:Trae CN.T(2026/5/10 15:09:56)",
@@ -141,11 +141,11 @@
       "logTraceFormatVersion": "20260509_v13_trace_time_locator",
       "logTraceScanVersion": "20260509_v13_trace_time_locator",
       "officialCopiedLogTrace": true,
-      "dissatisfactionReason": "排队取号，没有出现等待就绪，等待工作人员通知，或显示前面还有几人等信息，排队功能模块功能不完善",
+      "dissatisfactionReason": "产物不满意：服务启动闭环后，排队取号没有等待就绪、工作人员通知、前面人数等状态，排队流程与直接消费流程没有差异化。过程不满意：本轮仍主要围绕 nohup 启动和 HTTP 存活验证，未进入排队状态机、队列人数、叫号通知和等待页的业务验收。",
       "annotationHash": "640c59471c6c8b3388ae78dafd1ac8a85eee8824",
-      "annotationVersion": "20260509_v10_detailed_permission_issue",
-      "annotationUpdatedAt": "2026-05-10T15:38:42",
-      "annotationSource": "next-row-direct"
+      "annotationVersion": "manual_dual_axis_quality_audit_20260511_v2",
+      "annotationUpdatedAt": "2026-05-11T22:45:00",
+      "annotationSource": "manual-dual-axis-audit"
     },
     {
       "sessionId": ".3792634309254663:48e8121fa36fa88d5989d638724587d5_69ff9c3eb88fb1a0b30c6c03.6a007a443ec8e40a46fb88b9.6a007a443ec8e40a46fb88b9:Trae CN.T(2026/5/10 15:29:56)",
@@ -170,11 +170,11 @@
       "logTraceFormatVersion": "20260509_v13_trace_time_locator",
       "logTraceScanVersion": "20260509_v13_trace_time_locator",
       "officialCopiedLogTrace": true,
-      "dissatisfactionReason": "",
+      "dissatisfactionReason": "产物不满意：本轮补充了排队状态、叫号和取消接口后，前端是否展示等待就绪、前方人数和工作人员通知仍缺少页面级证据。过程不满意：日志主要用 curl 验证队列 API，最后只检查前端 HTTP 状态，没有实际打开排队页面完成取号、等待、叫号和取消的端到端操作。",
       "annotationHash": "3de6e5c50c8d3859684eed8ab6742279d1116cf9",
-      "annotationVersion": "20260509_v10_detailed_permission_issue",
-      "annotationUpdatedAt": "2026-05-10T15:38:42",
-      "annotationSource": "next-row-empty"
+      "annotationVersion": "manual_dual_axis_quality_audit_20260511_v2",
+      "annotationUpdatedAt": "2026-05-11T22:45:00",
+      "annotationSource": "manual-dual-axis-audit"
     }
   ],
   "deepScan": true,

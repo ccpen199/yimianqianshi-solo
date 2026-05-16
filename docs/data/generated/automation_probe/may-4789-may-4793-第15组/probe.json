@@ -1,0 +1,148 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-15 20:51:18",
+  "group": "may-4789-may-4793-第15组",
+  "orders": [
+    "may-4791"
+  ],
+  "localProjectRoot": "/Users/chen/Documents/trae_projects/local_projects",
+  "traeWindowCount": 9,
+  "traeWindows": [
+    "init.js — may-4793",
+    "init_data.py — may-4791",
+    "PRD.md (Preview) — may-4789",
+    "package.json — may-4792",
+    "user.js — may-4794",
+    "Home.jsx — may-4780",
+    "Practice.jsx — may-4798",
+    "database.js — may-4802",
+    "index.js — may-4801"
+  ],
+  "projects": [
+    {
+      "order": "may-4791",
+      "projectPath": "/Users/chen/Documents/trae_projects/local_projects/may-4791",
+      "projectExists": true,
+      "traeWindows": [
+        "init_data.py — may-4791"
+      ],
+      "hasFrontendPackage": true,
+      "hasBackendPackage": false,
+      "hasFrontendNodeModules": true,
+      "hasBackendNodeModules": false,
+      "env": {
+        "PORT": "47911",
+        "DATABASE_URL": "sqlite:///./data/app.sqlite",
+        "SECRET_KEY": "poverty-alleviation-mall-2024-secret-key",
+        "ACCESS_TOKEN_EXPIRE_MINUTES": "1440",
+        "CORS_ORIGINS": "http://localhost:47912"
+      },
+      "envSources": {
+        "PORT": "/Users/chen/Documents/trae_projects/local_projects/may-4791/backend/.env",
+        "DATABASE_URL": "/Users/chen/Documents/trae_projects/local_projects/may-4791/backend/.env",
+        "SECRET_KEY": "/Users/chen/Documents/trae_projects/local_projects/may-4791/backend/.env",
+        "ACCESS_TOKEN_EXPIRE_MINUTES": "/Users/chen/Documents/trae_projects/local_projects/may-4791/backend/.env",
+        "CORS_ORIGINS": "/Users/chen/Documents/trae_projects/local_projects/may-4791/backend/.env"
+      },
+      "frontendPorts": [
+        47912
+      ],
+      "backendPorts": [
+        47911
+      ],
+      "ports": [
+        {
+          "port": 47912,
+          "listening": false,
+          "listeners": [],
+          "raw": []
+        },
+        {
+          "port": 47911,
+          "listening": true,
+          "listeners": [
+            {
+              "command": "Python",
+              "pid": "63856",
+              "user": "chen",
+              "protocol": "IPv4",
+              "name": "*:47911 (LISTEN)"
+            },
+            {
+              "command": "Python",
+              "pid": "63989",
+              "user": "chen",
+              "protocol": "IPv4",
+              "name": "*:47911 (LISTEN)"
+            }
+          ],
+          "raw": [
+            "COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME",
+            "Python  63856 chen    3u  IPv4 0x7204b34809cfbe59      0t0  TCP *:47911 (LISTEN)",
+            "Python  63989 chen    3u  IPv4 0x7204b34809cfbe59      0t0  TCP *:47911 (LISTEN)"
+          ]
+        }
+      ],
+      "http": [
+        {
+          "url": "http://localhost:47911/api/health",
+          "ok": false,
+          "status": 404,
+          "elapsedMs": 154,
+          "bodyPreview": "{\"detail\":\"Not Found\"}"
+        },
+        {
+          "url": "http://127.0.0.1:47911/api/health",
+          "ok": false,
+          "status": 404,
+          "elapsedMs": 33,
+          "bodyPreview": "{\"detail\":\"Not Found\"}"
+        },
+        {
+          "url": "http://[::1]:47911/api/health",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 15
+        },
+        {
+          "url": "http://localhost:47911/health",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 16,
+          "bodyPreview": "{\"success\":true,\"message\":\"服务正常\"}"
+        },
+        {
+          "url": "http://127.0.0.1:47911/health",
+          "ok": true,
+          "status": 200,
+          "elapsedMs": 45,
+          "bodyPreview": "{\"success\":true,\"message\":\"服务正常\"}"
+        },
+        {
+          "url": "http://[::1]:47911/health",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 7
+        },
+        {
+          "url": "http://localhost:47912/",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 8
+        },
+        {
+          "url": "http://127.0.0.1:47912/",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 7
+        },
+        {
+          "url": "http://[::1]:47912/",
+          "ok": false,
+          "error": "<urlopen error [Errno 61] Connection refused>",
+          "elapsedMs": 8
+        }
+      ]
+    }
+  ]
+}

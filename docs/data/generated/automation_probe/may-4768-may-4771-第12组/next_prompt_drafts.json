@@ -1,0 +1,90 @@
+{
+  "ok": true,
+  "group": "may-4768-may-4771-第12组",
+  "drafts": [
+    {
+      "order": "may-4768",
+      "frontendUrl": "http://127.0.0.1:47682/",
+      "backendHealthUrl": "http://127.0.0.1:47681/api/health",
+      "evidence": [
+        "项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4768",
+        "配置端口：前端 [47682]，后端 [47681]。"
+      ],
+      "issues": [
+        "配置端口当前均未监听，前后端没有可访问运行态。"
+      ],
+      "actions": [
+        "按当前项目配置端口启动前后端，只处理本项目端口；不要 killall/pkill 全局 Node 进程。"
+      ],
+      "imageStats": {
+        "ok": false,
+        "error": "missing screenshot"
+      },
+      "draft": "当前探测到可访问的前端地址是 http://127.0.0.1:47682/，但浏览器验收报告没有使用该地址或未成功进入业务页面，需要重新用可访问地址截图验收。\n\n已核对到的证据：项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4768；配置端口：前端 [47682]，后端 [47681]。\n\n需要优先修复的问题：配置端口当前均未监听，前后端没有可访问运行态。\n\n请按以下顺序处理：按当前项目配置端口启动前后端，只处理本项目端口；不要 killall/pkill 全局 Node 进程。\n\n修复后请重新启动当前项目端口（前端 [47682]，后端 [47681]），只处理当前项目进程，不要杀死其他项目端口，并用浏览器截图和 API 请求验证主链路。"
+    },
+    {
+      "order": "may-4769",
+      "frontendUrl": "http://127.0.0.1:47692/",
+      "backendHealthUrl": "http://127.0.0.1:47691/api/health",
+      "evidence": [
+        "项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4769",
+        "配置端口：前端 [47692]，后端 [47691]。"
+      ],
+      "issues": [
+        "配置端口当前均未监听，前后端没有可访问运行态。",
+        "前端依赖未安装，不能直接启动浏览器验收。"
+      ],
+      "actions": [
+        "根据 frontend/backend 的 package.json 补齐依赖安装，并确认启动脚本、.env、CORS 和代理配置都指向当前项目端口。",
+        "按当前项目配置端口启动前后端，只处理本项目端口；不要 killall/pkill 全局 Node 进程。"
+      ],
+      "imageStats": {
+        "ok": false,
+        "error": "missing screenshot"
+      },
+      "draft": "当前探测到可访问的前端地址是 http://127.0.0.1:47692/，但浏览器验收报告没有使用该地址或未成功进入业务页面，需要重新用可访问地址截图验收。\n\n已核对到的证据：项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4769；配置端口：前端 [47692]，后端 [47691]。\n\n需要优先修复的问题：配置端口当前均未监听，前后端没有可访问运行态；前端依赖未安装，不能直接启动浏览器验收。\n\n请按以下顺序处理：根据 frontend/backend 的 package.json 补齐依赖安装，并确认启动脚本、.env、CORS 和代理配置都指向当前项目端口；按当前项目配置端口启动前后端，只处理本项目端口；不要 killall/pkill 全局 Node 进程。\n\n修复后请重新启动当前项目端口（前端 [47692]，后端 [47691]），只处理当前项目进程，不要杀死其他项目端口，并用浏览器截图和 API 请求验证主链路。"
+    },
+    {
+      "order": "may-4770",
+      "frontendUrl": "http://127.0.0.1:47701/",
+      "backendHealthUrl": "http://127.0.0.1:47702/api/health",
+      "evidence": [
+        "项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4770",
+        "配置端口：前端 [47701]，后端 [47702]。"
+      ],
+      "issues": [
+        "配置端口当前均未监听，前后端没有可访问运行态。"
+      ],
+      "actions": [
+        "按当前项目配置端口启动前后端，只处理本项目端口；不要 killall/pkill 全局 Node 进程。"
+      ],
+      "imageStats": {
+        "ok": false,
+        "error": "missing screenshot"
+      },
+      "draft": "当前探测到可访问的前端地址是 http://127.0.0.1:47701/，但浏览器验收报告没有使用该地址或未成功进入业务页面，需要重新用可访问地址截图验收。\n\n已核对到的证据：项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4770；配置端口：前端 [47701]，后端 [47702]。\n\n需要优先修复的问题：配置端口当前均未监听，前后端没有可访问运行态。\n\n请按以下顺序处理：按当前项目配置端口启动前后端，只处理本项目端口；不要 killall/pkill 全局 Node 进程。\n\n修复后请重新启动当前项目端口（前端 [47701]，后端 [47702]），只处理当前项目进程，不要杀死其他项目端口，并用浏览器截图和 API 请求验证主链路。"
+    },
+    {
+      "order": "may-4771",
+      "frontendUrl": "http://127.0.0.1:47712/",
+      "backendHealthUrl": "http://127.0.0.1:47711/api/health",
+      "evidence": [
+        "项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4771",
+        "配置端口：前端 [47712]，后端 [47711]。"
+      ],
+      "issues": [
+        "配置端口当前均未监听，前后端没有可访问运行态。",
+        "前端依赖未安装，不能直接启动浏览器验收。"
+      ],
+      "actions": [
+        "根据 frontend/backend 的 package.json 补齐依赖安装，并确认启动脚本、.env、CORS 和代理配置都指向当前项目端口。",
+        "按当前项目配置端口启动前后端，只处理本项目端口；不要 killall/pkill 全局 Node 进程。"
+      ],
+      "imageStats": {
+        "ok": false,
+        "error": "missing screenshot"
+      },
+      "draft": "当前探测到可访问的前端地址是 http://127.0.0.1:47712/，但浏览器验收报告没有使用该地址或未成功进入业务页面，需要重新用可访问地址截图验收。\n\n已核对到的证据：项目目录存在：/Users/chen/Documents/trae_projects/local_projects/may-4771；配置端口：前端 [47712]，后端 [47711]。\n\n需要优先修复的问题：配置端口当前均未监听，前后端没有可访问运行态；前端依赖未安装，不能直接启动浏览器验收。\n\n请按以下顺序处理：根据 frontend/backend 的 package.json 补齐依赖安装，并确认启动脚本、.env、CORS 和代理配置都指向当前项目端口；按当前项目配置端口启动前后端，只处理本项目端口；不要 killall/pkill 全局 Node 进程。\n\n修复后请重新启动当前项目端口（前端 [47712]，后端 [47711]），只处理当前项目进程，不要杀死其他项目端口，并用浏览器截图和 API 请求验证主链路。"
+    }
+  ]
+}

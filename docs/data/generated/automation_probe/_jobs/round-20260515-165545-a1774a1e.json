@@ -1,0 +1,140 @@
+{
+  "id": "round-20260515-165545-a1774a1e",
+  "status": "completed",
+  "createdAt": "2026-05-15T16:57:10",
+  "updatedAt": "2026-05-15T17:44:07",
+  "groups": [
+    "may-4772-may-4775-第12组"
+  ],
+  "groupDetails": [
+    {
+      "name": "may-4772-may-4775-第12组",
+      "orders": [
+        "may-4772",
+        "may-4773",
+        "may-4774",
+        "may-4775"
+      ]
+    }
+  ],
+  "targetRounds": 5,
+  "intervalSeconds": 8,
+  "maxCycles": 500,
+  "cycle": 2,
+  "orders": {
+    "may-4772": {
+      "order": "may-4772",
+      "group": "may-4772-may-4775-第12组",
+      "status": "completed",
+      "completedRounds": 5,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "已达到 5 轮",
+      "roundDetect": {
+        "cachedRounds": 0,
+        "sentRoundCount": 5,
+        "rawInputCount": 15,
+        "effectiveInputCount": 6,
+        "duplicateInputCount": 9,
+        "source": "precise-local"
+      },
+      "lastError": ""
+    },
+    "may-4773": {
+      "order": "may-4773",
+      "group": "may-4772-may-4775-第12组",
+      "status": "completed",
+      "completedRounds": 5,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "已达到 5 轮",
+      "roundDetect": {
+        "cachedRounds": 0,
+        "sentRoundCount": 5,
+        "rawInputCount": 12,
+        "effectiveInputCount": 5,
+        "duplicateInputCount": 7,
+        "source": "precise-local"
+      },
+      "lastError": ""
+    },
+    "may-4774": {
+      "order": "may-4774",
+      "group": "may-4772-may-4775-第12组",
+      "status": "completed",
+      "completedRounds": 6,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "已达到 5 轮",
+      "roundDetect": {
+        "cachedRounds": 0,
+        "sentRoundCount": 5,
+        "rawInputCount": 14,
+        "effectiveInputCount": 5,
+        "duplicateInputCount": 9,
+        "source": "precise-local"
+      },
+      "lastError": ""
+    },
+    "may-4775": {
+      "order": "may-4775",
+      "group": "may-4772-may-4775-第12组",
+      "status": "completed",
+      "completedRounds": 6,
+      "targetRounds": 5,
+      "pendingRound": 0,
+      "message": "已达到 5 轮",
+      "roundDetect": {
+        "cachedRounds": 0,
+        "sentRoundCount": 6,
+        "rawInputCount": 13,
+        "effectiveInputCount": 6,
+        "duplicateInputCount": 7,
+        "source": "precise-local"
+      },
+      "lastError": ""
+    }
+  },
+  "events": [
+    {
+      "time": "2026-05-15T16:57:10",
+      "action": "start",
+      "message": "开始多轮自动化：1 个组，目标 5 轮"
+    },
+    {
+      "time": "2026-05-15T17:00:07",
+      "action": "submit-skip-target",
+      "group": "may-4772-may-4775-第12组",
+      "order": "may-4772",
+      "message": "may-4772 提交前已达标，跳过"
+    },
+    {
+      "time": "2026-05-15T17:02:26",
+      "action": "submit-skip-target",
+      "group": "may-4772-may-4775-第12组",
+      "order": "may-4773",
+      "message": "may-4773 提交前已达标，跳过"
+    },
+    {
+      "time": "2026-05-15T17:03:46",
+      "action": "submit-skip-target",
+      "group": "may-4772-may-4775-第12组",
+      "order": "may-4774",
+      "message": "may-4774 提交前已达标，跳过"
+    },
+    {
+      "time": "2026-05-15T17:05:38",
+      "action": "submit-skip-target",
+      "group": "may-4772-may-4775-第12组",
+      "order": "may-4775",
+      "message": "may-4775 提交前已达标，跳过"
+    },
+    {
+      "time": "2026-05-15T17:05:40",
+      "action": "completed",
+      "message": "所有选中组已达到目标轮次"
+    }
+  ],
+  "stopRequested": false,
+  "message": "所有选中组已达到目标轮次"
+}

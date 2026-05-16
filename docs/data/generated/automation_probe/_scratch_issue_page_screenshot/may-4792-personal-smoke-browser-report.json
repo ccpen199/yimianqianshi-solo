@@ -1,0 +1,90 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-15T16:43:02.977Z",
+  "order": "may-4792-personal-smoke",
+  "url": "http://localhost:47922/",
+  "initialUrl": "http://localhost:47922/",
+  "finalUrl": "http://localhost:47922/",
+  "status": 200,
+  "title": "快视频 - UGC平台",
+  "initialTitle": "快视频 - UGC平台",
+  "navigationError": "",
+  "screenshotPath": "docs/data/generated/automation_probe/_scratch_issue_page_screenshot/may-4792-personal-smoke-frontend.png",
+  "issueTextPreview": "产物不满意：个人中心没有数据。过程不满意：需要打开我的/个人中心页面核对数据展示和接口状态。",
+  "targetReason": "个人中心/我的相关问题",
+  "targetKind": "personal",
+  "targetMatched": false,
+  "targetActions": [
+    {
+      "action": "click",
+      "label": "个人中心/我的相关问题",
+      "ok": true
+    },
+    {
+      "action": "target-verify",
+      "label": "个人中心/我的相关问题",
+      "ok": false,
+      "finalUrl": "http://localhost:47922/"
+    }
+  ],
+  "initialBodyTextPreview": "快视频\n\n城市夜景延时摄影\n\n小明创作者\n❤️\n129\n\n家常红烧肉教程\n\n美食达人\n❤️\n256\n\n云南大理之旅\n\n旅行摄影师\n❤️\n512\n\n吉他弹唱《晴天》\n\n音乐爱好者\n❤️\n384\n\n我家猫咪的日常\n\n萌宠博主\n❤️\n896\n\n咖啡拉花技巧分享\n\n小明创作者\n❤️\n167\n\n四川火锅底料制作\n\n美食达人\n❤️\n423\n\n日本樱花季vlog\n\n旅行摄影师\n❤️\n678\n加载更多\n🏠\n首页\n🔍\n发现\n📹\n发布\n💬\n消息\n👤\n我的",
+  "bodyTextPreview": "快视频\n\n城市夜景延时摄影\n\n小明创作者\n❤️\n129\n\n家常红烧肉教程\n\n美食达人\n❤️\n256\n\n云南大理之旅\n\n旅行摄影师\n❤️\n512\n\n吉他弹唱《晴天》\n\n音乐爱好者\n❤️\n384\n\n我家猫咪的日常\n\n萌宠博主\n❤️\n896\n\n咖啡拉花技巧分享\n\n小明创作者\n❤️\n167\n\n四川火锅底料制作\n\n美食达人\n❤️\n423\n\n日本樱花季vlog\n\n旅行摄影师\n❤️\n678\n加载更多\n🏠\n首页\n🔍\n发现\n📹\n发布\n💬\n消息\n👤\n我的",
+  "consoleMessages": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "http://localhost:47922/@vite/client",
+        "lineNumber": 494,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "http://localhost:47922/@vite/client",
+        "lineNumber": 617,
+        "columnNumber": 14
+      }
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold",
+      "location": {
+        "url": "http://localhost:47922/node_modules/.vite/deps/chunk-PJEEZAML.js?v=c82d7059",
+        "lineNumber": 21550,
+        "columnNumber": 24
+      }
+    },
+    {
+      "type": "warning",
+      "text": "⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.",
+      "location": {
+        "url": "http://localhost:47922/node_modules/.vite/deps/react-router-dom.js?v=0827c172",
+        "lineNumber": 4435,
+        "columnNumber": 12
+      }
+    },
+    {
+      "type": "warning",
+      "text": "⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.",
+      "location": {
+        "url": "http://localhost:47922/node_modules/.vite/deps/react-router-dom.js?v=0827c172",
+        "lineNumber": 4435,
+        "columnNumber": 12
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "location": {
+        "url": "http://localhost:47922/favicon.ico",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    }
+  ],
+  "requestFailures": [],
+  "responseErrors": []
+}

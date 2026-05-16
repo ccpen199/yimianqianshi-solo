@@ -1,0 +1,155 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-14T16:25:48.641Z",
+  "order": "may-4778",
+  "url": "http://127.0.0.1:47782/",
+  "status": 200,
+  "title": "短视频",
+  "navigationError": "",
+  "screenshotPath": "docs/data/generated/automation_probe/may-4776-may-4779-第13组/may-4778-frontend.png",
+  "bodyTextPreview": "关注\n推荐\n🔍\n@创作者3\n关注\n猫咪日常\n🎵\n可爱音乐\n❤️\n9335\n💬\n972\n↗️\n0\n@创作者2\n关注\n美食探店vlog\n🎵\n背景音乐1\n❤️\n8561\n💬\n679\n↗️\n0\n@创作者2\n关注\n美食探店vlog\n🎵\n背景音乐1\n❤️\n7933\n💬\n571\n↗️\n0\n@创作者5\n关注\n旅行日记\n🎵\n旅行音乐\n❤️\n7892\n💬\n79\n↗️\n0\n@创作者4\n关注\n健身打卡\n🎵\n动感音乐\n❤️\n7830\n💬\n226\n↗️\n0\n@创作者5\n关注\n旅行日记\n🎵\n旅行音乐\n❤️\n7468\n💬\n558\n↗️\n0\n@创作者4\n关注\n健身打卡\n🎵\n动感音乐\n❤️\n7396\n💬\n239\n↗️\n0\n@创作者1\n关注\n美丽的日落\n🎵\n原声\n❤️\n6549\n💬\n701\n↗️\n0\n@创作者1\n关注\n美丽的日落\n🎵\n原声\n❤️\n6485\n💬\n753\n↗️\n0\n@创作者2\n关注\n美食探店vlog\n🎵\n背景音乐1\n❤️\n5477\n💬\n766\n↗️\n0\n🏠\n首页\n🔍\n发现\n+\n📩\n消息\n👤\n我",
+  "consoleMessages": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "http://127.0.0.1:47782/@vite/client",
+        "lineNumber": 494,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold",
+      "location": {
+        "url": "http://127.0.0.1:47782/node_modules/.vite/deps/chunk-PJEEZAML.js?v=2c8a6b88",
+        "lineNumber": 21550,
+        "columnNumber": 24
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "http://127.0.0.1:47782/@vite/client",
+        "lineNumber": 617,
+        "columnNumber": 14
+      }
+    },
+    {
+      "type": "warning",
+      "text": "⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.",
+      "location": {
+        "url": "http://127.0.0.1:47782/node_modules/.vite/deps/react-router-dom.js?v=2c8a6b88",
+        "lineNumber": 4435,
+        "columnNumber": 12
+      }
+    },
+    {
+      "type": "warning",
+      "text": "⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.",
+      "location": {
+        "url": "http://127.0.0.1:47782/node_modules/.vite/deps/react-router-dom.js?v=2c8a6b88",
+        "lineNumber": 4435,
+        "columnNumber": 12
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "location": {
+        "url": "http://127.0.0.1:47782/favicon.ico",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    }
+  ],
+  "requestFailures": [
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "errorText": "net::ERR_ABORTED"
+    }
+  ],
+  "responseErrors": []
+}

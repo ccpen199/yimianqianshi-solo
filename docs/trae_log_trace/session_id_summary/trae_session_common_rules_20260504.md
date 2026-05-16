@@ -1,6 +1,6 @@
 # Trae SessionId 共性规则汇总
 
-更新时间：2026-05-04
+更新时间：2026-05-16
 
 本文只沉淀几份 Trae sessionId 文档里反复确认的共性规则，用作后续排错的稳定口径。方案差异和冲突点不要写进本文，统一看 `trae_session_solution_comparison_20260504.md`。
 
@@ -15,9 +15,11 @@
 
 ## 稳定目标
 
-Workbench 表格里每一轮会话要展示完整 Trae 复合轨迹，而不是 24 位短 session id。
+Workbench 表格里每一轮会话的 `Session/sessionId` 要展示完整 Trae 复合轨迹，而不是 24 位短 session id。
 
-页面顶部的 `当前会话` 可以保留 24 位原始 `rawSessionId`，但表格里的 `sessionId` 和 `日志轨迹` 必须是完整 composite。
+页面顶部的 `当前会话` 可以保留 24 位原始 `rawSessionId`，但表格里的 `Session/sessionId` 必须是完整 composite。
+
+`日志轨迹/logTrace` 不属于 sessionId 组织形式。它必须是官方复制日志轨迹正文，或同一 `traceId` 的 Modular 执行正文；找不到真实正文时只能标记缺失，不能把 composite sessionId 当日志轨迹。
 
 稳定格式：
 
@@ -79,7 +81,7 @@ ChatStore
 5. 用 `create message, chat_session_id: 当前session, message_id:` 找用户消息创建行。
 6. 从同轮日志补齐真实 `traceId`。
 7. 必要时从 renderer 日志补第二段消息 id 或 block 信息。
-8. 输出 `sessionId/logTrace/rawSessionId/conversation`。
+8. 输出 `sessionId/rawSessionId/conversation`，并把可用的真实执行轨迹正文写入 `logTrace`。
 9. 结果按真实消息时间排序。
 
 ## 不允许
@@ -92,6 +94,7 @@ ChatStore
 - 不能为了凑行数复用别的轮次 trace。
 - 不能生成重复 composite sessionId。
 - 不能把表格 `sessionId` 简化成 24 位短 id。
+- 不能把 `sessionId/sessionComposite/logTraceId` 兜底写进 `日志轨迹/logTrace` 列。
 - 新刷新结果为空时，不能覆盖旧的有效缓存。
 - `input_history` 只提供会话文本，不能反过来决定 trace 或消息 id。
 - renderer 的展示时间不能覆盖用户消息创建时间。
