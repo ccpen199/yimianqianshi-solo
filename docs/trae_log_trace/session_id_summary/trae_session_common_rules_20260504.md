@@ -78,7 +78,7 @@ ChatStore
 4. 从 `ChatStore` 或 ai-agent 日志获取每轮用户消息 id。
 5. 用 `create message, chat_session_id: 当前session, message_id:` 找用户消息创建行。
 6. 从同轮日志补齐真实 `traceId`。
-7. 用同一 `traceId` 的 `reportFrontResponse` / `TASK` 状态判断是否真的完成执行：`Failed/3003`、`TASK Failed`、`TASK Cancelled/Canceled` 属于发送后失败或中断轮次，不进入会话列表。
+7. 同一 `traceId` 的 `reportFrontResponse` / `TASK` 状态只用于按需排查。`Failed/3003`、`TASK Failed`、`TASK Cancelled/Canceled` 说明该轮发送后失败或中断，但只要有同轮 `create message + traceId`，仍然属于会话列表；不能因为用户反馈文本里包含报错或前端响应失败就删除会话行。
 8. 必要时从 renderer 日志补第二段消息 id 或 block 信息。
 9. 输出 `sessionId/logTrace/rawSessionId/conversation`。
 10. 结果按真实消息时间排序。

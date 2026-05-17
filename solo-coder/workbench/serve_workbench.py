@@ -490,7 +490,7 @@ def read_json(path: str, fallback):
 
 def write_json(path: str, payload):
   os.makedirs(os.path.dirname(path), exist_ok=True)
-  tmp = f'{path}.tmp'
+  tmp = f'{path}.{os.getpid()}.{time.time_ns()}.tmp'
   with open(tmp, 'w', encoding='utf-8') as file:
     json.dump(payload, file, ensure_ascii=False, indent=2)
     file.write('\n')
@@ -6226,9 +6226,7 @@ def extract_trae_session_rounds_precise(order_token: str):
     trace_id = meta.get('traceId') or ''
     if not (re.fullmatch(r'[0-9a-f]{24}', chat_message_id) and re.fullmatch(r'[0-9a-f]{32}', trace_id)):
       continue
-    failure_reason = _trace_execution_failure_reason(trace_id)
-    if failure_reason:
-      continue
+    failure_reason = ''
     task_message_id, session_id_quality = _real_task_message_id_or_fallback(
       chat_message_id,
       _choose_response_or_task_message_id(chat_message_id, candidates),
@@ -6249,6 +6247,7 @@ def extract_trae_session_rounds_precise(order_token: str):
       'logTraceId': composite,
       'sessionComposite': composite,
       'sessionIdQuality': session_id_quality,
+      'traceExecutionFailureReason': failure_reason,
       'logTrace': '',
     })
 
@@ -7598,9 +7597,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
         continue
       trace_user = user_id or 'missing_user'
       if trace_id and re.fullmatch(r'[0-9a-f]{32}', trace_id):
-        failure_reason = _trace_execution_failure_reason(trace_id)
-        if failure_reason:
-          continue
+        failure_reason = ''
         composite = f".{trace_user}:{trace_id}_{fallback_session_id}.{fallback_chat_message_id}.{task_message_id}:{app_name}.T({time_text})"
       else:
         continue
@@ -7617,6 +7614,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
       'logTraceId': log_trace_value if include_trace else '',
       'sessionComposite': log_trace_value if include_trace else '',
       'sessionIdQuality': session_id_quality if include_trace else '',
+      'traceExecutionFailureReason': failure_reason if include_trace else '',
       'logTrace': '' if include_trace else (trace or ''),
       'screenshots': _normalize_trae_media_items(item, db_path),
     })
