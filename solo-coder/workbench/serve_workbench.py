@@ -1026,7 +1026,7 @@ def _call_annotation_chat(messages, model: str, provider: str = None):
   return _call_modelscope_chat(messages, model=model)
 
 
-def _request_session_annotations(pending_rows, model_id: str = ''):
+def _request_session_annotations(pending_rows, model_id: str = '', model_config: dict | None = None):
   provider, models, selected_model_id = _annotation_runtime_config(model_id)
   row_items = []
   for item in pending_rows:
@@ -1118,7 +1118,14 @@ def _request_session_annotations(pending_rows, model_id: str = ''):
   return mapped
 
 
-def _annotate_session_rows(rows, use_model: bool = True, model_id: str = '', force: bool = False):
+def _annotate_session_rows(
+  rows,
+  use_model: bool = True,
+  model_id: str = '',
+  force: bool = False,
+  model_config: dict | None = None,
+  strict_model: bool = False,
+):
   if not isinstance(rows, list) or not rows:
     return 0
   pending_rows = []
@@ -1178,7 +1185,13 @@ def _annotate_session_rows(rows, use_model: bool = True, model_id: str = '', for
   annotation_error = None
   try:
     if model_pending_rows and use_model:
-      annotations.update(_request_session_annotations(model_pending_rows, model_id=model_id))
+      annotations.update(
+        _request_session_annotations(
+          model_pending_rows,
+          model_id=model_id,
+          model_config=model_config,
+        )
+      )
   except Exception as exc:
     annotation_error = exc
     print(f'[WARN] session annotation fallback: {exc}', file=sys.stderr)
@@ -2923,6 +2936,9 @@ def _feishu_text_column(rows, key: str):
   values = []
   for row in rows:
     if isinstance(row, dict):
+      if row.get('__blankSlot') or row.get('__batchBlankSlot'):
+        values.append('')
+        continue
       values.append(str(row.get(key) or '').replace('\r\n', ' ').replace('\n', ' ').strip() or '-')
     else:
       values.append('-')
@@ -3592,7 +3608,65 @@ def _trae_input_history_signature(item: dict) -> tuple:
   return (_trae_input_text_signature(item), _trae_input_media_signature(item))
 
 
-def _effective_trae_input_history_entries(input_history):
+def _is_input_history_only_residue(item: dict) -> bool:
+  text = _trae_input_text_signature(item)
+  if not text:
+    return True
+  residue_patterns = [
+    r'^当前\s+https?://(?:127\.0\.0\.1|localhost):\d+/',
+    r'已核对到的证据：项目目录存在：',
+    r'正在监听的项目端口：',
+    r'后端健康检查\s+https?://(?:127\.0\.0\.1|localhost):\d+/.+可用',
+    r'^执行了一个晚上没有完成任务[。.!！]*$',
+    r'^最后一轮还是没解决页面布局混乱问题[。,.， ]*点赞喜欢功能全部缺失[。.!！]*$',
+  ]
+  return any(re.search(pattern, text) for pattern in residue_patterns)
+
+
+def _row_mentions_foreign_order(row: dict, order_token: str) -> bool:
+  if not isinstance(row, dict):
+    return False
+  text = str(row.get('conversation') or '').strip()
+  order_text = _normalize_order_token_text(order_token)
+  if not text or not order_text:
+    return False
+  # Long first-round PRDs can contain generic port examples such as may-979.
+  # Only short automation/status residue should be filtered by foreign order markers.
+  residue_markers = (
+    '当前 http://',
+    '当前 https://',
+    '已核对到的证据',
+    '项目目录存在',
+    '正在监听的项目端口',
+    '后端健康检查',
+    '浏览器访问',
+    '配置端口',
+  )
+  if len(text) > 800 and not any(marker in text for marker in residue_markers):
+    return False
+  order_digits_match = re.search(r'(\d+)$', order_text)
+  if not order_digits_match:
+    return False
+  order_digits = order_digits_match.group(1)
+  for match in re.finditer(r'\bmay-(\d+)\b', text):
+    if match.group(1) != order_digits:
+      return True
+  for match in re.finditer(r'https?://(?:127\.0\.0\.1|localhost):(\d+)\b', text):
+    port = match.group(1)
+    if len(port) >= len(order_digits) and not port.startswith(order_digits):
+      return True
+  return False
+
+
+def _is_session_row_residue_for_order(row: dict, order_token: str) -> bool:
+  if not isinstance(row, dict):
+    return True
+  if _is_input_history_only_residue({'inputText': row.get('conversation') or ''}):
+    return True
+  return _row_mentions_foreign_order(row, order_token)
+
+
+def _effective_trae_input_history_entries(input_history, include_residue: bool = False):
   if not isinstance(input_history, list):
     return []
   effective_entries = []
@@ -3601,6 +3675,10 @@ def _effective_trae_input_history_entries(input_history):
   while index < len(input_history):
     item = input_history[index]
     if not isinstance(item, dict):
+      index += 1
+      continue
+    item_is_residue = _is_input_history_only_residue(item)
+    if item_is_residue and not include_residue:
       index += 1
       continue
     signature = _trae_input_history_signature(item)
@@ -3614,12 +3692,13 @@ def _effective_trae_input_history_entries(input_history):
     # Trae input_history often keeps retry attempts as identical consecutive rows.
     # The later attempt is the one that actually survived, so keep the last item in the run.
     kept_item = input_history[run_end]
+    kept_is_residue = _is_input_history_only_residue(kept_item)
     text_signature, media_signature = signature
     is_long_text_only = bool(text_signature and not media_signature and len(text_signature) >= 240)
-    if is_long_text_only and signature in seen_long_text_only_signatures:
+    if not kept_is_residue and is_long_text_only and signature in seen_long_text_only_signatures:
       index = run_end + 1
       continue
-    if is_long_text_only:
+    if not kept_is_residue and is_long_text_only:
       seen_long_text_only_signatures.add(signature)
     effective_entries.append({
       'item': kept_item,
@@ -3627,8 +3706,28 @@ def _effective_trae_input_history_entries(input_history):
       'runStart': index,
       'runEnd': run_end,
       'signature': signature,
+      'residue': kept_is_residue,
     })
     index = run_end + 1
+  latest_media_entry_index = {}
+  for entry_index, entry in enumerate(effective_entries):
+    if not isinstance(entry, dict):
+      continue
+    signature = entry.get('signature')
+    media_signature = signature[1] if isinstance(signature, tuple) and len(signature) >= 2 else ()
+    if media_signature:
+      latest_media_entry_index[media_signature] = entry_index
+  if latest_media_entry_index:
+    effective_entries = [
+      entry for entry_index, entry in enumerate(effective_entries)
+      if not (
+        isinstance(entry, dict)
+        and isinstance(entry.get('signature'), tuple)
+        and len(entry.get('signature')) >= 2
+        and entry.get('signature')[1]
+        and latest_media_entry_index.get(entry.get('signature')[1]) != entry_index
+      )
+    ]
   return effective_entries
 
 
@@ -3706,8 +3805,8 @@ def _parse_trae_composite_session_id(value: str):
   return {
     'traceId': match.group(1),
     'sessionId': match.group(2),
-    'taskMessageId': match.group(3),
-    'chatMessageId': match.group(4),
+    'chatMessageId': match.group(3),
+    'taskMessageId': match.group(4),
   }
 
 
@@ -5465,7 +5564,6 @@ def read_official_copied_log_trace_candidates(order_token: str, db_path: str = '
       db_path = ''
   candidates = []
   candidates.extend(_read_current_workspace_copy_candidates(db_path, order_token))
-  candidates.extend(_read_raw_workspace_copy_candidates(db_path, order_token))
   candidates.extend(_read_modular_ai_agent_history_candidates(order_token, rows=rows))
   candidates.extend(_read_project_file_log_trace_candidates(order_token))
   candidates.extend(_read_log_accept_code_candidates(order_token))
@@ -5620,6 +5718,8 @@ def _rows_need_official_candidate_scan_on_read(rows) -> bool:
       continue
     source = str(row.get('logTraceSource') or '')
     text = str(row.get('logTrace') or '').strip()
+    if source == 'trae-workspace-state-raw':
+      return True
     if source == TRAE_LOG_TRACE_NOT_FOUND_SOURCE:
       return row.get('logTraceScanVersion') != TRAE_RECONSTRUCTED_LOG_TRACE_VERSION
     if source == 'trae-modular-ai-agent-history':
@@ -5641,6 +5741,14 @@ def fill_official_copied_log_traces(order_token: str, rows, db_path: str = '') -
   changed = False
   for row in rows:
     if not isinstance(row, dict):
+      continue
+    if str(row.get('logTraceSource') or '') == 'trae-workspace-state-raw':
+      row['logTrace'] = ''
+      row['logTraceSource'] = ''
+      row['logTraceSourceDetail'] = ''
+      row['logTraceReconstructed'] = False
+      row['officialCopiedLogTrace'] = False
+      changed = True
       continue
     if not row.get('officialCopiedLogTrace') or not str(row.get('logTrace') or '').strip():
       continue
@@ -5900,6 +6008,60 @@ def _cloud_task_meta_for_trace(trace_id: str, session_id: str = '', chat_message
   return {}
 
 
+_TRACE_EXECUTION_FAILURE_CACHE = {}
+
+
+def _trace_execution_failure_reason(trace_id: str) -> str:
+  trace = str(trace_id or '').strip()
+  if not re.fullmatch(r'[0-9a-f]{32}', trace):
+    return ''
+  if trace in _TRACE_EXECUTION_FAILURE_CACHE:
+    return _TRACE_EXECUTION_FAILURE_CACHE[trace]
+  reason = ''
+  rg = rg_binary()
+  if rg:
+    try:
+      completed = subprocess.run(
+        [
+          rg,
+          '--fixed-strings',
+          '--no-heading',
+          '--line-number',
+          '-m',
+          '220',
+          trace,
+          os.path.join(TRAE_APP_SUPPORT_DIR, 'logs'),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        timeout=12,
+        check=False,
+      )
+      lines = (completed.stdout or '').splitlines()
+    except Exception:
+      lines = []
+    for raw_line in lines:
+      line = raw_line.split(':', 2)[-1] if ':' in raw_line else raw_line
+      if 'reportFrontResponse' in line and trace in line:
+        status_match = re.search(r'reportFrontResponse,\s*status:\s*([A-Za-z]+)', line)
+        json_status_match = re.search(r'"status"\s*:\s*"([^"]+)"', line)
+        code_match = re.search(r'\bcode:\s*([0-9]+)', line)
+        err_code_match = re.search(r'"errCode"\s*:\s*"([^"]+)"', line)
+        status = (status_match.group(1) if status_match else '') or (json_status_match.group(1) if json_status_match else '')
+        code = (code_match.group(1) if code_match else '') or (err_code_match.group(1) if err_code_match else '')
+        if status.lower() == 'failed' or code == '3003':
+          reason = f'front_response_failed:{code or status or "unknown"}'
+          break
+      if 'TASK:' in line and trace in line:
+        task_match = re.search(r'TASK:\s*task_id=[0-9a-f]{24},session_id=[0-9a-f]{24},message_id=[0-9a-f]{24},status=([^,\s]+)', line)
+        if task_match and task_match.group(1) in {'Failed', 'Cancelled', 'Canceled'}:
+          reason = f'task_{task_match.group(1).lower()}'
+          break
+  _TRACE_EXECUTION_FAILURE_CACHE[trace] = reason
+  return reason
+
+
 def _repair_row_session_identity(row: dict) -> bool:
   if not isinstance(row, dict):
     return False
@@ -5910,21 +6072,37 @@ def _repair_row_session_identity(row: dict) -> bool:
     or ''
   ).strip()
   match = re.match(
-    r'^\.(?P<user>[^:\s]+):(?P<trace>[0-9a-f]{32})_(?P<session>[0-9a-f]{24})\.(?P<task>[0-9a-f]{24})\.(?P<chat>[0-9a-f]{24}):Trae CN\.T\((?P<time>[^)]+)\)$',
+    r'^\.(?P<user>[^:\s]+):(?P<trace>[0-9a-f]{32})_(?P<session>[0-9a-f]{24})\.(?P<first>[0-9a-f]{24})\.(?P<second>[0-9a-f]{24}):Trae CN\.T\((?P<time>[^)]+)\)$',
     composite,
   )
   if not match:
     return False
-  if match.group('task') != match.group('chat'):
+  first_id = match.group('first')
+  second_id = match.group('second')
+  user_message_id = first_id if first_id <= second_id else second_id
+  current_task_message_id = second_id if user_message_id == first_id else first_id
+  if current_task_message_id != user_message_id:
+    repaired = (
+      f".{match.group('user')}:{match.group('trace')}_{match.group('session')}."
+      f"{user_message_id}.{current_task_message_id}:{TRAE_APP_NAME}.T({match.group('time')})"
+    )
+    if repaired == composite:
+      return False
+    row['sessionId'] = repaired
+    row['logTraceId'] = repaired
+    row['sessionComposite'] = repaired
+    row['rawSessionId'] = match.group('session')
+    return True
+  if first_id != second_id:
     return False
-  cloud_task_meta = _cloud_task_meta_for_trace(match.group('trace'), match.group('session'), match.group('chat'))
+  cloud_task_meta = _cloud_task_meta_for_trace(match.group('trace'), match.group('session'), user_message_id)
   task_message_id = str(cloud_task_meta.get('messageId') or '').strip()
-  if not re.fullmatch(r'[0-9a-f]{24}', task_message_id) or task_message_id == match.group('chat'):
+  if not re.fullmatch(r'[0-9a-f]{24}', task_message_id) or task_message_id == user_message_id:
     return False
-  time_text = str(cloud_task_meta.get('time') or match.group('time') or '').strip()
+  time_text = str(match.group('time') or '').strip()
   repaired = (
     f".{match.group('user')}:{match.group('trace')}_{match.group('session')}."
-    f"{task_message_id}.{match.group('chat')}:{TRAE_APP_NAME}.T({time_text})"
+    f"{user_message_id}.{task_message_id}:{TRAE_APP_NAME}.T({time_text})"
   )
   row['sessionId'] = repaired
   row['logTraceId'] = repaired
@@ -5955,6 +6133,14 @@ def _choose_response_or_task_message_id(chat_message_id: str, candidates):
   return nearby[0][2]
 
 
+def _real_task_message_id_or_fallback(chat_message_id: str, candidate_message_id: str = '') -> tuple[str, str]:
+  chat_message_id = str(chat_message_id or '').strip()
+  candidate_message_id = str(candidate_message_id or '').strip()
+  if re.fullmatch(r'[0-9a-f]{24}', candidate_message_id) and candidate_message_id != chat_message_id:
+    return candidate_message_id, 'real_response_task'
+  return chat_message_id, 'fallback_user_message'
+
+
 def extract_trae_session_rounds_precise(order_token: str):
   db_path, current_session_id, input_history, user_id = _read_trae_workspace_context(order_token)
   create_rows = _precise_create_message_rows(current_session_id)
@@ -5969,6 +6155,7 @@ def extract_trae_session_rounds_precise(order_token: str):
     if (
       input_entries
       and raw_input_count
+      and len(input_entries or []) == raw_input_count
       and len(message_rows or []) == raw_input_count
     ):
       aligned_by_raw_index = []
@@ -6027,32 +6214,41 @@ def extract_trae_session_rounds_precise(order_token: str):
 
   rows = []
   used_composites = set()
-  for item, meta in zip(effective_input_items, aligned_create_rows):
+  for entry, item, meta in zip(effective_input_entries, effective_input_items, aligned_create_rows):
+    if (entry or {}).get('residue'):
+      continue
     if not isinstance(meta, dict):
       continue
     input_text = str(item.get('inputText') or '').strip()
+    if _is_session_row_residue_for_order({'conversation': input_text}, order_token):
+      continue
     chat_message_id = meta.get('chatMessageId') or ''
     trace_id = meta.get('traceId') or ''
     if not (re.fullmatch(r'[0-9a-f]{24}', chat_message_id) and re.fullmatch(r'[0-9a-f]{32}', trace_id)):
       continue
-    cloud_task_meta = _cloud_task_meta_for_trace(trace_id, current_session_id, chat_message_id)
-    task_message_id = cloud_task_meta.get('messageId') or _choose_response_or_task_message_id(chat_message_id, candidates)
-    if not re.fullmatch(r'[0-9a-f]{24}', str(task_message_id or '')) or task_message_id == chat_message_id:
+    failure_reason = _trace_execution_failure_reason(trace_id)
+    if failure_reason:
       continue
-    time_text = cloud_task_meta.get('time') or _object_id_time_text(task_message_id) or meta.get('time') or _object_id_time_text(chat_message_id)
+    task_message_id, session_id_quality = _real_task_message_id_or_fallback(
+      chat_message_id,
+      _choose_response_or_task_message_id(chat_message_id, candidates),
+    )
+    time_text = meta.get('time') or _object_id_time_text(chat_message_id) or _object_id_time_text(task_message_id)
     if not time_text:
       continue
     trace_user = user_id or '3792634309254663'
-    composite = f".{trace_user}:{trace_id}_{current_session_id}.{task_message_id}.{chat_message_id}:{TRAE_APP_NAME}.T({time_text})"
+    raw_session_id = meta.get('sessionId') or current_session_id
+    composite = f".{trace_user}:{trace_id}_{raw_session_id}.{chat_message_id}.{task_message_id}:{TRAE_APP_NAME}.T({time_text})"
     if composite in used_composites:
       continue
     used_composites.add(composite)
     rows.append({
       'sessionId': composite,
-      'rawSessionId': current_session_id,
+      'rawSessionId': raw_session_id,
       'conversation': input_text,
       'logTraceId': composite,
       'sessionComposite': composite,
+      'sessionIdQuality': session_id_quality,
       'logTrace': '',
     })
 
@@ -6089,6 +6285,10 @@ def read_trae_session_cache(order_token: str):
     }
   original_rows_snapshot = json.dumps(payload.get('rows') or [], ensure_ascii=False, sort_keys=True)
   normalized_rows = normalize_trae_session_rows(payload.get('rows') or [])
+  normalized_rows = [
+    row for row in normalized_rows
+    if not _is_session_row_residue_for_order(row, order_token)
+  ]
   payload['rows'], source_rows_removed = strip_source_only_log_trace_rows(normalized_rows)
   payload['rows'] = sort_session_rows_by_time(payload['rows'])
   rows_changed = json.dumps(payload.get('rows') or [], ensure_ascii=False, sort_keys=True) != original_rows_snapshot
@@ -6731,6 +6931,8 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
   if not isinstance(input_history, list):
     input_history = []
   effective_input_count = len(_effective_trae_input_history_items(input_history))
+  aligned_input_entries = _effective_trae_input_history_entries(input_history)
+  aligned_input_items = [entry.get('item') for entry in aligned_input_entries]
 
   current_session_id = str(memento.get('currentSessionId') or '').strip()
   if not current_session_id and isinstance(memento.get('list'), list) and memento['list']:
@@ -6836,6 +7038,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
       meta = _touch(chat_id)
       if meta:
         meta['sessionId'] = sess
+        meta['time'] = _log_time_to_text(line) or meta.get('time', '')
         m_trace = re.search(r'trace_id=\"([0-9a-f]{32})\"', line)
         if m_trace and not meta.get('traceId'):
           meta['traceId'] = m_trace.group(1)
@@ -6962,7 +7165,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
     ordered_chat_ids = _dedupe_chat_ids(chat_ids)
     if not ordered_chat_ids:
       return []
-    effective_items = _effective_trae_input_history_items(input_items)
+    effective_items = [item for item in (input_items or []) if isinstance(item, dict)]
     aligned = [''] * len(effective_items)
     unused = list(ordered_chat_ids)
 
@@ -7050,12 +7253,6 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
           meta['taskMessageId'] = chat_id
         if is_create_message and (message_meta.get(chat_id) or {}).get('traceId'):
           break
-      meta = message_meta.get(chat_id) or {}
-      cloud_task_meta = _cloud_task_meta_for_trace(meta.get('traceId') or '', meta.get('sessionId') or '', chat_id)
-      if cloud_task_meta.get('messageId'):
-        meta['taskMessageId'] = cloud_task_meta['messageId']
-        if cloud_task_meta.get('time'):
-          meta['time'] = cloud_task_meta['time']
     if _target_metas_complete():
       return
 
@@ -7091,11 +7288,6 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
       m_trace = re.search(r'trace_id=\"([0-9a-f]{32})\"', line)
       if m_trace:
         meta['traceId'] = m_trace.group(1)
-      cloud_task_meta = _cloud_task_meta_for_trace(meta.get('traceId') or '', session_id, chat_id)
-      if cloud_task_meta.get('messageId'):
-        meta['taskMessageId'] = cloud_task_meta['messageId']
-        if cloud_task_meta.get('time'):
-          meta['time'] = cloud_task_meta['time']
       found.append(chat_id)
     return found
 
@@ -7103,7 +7295,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
     session_created_ids = _rg_session_create_message_ids(current_session_id)
     if session_created_ids:
       _fast_rg_backfill_meta_for_chat_ids(session_created_ids)
-      if not target_chat_ids_set or len(target_chat_ids) < effective_input_count:
+      if not target_chat_ids_set or len(target_chat_ids) < len(aligned_input_items):
         target_chat_ids = _dedupe_chat_ids(session_created_ids)
         target_chat_ids_set = set(target_chat_ids)
         turn_keys = target_chat_ids
@@ -7343,7 +7535,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
     _fast_rg_backfill_meta_for_chat_ids(session_created_ids)
     if session_created_ids:
       session_created_ids = _dedupe_chat_ids(session_created_ids)
-      if len(session_created_ids) >= (len(effective_input_items) if 'effective_input_items' in locals() else effective_input_count):
+      if len(session_created_ids) >= (len(aligned_input_items) if 'aligned_input_items' in locals() else effective_input_count):
         target_chat_ids = session_created_ids
         turn_keys = target_chat_ids
 
@@ -7353,11 +7545,11 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
     _time_text_to_datetime((message_meta.get(chat_id) or {}).get('time') or '') or datetime.datetime.max,
   ))
   has_known_chat_turns = bool(aligned_chat_ids)
-  effective_input_items = _effective_trae_input_history_items(input_history)
-  if aligned_chat_ids and len(aligned_chat_ids) == len(effective_input_items):
+  has_media_anchors = any(_media_datetimes(item) for item in aligned_input_items)
+  if aligned_chat_ids and len(aligned_chat_ids) == len(aligned_input_items) and not has_media_anchors:
     turn_keys = aligned_chat_ids
   else:
-    turn_keys = _align_turn_keys_by_input(effective_input_items, aligned_chat_ids, message_meta)
+    turn_keys = _align_turn_keys_by_input(aligned_input_items, aligned_chat_ids, message_meta)
   if include_trace:
     final_chat_ids = _dedupe_chat_ids([
       (turn_key.rsplit('-', 1)[0] if '-' in str(turn_key) else str(turn_key))
@@ -7368,13 +7560,21 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
   rows = []
   used_composites = set()
   row_items = [
-    (turn_keys[idx] if idx < len(turn_keys) else '', item)
-    for idx, item in enumerate(effective_input_items)
+    (
+      turn_keys[idx] if idx < len(turn_keys) else '',
+      aligned_input_entries[idx] if idx < len(aligned_input_entries) else {},
+      item,
+    )
+    for idx, item in enumerate(aligned_input_items)
   ]
-  for idx, (turn_key, item) in enumerate(row_items, start=1):
+  for idx, (turn_key, entry, item) in enumerate(row_items, start=1):
     if not isinstance(item, dict):
       continue
     input_text = str(item.get('inputText') or '').strip()
+    if (entry or {}).get('residue'):
+      continue
+    if _is_session_row_residue_for_order({'conversation': input_text}, order_token):
+      continue
     parsed = item.get('parsedQuery') if isinstance(item.get('parsedQuery'), list) else []
     media = item.get('multiMedia') if isinstance(item.get('multiMedia'), list) else []
     chat_message_id = turn_key.rsplit('-', 1)[0] if '-' in turn_key else turn_key
@@ -7388,6 +7588,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
       fallback_session_id = meta.get('sessionId') or current_session_id or 'missing_session'
       fallback_chat_message_id = chat_message_id or 'missing_chat'
       task_message_id = meta.get('taskMessageId') or fallback_chat_message_id
+      session_id_quality = 'real_response_task' if task_message_id != fallback_chat_message_id else 'fallback_user_message'
       time_text = (
         meta.get('time')
         or _object_id_time_text(fallback_chat_message_id)
@@ -7397,7 +7598,10 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
         continue
       trace_user = user_id or 'missing_user'
       if trace_id and re.fullmatch(r'[0-9a-f]{32}', trace_id):
-        composite = f".{trace_user}:{trace_id}_{fallback_session_id}.{task_message_id}.{fallback_chat_message_id}:{app_name}.T({time_text})"
+        failure_reason = _trace_execution_failure_reason(trace_id)
+        if failure_reason:
+          continue
+        composite = f".{trace_user}:{trace_id}_{fallback_session_id}.{fallback_chat_message_id}.{task_message_id}:{app_name}.T({time_text})"
       else:
         continue
       if composite in used_composites:
@@ -7412,6 +7616,7 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
       'conversation': input_text,
       'logTraceId': log_trace_value if include_trace else '',
       'sessionComposite': log_trace_value if include_trace else '',
+      'sessionIdQuality': session_id_quality if include_trace else '',
       'logTrace': '' if include_trace else (trace or ''),
       'screenshots': _normalize_trae_media_items(item, db_path),
     })

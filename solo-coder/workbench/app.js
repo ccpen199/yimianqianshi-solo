@@ -867,7 +867,7 @@ function displaySessionId(value) {
 }
 
 function sessionColumnText(row) {
-  return displaySessionId(row?.sessionId || row?.sessionComposite || row?.logTraceId || '-');
+  return String(row?.sessionId || '-').trim() || '-';
 }
 
 function normalizeSessionRow(row) {
@@ -1358,11 +1358,12 @@ async function rowsForFeishuBatchPaste(rows) {
       .map((item) => String(item.path || '').trim())
       .filter(Boolean);
     prepared.push({
-      order,
+      order: isBatchBlankSlot(row) ? '' : order,
       indexInOrder,
-      conversation: spreadsheetColumnText(row?.conversation || ''),
-      dissatisfactionReason: spreadsheetColumnText(dissatisfactionReasonText(row?.dissatisfactionReason)),
-      logTrace: spreadsheetColumnText(sessionLogTraceText(row)),
+      __blankSlot: isBatchBlankSlot(row),
+      conversation: batchPasteCellText(row, 'conversation'),
+      dissatisfactionReason: batchPasteCellText(row, 'dissatisfactionReason'),
+      logTrace: batchPasteCellText(row, 'logTrace'),
       imagePaths,
       imageCount: imagePaths.length,
     });
@@ -1372,7 +1373,7 @@ async function rowsForFeishuBatchPaste(rows) {
 
 async function pasteBatchScreenshotsToFeishu() {
   if (!pasteBatchScreenshotsToFeishuButton) return;
-  const rows = batchRowsForColumnCopy();
+  const rows = batchRowsForScreenshotCopy();
   if (!rows.length) {
     setBatchSessionRefreshStatus('当前批量列表没有可粘贴行', true);
     return;
@@ -1656,7 +1657,73 @@ function batchCopyLimit() {
   return Number.isInteger(value) && value > 0 ? value : Infinity;
 }
 
+function isBatchBlankSlot(row) {
+  return Boolean(row?.__batchBlankSlot || row?.__blankSlot);
+}
+
+function isCopyableBatchSessionRow(row) {
+  if (!row || isBatchBlankSlot(row)) return false;
+  const sessionId = String(row?.sessionId || '').trim();
+  const conversation = String(row?.conversation || '').trim();
+  if (!sessionId || sessionId === '-') return false;
+  if (!conversation || conversation.startsWith('读取失败:') || conversation.startsWith('刷新失败:')) return false;
+  return true;
+}
+
+function batchOrdersForSlotCopy(rows = currentBatchSessionRows) {
+  const explicit = normalizeBatchOrders(currentBatchSessionOrders || []);
+  if (explicit.length) return explicit;
+  const seen = new Set();
+  const orders = [];
+  for (const row of rows || []) {
+    const order = String(row?.order || '').trim();
+    if (!order || seen.has(order)) continue;
+    seen.add(order);
+    orders.push(order);
+  }
+  return orders;
+}
+
+function makeBatchBlankSlot(order, indexInOrder) {
+  return {
+    __batchBlankSlot: true,
+    order,
+    indexInOrder,
+    sessionId: '',
+    rawSessionId: '',
+    logTraceId: '',
+    sessionComposite: '',
+    dissatisfactionReason: '',
+    conversation: '',
+    logTrace: '',
+    screenshots: [],
+  };
+}
+
 function batchRowsForColumnCopy(rows = currentBatchSessionRows) {
+  const limit = batchCopyLimit();
+  if (!Number.isFinite(limit)) return Array.isArray(rows) ? rows : [];
+  const rowsByOrder = new Map();
+  for (const row of rows || []) {
+    const order = String(row?.order || '').trim();
+    if (!order || !isCopyableBatchSessionRow(row)) continue;
+    if (!rowsByOrder.has(order)) rowsByOrder.set(order, []);
+    rowsByOrder.get(order).push(row);
+  }
+  const orders = batchOrdersForSlotCopy(rows);
+  const selected = [];
+  for (const order of orders) {
+    const orderRows = rowsByOrder.get(order) || [];
+    const cappedRows = orderRows.slice(0, limit);
+    for (const row of cappedRows) selected.push(row);
+    for (let index = cappedRows.length + 1; index <= limit; index += 1) {
+      selected.push(makeBatchBlankSlot(order, index));
+    }
+  }
+  return selected;
+}
+
+function batchRowsForScreenshotCopy(rows = currentBatchSessionRows) {
   const limit = batchCopyLimit();
   if (!Number.isFinite(limit)) return Array.isArray(rows) ? rows : [];
   const counts = new Map();
@@ -1668,6 +1735,14 @@ function batchRowsForColumnCopy(rows = currentBatchSessionRows) {
     if (nextCount <= limit) selected.push(row);
   }
   return selected;
+}
+
+function batchPasteCellText(row, field) {
+  if (isBatchBlankSlot(row)) return '';
+  if (field === 'sessionId') return spreadsheetColumnText(sessionColumnText(row));
+  if (field === 'dissatisfactionReason') return spreadsheetColumnText(dissatisfactionReasonText(row?.dissatisfactionReason));
+  if (field === 'logTrace') return spreadsheetColumnText(sessionLogTraceText(row));
+  return spreadsheetColumnText(row?.[field] || '');
 }
 
 async function fetchSessionRowsForOrder(order) {
@@ -1759,9 +1834,9 @@ async function copySessionColumn(field, button) {
 }
 
 async function copyBatchColumn(field, button) {
-  const rows = batchRowsForColumnCopy();
+  const rows = field === 'screenshot' ? batchRowsForScreenshotCopy() : batchRowsForColumnCopy();
   if (field === 'logTrace') {
-    const values = rows.map((row) => spreadsheetColumnText(sessionLogTraceText(row)));
+    const values = rows.map((row) => batchPasteCellText(row, 'logTrace'));
     await copyText(values.join('\n'), button);
     return;
   }
@@ -1769,12 +1844,8 @@ async function copyBatchColumn(field, button) {
     await copyScreenshotRowsAsImages(rows, button);
     return;
   }
-  const values = rows.map((row) => {
-    if (field === 'sessionId') return sessionColumnText(row);
-    if (field === 'dissatisfactionReason') return dissatisfactionReasonText(row?.[field]);
-    return String(row?.[field] || '').trim();
-  });
-  await copyText(values.map(spreadsheetColumnText).join('\n'), button);
+  const values = rows.map((row) => batchPasteCellText(row, field));
+  await copyText(values.join('\n'), button);
 }
 
 async function showSessionModal(order) {
@@ -2082,7 +2153,7 @@ function sessionRowsValidCount(rows) {
 async function refreshMissingSessionOrder(order, threshold, options = {}) {
   const targetOrder = String(order || '').trim();
   const startedAt = Date.now();
-  const maxWaitMs = 420000;
+  const maxWaitMs = 60000;
   let lastPayload = null;
   const report = (text) => {
     if (typeof options.onProgress === 'function') options.onProgress(targetOrder, text);
@@ -2095,7 +2166,7 @@ async function refreshMissingSessionOrder(order, threshold, options = {}) {
       const response = await fetchWithTimeout('/api/refresh-trae-session-rounds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order: targetOrder, force: true, discover: true }),
+        body: JSON.stringify({ order: targetOrder, force: true, discover: false }),
       }, 0);
       const payload = await response.json();
       if (!payload.ok) throw new Error(payload.busy ? '刷新繁忙，请稍后再点' : (payload.error || '刷新失败'));
@@ -2103,7 +2174,7 @@ async function refreshMissingSessionOrder(order, threshold, options = {}) {
       const rowCount = sessionPayloadRowCount(payload);
       if (payload.refreshPending) {
         const expectedText = payload.expectedRows ? `，预计 ${payload.expectedRows}` : '';
-        report(`后台发现轮次中：${targetOrder} 当前 ${rowCount}/${threshold}${expectedText}`);
+        report(`后台轻量拉取中：${targetOrder} 当前 ${rowCount}/${threshold}${expectedText}`);
         await sleep(2500);
         continue;
       }

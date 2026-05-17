@@ -230,9 +230,10 @@ rg 'create message, chat_session_id:\s*<sessionId>, message_id:' logs
 
 4. 每条 create message 生成一条候选轮次。
 5. `input_history` 只提供会话文本，按时间顺序和 create message 对齐。
-6. 第二段优先用同 session、同轮、时间接近的 response/task id；找不到则退回 user message id。
-7. 拉到真实 rows 后覆盖缓存。
-8. 如果精准拉取结果为空，而旧缓存有真实 rows，保留旧缓存，不用空结果覆盖。
+6. 同一 trace 如果出现 `reportFrontResponse status=Failed`、`errCode/code=3003`、`TASK Failed` 或 `TASK Cancelled/Canceled`，说明该轮发送后失败或中断，不写入会话列表。
+7. 第二段优先用同 session、同轮、时间接近的 response/task id；找不到则退回 user message id。
+8. 拉到真实 rows 后覆盖缓存。
+9. 如果精准拉取结果为空，而旧缓存有真实 rows，保留旧缓存，不用空结果覆盖。
 
 目标格式：
 

@@ -78,9 +78,10 @@ ChatStore
 4. 从 `ChatStore` 或 ai-agent 日志获取每轮用户消息 id。
 5. 用 `create message, chat_session_id: 当前session, message_id:` 找用户消息创建行。
 6. 从同轮日志补齐真实 `traceId`。
-7. 必要时从 renderer 日志补第二段消息 id 或 block 信息。
-8. 输出 `sessionId/logTrace/rawSessionId/conversation`。
-9. 结果按真实消息时间排序。
+7. 用同一 `traceId` 的 `reportFrontResponse` / `TASK` 状态判断是否真的完成执行：`Failed/3003`、`TASK Failed`、`TASK Cancelled/Canceled` 属于发送后失败或中断轮次，不进入会话列表。
+8. 必要时从 renderer 日志补第二段消息 id 或 block 信息。
+9. 输出 `sessionId/logTrace/rawSessionId/conversation`。
+10. 结果按真实消息时间排序。
 
 ## 不允许
 
@@ -95,6 +96,7 @@ ChatStore
 - 新刷新结果为空时，不能覆盖旧的有效缓存。
 - `input_history` 只提供会话文本，不能反过来决定 trace 或消息 id。
 - renderer 的展示时间不能覆盖用户消息创建时间。
+- 不能按文本样式删除会话，例如 `` `2 条日志` `` 可能是有效人工反馈；是否保留必须看同一 trace 的执行状态。
 
 ## 空结果判定
 
