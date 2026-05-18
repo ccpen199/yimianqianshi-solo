@@ -1,0 +1,18 @@
+{
+  "name": "edu-crm-backend",
+  "version": "1.0.0",
+  "description": "Education CRM Backend API",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "sqlite3": "^5.1.6",
+    "dotenv": "^16.3.1",
+    "bcryptjs": "^2.4.3",
+    "dayjs": "^1.11.10"
+  }
+}
