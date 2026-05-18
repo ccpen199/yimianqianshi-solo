@@ -58,6 +58,7 @@ let candidates = [];
 let prompts = [];
 let atoms = [];
 let promptState = { completed: {} };
+let promptAssetsById = new Map();
 let filteredPrompts = [];
 let selectedPromptId = '';
 let selectedParts = { background: '', features: '', delivery: '' };
@@ -147,6 +148,9 @@ function isCompleted(promptId) {
 }
 
 function orderPrefix(prompt) {
+  const explicitOrder = String(promptState.orders?.[prompt?.id] || prompt?.order_folder || '').trim();
+  const explicitMatch = explicitOrder.match(/^([a-zA-Z][a-zA-Z0-9]*)-\d+$/);
+  if (explicitMatch) return explicitMatch[1].toLowerCase();
   if (String(prompt?.id || '').startsWith('prd_300_may_')) return 'may';
   const domain = normalizeDomainName(prompt.business_domain);
   return scenePrefix[domain] || 'x';
@@ -160,7 +164,7 @@ function orderToken(prompt, value) {
   const text = String(value ?? '').trim();
   if (!text) return `${prefix}-${prompt.global_order}`;
   if (/^\d+$/.test(text)) return `${prefix}-${Number.parseInt(text, 10)}`;
-  const match = text.match(/^([a-zA-Z]+)-(\d+)$/);
+  const match = text.match(/^([a-zA-Z][a-zA-Z0-9]*)-(\d+)$/);
   if (match) return `${match[1].toLowerCase()}-${Number.parseInt(match[2], 10)}`;
   return text;
 }
@@ -225,7 +229,7 @@ function normalizeBatchOrders(items) {
     let text = String(item || '').trim();
     if (!text) continue;
     if (/^\d+$/.test(text)) text = `xm-${Number.parseInt(text, 10)}`;
-    const match = text.match(/^([a-zA-Z]+)-(\d+)$/);
+    const match = text.match(/^([a-zA-Z][a-zA-Z0-9]*)-(\d+)$/);
     if (match) text = `${match[1].toLowerCase()}-${Number.parseInt(match[2], 10)}`;
     if (!seen.has(text)) {
       seen.add(text);
@@ -1840,12 +1844,21 @@ async function savePromptOrder(row, order, input) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt_id: row.id, order, order_token: nextToken }),
   });
-  const payload = await response.json();
-  if (!payload.ok) {
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch {
+    payload = {};
+  }
+  if (!response.ok || !payload.ok) {
+    const message = payload.error || `序号保存失败：HTTP ${response.status}`;
     input.classList.add('invalid-order');
+    input.title = message;
+    setBatchStatus(message, true);
     return false;
   }
   promptState = payload.state || promptState;
+  setBatchStatus(`已更新序号：${payload.old_order || getOrder(row)} -> ${payload.order_token || nextToken}`);
   renderStats();
   renderSceneButtons();
   renderBatchProjectList();
@@ -2160,6 +2173,21 @@ async function loadPromptState() {
   }
 }
 
+async function loadPromptAssets() {
+  try {
+    const response = await fetch('/api/prompt-assets', { cache: 'no-store' });
+    const payload = await response.json();
+    if (!payload.ok) throw new Error(payload.error || '读取项目资产失败');
+    const assets = Array.isArray(payload.assets) ? payload.assets : [];
+    promptAssetsById = new Map(assets.map((item) => [item.prompt_id, item]));
+    return assets;
+  } catch (error) {
+    promptAssetsById = new Map();
+    setBatchStatus(`项目资产校验失败：${error.message || error}`, true);
+    return [];
+  }
+}
+
 async function loadWorkbenchConfig() {
   try {
     const response = await fetch('/api/workbench-config', { cache: 'no-store' });
@@ -2351,6 +2379,15 @@ async function loadPromptFactory() {
     business_domain: normalizeDomainName(atom.business_domain),
   }));
   await loadPromptState();
+  const promptAssets = await loadPromptAssets();
+  if (promptAssets.length) {
+    const validPromptIds = new Set(
+      promptAssets
+        .filter((item) => item.has_prompt_json && item.has_project_folder)
+        .map((item) => item.prompt_id)
+    );
+    prompts = prompts.filter((prompt) => validPromptIds.has(prompt.id));
+  }
   await fetchBatchGroups();
   bindFilters();
   bindBatchTraeControls();

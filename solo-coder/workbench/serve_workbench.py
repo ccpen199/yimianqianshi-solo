@@ -29,16 +29,58 @@ from urllib.parse import parse_qs, quote, unquote, urlparse
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.abspath(os.path.join(ROOT_DIR, '../..'))
+PROJECT_DATA_DIR = os.path.join(PROJECT_DIR, 'data')
 DOCS_DATA_DIR = os.path.join(PROJECT_DIR, 'docs', 'data')
-STATE_FILE = os.path.join(DOCS_DATA_DIR, 'generated', 'prompt_state.json')
-PROMPTS_FILE = os.path.join(DOCS_DATA_DIR, 'generated', 'generation_prompts.json')
-TRAE_SESSION_CACHE_DIR = os.path.join(DOCS_DATA_DIR, 'generated', 'trae_session_rounds')
-FEISHU_SCREENSHOT_PASTE_DIR = os.path.join(DOCS_DATA_DIR, 'generated', 'feishu_screenshot_paste')
-TRAE_ROOT = '/Users/chen/Documents/trae_projects'
-TRAE_APP_SUPPORT_DIR = '/Users/chen/Library/Application Support/Trae CN'
+
+
+def data_dir_has_prompt_files(data_dir: str) -> bool:
+  generated_dir = os.path.join(data_dir, 'generated')
+  return (
+    os.path.isfile(os.path.join(generated_dir, 'generation_prompts.json'))
+    and os.path.isfile(os.path.join(generated_dir, 'prompt_state.json'))
+  )
+
+
+def default_data_dir() -> str:
+  configured = os.environ.get('WORKBENCH_DATA_DIR') or os.environ.get('YMQS_DATA_DIR')
+  if configured:
+    return os.path.abspath(configured)
+  if data_dir_has_prompt_files(PROJECT_DATA_DIR):
+    return PROJECT_DATA_DIR
+  return DOCS_DATA_DIR
+
+
+def default_trae_root() -> str:
+  configured = os.environ.get('TRAE_ROOT') or os.environ.get('TRAE_PROJECTS_ROOT')
+  if configured:
+    return os.path.abspath(configured)
+  if sys.platform == 'win32':
+    candidates = [
+      os.path.join(os.path.dirname(PROJECT_DIR), 'trae_projects'),
+      os.path.join(os.path.splitdrive(PROJECT_DIR)[0] + os.sep, 'trae_projects'),
+      os.path.join(os.path.expanduser('~'), 'Documents', 'trae_projects'),
+    ]
+    for candidate in candidates:
+      if os.path.isdir(candidate):
+        return candidate
+    return candidates[0]
+  return '/Users/chen/Documents/trae_projects'
+
+
+DATA_DIR = default_data_dir()
+STATE_FILE = os.path.join(DATA_DIR, 'generated', 'prompt_state.json')
+PROMPTS_FILE = os.path.join(DATA_DIR, 'generated', 'generation_prompts.json')
+TRAE_SESSION_CACHE_DIR = os.path.join(DATA_DIR, 'generated', 'trae_session_rounds')
+FEISHU_SCREENSHOT_PASTE_DIR = os.path.join(DATA_DIR, 'generated', 'feishu_screenshot_paste')
+TRAE_ROOT = default_trae_root()
+TRAE_APP_SUPPORT_DIR = os.environ.get('TRAE_APP_SUPPORT_DIR') or (
+  os.path.join(os.environ.get('APPDATA') or os.path.expanduser('~'), 'Trae CN')
+  if sys.platform == 'win32'
+  else '/Users/chen/Library/Application Support/Trae CN'
+)
 TRAE_WORKSPACE_STORAGE_DIR = os.path.join(TRAE_APP_SUPPORT_DIR, 'User', 'workspaceStorage')
 TRAE_APP_NAME = 'Trae CN'
-TRAE_CLI = '/Applications/Trae CN.app/Contents/Resources/app/bin/trae-cn'
+TRAE_CLI = os.environ.get('TRAE_CLI') or '/Applications/Trae CN.app/Contents/Resources/app/bin/trae-cn'
 TRAE_LOG_SCAN_LIMIT = 128
 TRAE_REFRESH_LOG_SCAN_LIMIT = 24
 TRAE_LOG_TAIL_BYTES = 8 * 1024 * 1024
@@ -222,7 +264,7 @@ def normalize_order_token(prompt, order_value):
     return default_order_token(prompt)
   if re.fullmatch(r'\d+', text):
     return f'{prefix}-{int(text)}'
-  match = re.fullmatch(r'([A-Za-z]+)-(\d+)', text)
+  match = re.fullmatch(r'([A-Za-z][A-Za-z0-9]*)-(\d+)', text)
   if match:
     return f'{match.group(1).lower()}-{int(match.group(2))}'
   return text
@@ -232,7 +274,7 @@ def extract_order_number(order_value):
   text = str(order_value or '').strip()
   if re.fullmatch(r'\d+', text):
     return int(text)
-  match = re.fullmatch(r'[A-Za-z]+-(\d+)', text)
+  match = re.fullmatch(r'[A-Za-z][A-Za-z0-9]*-(\d+)', text)
   if match:
     return int(match.group(1))
   return None
@@ -676,7 +718,7 @@ def ensure_all_prompt_folders():
   return count
 
 
-def project_folder_for_order(order_token: str):
+def project_folder_for_order(order_token: str, create_missing: bool = False):
   order_token = str(order_token or '').strip()
   if not order_token:
     raise RuntimeError('order is required')
@@ -684,17 +726,53 @@ def project_folder_for_order(order_token: str):
     if os.path.isdir(project_path):
       return project_path
   project_path = os.path.join(TRAE_ROOT, 'local_projects', order_token)
-  os.makedirs(project_path, exist_ok=True)
-  return project_path
+  if create_missing:
+    os.makedirs(project_path, exist_ok=True)
+    return project_path
+  raise RuntimeError(f'项目文件夹不存在：{order_token}，请确认 {project_path}')
+
+
+def project_folder_exists_for_order(order_token: str) -> bool:
+  try:
+    project_folder_for_order(order_token, create_missing=False)
+    return True
+  except Exception:
+    return False
+
+
+def prompt_asset_statuses():
+  prompts = load_prompts()
+  state = read_json(STATE_FILE, {'completed': {}, 'orders': {}})
+  orders = state.get('orders', {}) if isinstance(state, dict) else {}
+  assets = []
+  for prompt in prompts:
+    prompt_id = str(prompt.get('id') or '').strip()
+    order = normalize_order_token(prompt, orders.get(prompt_id, default_order_token(prompt)))
+    project_folder = ''
+    try:
+      project_folder = project_folder_for_order(order, create_missing=False)
+    except Exception:
+      project_folder = ''
+    session_cache_path = _session_cache_path(order)
+    assets.append({
+      'prompt_id': prompt_id,
+      'order': order,
+      'has_prompt_json': True,
+      'has_project_folder': bool(project_folder),
+      'project_folder': project_folder,
+      'has_session_json': os.path.isfile(session_cache_path),
+      'session_json': session_cache_path,
+    })
+  return assets
 
 
 def _is_order_token_name(value: str) -> bool:
-  return bool(re.fullmatch(r'[A-Za-z]+-\d+', str(value or '').strip()))
+  return bool(re.fullmatch(r'[A-Za-z][A-Za-z0-9]*-\d+', str(value or '').strip()))
 
 
 def _normalize_order_token_text(value: str) -> str:
   text = str(value or '').strip()
-  match = re.fullmatch(r'([A-Za-z]+)-(\d+)', text)
+  match = re.fullmatch(r'([A-Za-z][A-Za-z0-9]*)-(\d+)', text)
   if match:
     return f'{match.group(1).lower()}-{int(match.group(2))}'
   return text
@@ -795,7 +873,7 @@ def parse_order_tokens(raw_orders):
       continue
     if re.fullmatch(r'\d+', text):
       text = f'xm-{int(text)}'
-    match = re.fullmatch(r'([A-Za-z]+)-(\d+)', text)
+    match = re.fullmatch(r'([A-Za-z][A-Za-z0-9]*)-(\d+)', text)
     if match:
       text = f'{match.group(1).lower()}-{int(match.group(2))}'
     if text not in seen:
@@ -814,7 +892,11 @@ def load_trae_groups():
     safe_name = str(name or '').strip()
     if not safe_name:
       continue
-    normalized[safe_name] = parse_order_tokens(orders)
+    normalized[safe_name] = [
+      order
+      for order in parse_order_tokens(orders)
+      if project_folder_exists_for_order(order)
+    ]
   return normalized
 
 
@@ -825,6 +907,8 @@ def save_trae_group(name: str, raw_orders):
   orders = parse_order_tokens(raw_orders)
   if not orders:
     raise RuntimeError('group orders are required')
+  for order in orders:
+    project_folder_for_order(order, create_missing=False)
   state = read_json(STATE_FILE, {'completed': {}, 'orders': {}})
   state.setdefault('completed', {})
   state.setdefault('orders', {})
@@ -833,8 +917,6 @@ def save_trae_group(name: str, raw_orders):
     state['trae_groups'] = {}
   state['trae_groups'][group_name] = orders
   write_json(STATE_FILE, state)
-  for order in orders:
-    project_folder_for_order(order)
   return {'ok': True, 'groups': load_trae_groups(), 'active': group_name}
 
 
@@ -851,10 +933,56 @@ def delete_trae_group(name: str):
   return {'ok': True, 'groups': load_trae_groups()}
 
 
+def resolve_trae_cli():
+  candidates = []
+  if TRAE_CLI:
+    candidates.append(TRAE_CLI)
+  if sys.platform == 'win32':
+    local_appdata = os.environ.get('LOCALAPPDATA') or ''
+    program_files = os.environ.get('ProgramFiles') or ''
+    program_files_x86 = os.environ.get('ProgramFiles(x86)') or ''
+    project_drive = os.path.splitdrive(PROJECT_DIR)[0] + os.sep
+    username = os.environ.get('USERNAME') or ''
+    drive_local_appdata = os.path.join(project_drive, 'Users', username, 'AppData', 'Local') if username else ''
+    candidates.extend([
+      shutil.which('trae') or '',
+      shutil.which('trae-cn') or '',
+      shutil.which('Trae') or '',
+      os.path.join(local_appdata, 'Programs', 'Trae', 'Trae.exe'),
+      os.path.join(local_appdata, 'Programs', 'Trae CN', 'Trae CN.exe'),
+      os.path.join(local_appdata, 'Programs', 'trae-cn', 'Trae CN.exe'),
+      os.path.join(drive_local_appdata, 'Programs', 'Trae', 'Trae.exe'),
+      os.path.join(drive_local_appdata, 'Programs', 'Trae CN', 'Trae CN.exe'),
+      os.path.join(drive_local_appdata, 'Programs', 'trae-cn', 'Trae CN.exe'),
+      os.path.join(program_files, 'Trae', 'Trae.exe'),
+      os.path.join(program_files, 'Trae CN', 'Trae CN.exe'),
+      os.path.join(program_files_x86, 'Trae', 'Trae.exe'),
+      os.path.join(program_files_x86, 'Trae CN', 'Trae CN.exe'),
+    ])
+  for candidate in candidates:
+    if candidate and os.path.isfile(candidate):
+      return candidate
+  return ''
+
+
 def open_trae_project(order_token: str):
   project_path = project_folder_for_order(order_token)
-  if os.path.isfile(TRAE_CLI):
-    cmd = [TRAE_CLI, '--new-window', project_path]
+  trae_cli = resolve_trae_cli()
+  if sys.platform == 'win32':
+    if not trae_cli:
+      raise RuntimeError('Windows 未找到 Trae 可执行文件，请设置环境变量 TRAE_CLI 指向 Trae.exe')
+    cmd = [trae_cli, project_path]
+    subprocess.Popen(cmd, cwd=project_path)
+    return {
+      'ok': True,
+      'order': order_token,
+      'folder': project_path,
+      'command': cmd,
+      'stdout': '',
+      'stderr': '',
+    }
+  if os.path.isfile(trae_cli):
+    cmd = [trae_cli, '--new-window', project_path]
   else:
     cmd = ['open', '-a', TRAE_APP_NAME, project_path]
   completed = run_cmd(cmd, check=True)
@@ -1588,6 +1716,8 @@ def workbench_defaults():
   return {
     'default_github_repo_url': DEFAULT_GITHUB_REPO_URL,
     'default_feishu_task_url': DEFAULT_FEISHU_TASK_URL,
+    'data_dir': DATA_DIR,
+    'trae_root': TRAE_ROOT,
   }
 
 
@@ -1939,6 +2069,91 @@ def _copy_png_file_to_macos_clipboard(image_path: str):
   ])
 
 
+def _powershell_executable() -> str:
+  executable = (
+    os.environ.get('WORKBENCH_POWERSHELL')
+    or shutil.which('powershell.exe')
+    or shutil.which('powershell')
+  )
+  if not executable:
+    raise RuntimeError('未找到 PowerShell，无法执行 Windows 自动粘贴')
+  return executable
+
+
+def _run_windows_powershell(script: str, input_text: str = None):
+  if sys.platform != 'win32':
+    raise RuntimeError('Windows 自动粘贴只能在 Windows 上执行')
+  executable = _powershell_executable()
+  cmd = [
+    executable,
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-STA',
+    '-Command',
+    script,
+  ]
+  completed = subprocess.run(
+    cmd,
+    text=True,
+    input=input_text,
+    capture_output=True,
+    check=False,
+    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+  )
+  if completed.returncode != 0:
+    detail = completed.stderr.strip() or completed.stdout.strip() or 'PowerShell failed'
+    raise RuntimeError(detail)
+  return completed.stdout.strip()
+
+
+def _powershell_single_quoted(value: str) -> str:
+  return "'" + str(value or '').replace("'", "''") + "'"
+
+
+def _copy_text_to_windows_clipboard(text: str):
+  value = str(text or '')
+  if len(value) > 20 * 1024 * 1024:
+    raise RuntimeError('待粘贴文本超过 20MB')
+  _run_windows_powershell(r"""
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Windows.Forms
+$text = [Console]::In.ReadToEnd()
+for ($attempt = 0; $attempt -lt 5; $attempt++) {
+  try {
+    [System.Windows.Forms.Clipboard]::SetText($text)
+    exit 0
+  } catch {
+    if ($attempt -ge 4) { throw }
+    Start-Sleep -Milliseconds 120
+  }
+}
+""", input_text=value)
+
+
+def _copy_image_file_to_windows_clipboard(image_path: str):
+  safe_path = os.path.abspath(str(image_path or '').strip())
+  if not os.path.isfile(safe_path):
+    raise RuntimeError(f'图片不存在：{safe_path}')
+  script = f"""
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$path = {_powershell_single_quoted(safe_path)}
+$bitmap = New-Object System.Drawing.Bitmap -ArgumentList $path
+for ($attempt = 0; $attempt -lt 5; $attempt++) {{
+  try {{
+    [System.Windows.Forms.Clipboard]::SetDataObject($bitmap, $true)
+    exit 0
+  }} catch {{
+    if ($attempt -ge 4) {{ throw }}
+    Start-Sleep -Milliseconds 120
+  }}
+}}
+"""
+  _run_windows_powershell(script)
+
+
 def _compose_feishu_paste_images(image_paths, index: int) -> str:
   valid_paths = [path for path in image_paths if path]
   if not valid_paths:
@@ -2039,6 +2254,228 @@ def _feishu_move_horizontal(steps: int, delay_seconds: float = 0.08):
   ])
 
 
+def _windows_focus_feishu_window():
+  return _run_windows_powershell(r"""
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public static class WorkbenchWindowFocus {
+  [DllImport("user32.dll")]
+  public static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll")]
+  public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+  [DllImport("user32.dll")]
+  public static extern bool IsIconic(IntPtr hWnd);
+}
+"@
+$keywords = @('飞书', 'Feishu', 'feishu.cn', 'Lark', 'larksuite.com')
+$browserNames = @('chrome', 'msedge')
+$feishuAppNames = @('Feishu', 'Lark', 'feishu', 'lark')
+$shell = $null
+try { $shell = New-Object -ComObject WScript.Shell } catch {}
+
+function Test-MatchKeyword([string]$Text) {
+  if ([string]::IsNullOrWhiteSpace($Text)) { return $false }
+  foreach ($keyword in $keywords) {
+    if ($Text.IndexOf($keyword, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+      return $true
+    }
+  }
+  return $false
+}
+
+function Activate-ProcessWindow($Process) {
+  if ($null -eq $Process -or $Process.MainWindowHandle -eq 0) { return $false }
+  try {
+    if ([WorkbenchWindowFocus]::IsIconic($Process.MainWindowHandle)) {
+      [WorkbenchWindowFocus]::ShowWindowAsync($Process.MainWindowHandle, 9) | Out-Null
+    } else {
+      [WorkbenchWindowFocus]::ShowWindowAsync($Process.MainWindowHandle, 5) | Out-Null
+    }
+    Start-Sleep -Milliseconds 80
+    if ($null -ne $shell) { $shell.AppActivate([int]$Process.Id) | Out-Null }
+    Start-Sleep -Milliseconds 80
+    [WorkbenchWindowFocus]::SetForegroundWindow($Process.MainWindowHandle) | Out-Null
+    Start-Sleep -Milliseconds 180
+    return $true
+  } catch {
+    return $false
+  }
+}
+
+$processes = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 }
+$browserProcesses = $processes | Where-Object { $browserNames -contains $_.ProcessName }
+$tabCondition = New-Object System.Windows.Automation.PropertyCondition -ArgumentList @(
+  [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+  [System.Windows.Automation.ControlType]::TabItem
+)
+
+foreach ($process in $browserProcesses) {
+  try {
+    $window = [System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
+    if ($null -eq $window) { continue }
+    $tabs = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $tabCondition)
+    foreach ($tab in $tabs) {
+      $name = [string]$tab.Current.Name
+      if (-not (Test-MatchKeyword $name)) { continue }
+      Activate-ProcessWindow $process | Out-Null
+      $selectionPattern = $null
+      if ($tab.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$selectionPattern)) {
+        $selectionPattern.Select()
+      } else {
+        $invokePattern = $null
+        if ($tab.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invokePattern)) {
+          $invokePattern.Invoke()
+        } else {
+          $tab.SetFocus()
+        }
+      }
+      Start-Sleep -Milliseconds 200
+      Activate-ProcessWindow $process | Out-Null
+      Write-Output $name
+      exit 0
+    }
+  } catch {}
+}
+
+$directMatches = $processes | Where-Object {
+  (Test-MatchKeyword ([string]$_.MainWindowTitle)) -and (
+    ($browserNames -contains $_.ProcessName) -or ($feishuAppNames -contains $_.ProcessName)
+  )
+}
+foreach ($process in $directMatches) {
+  if (Activate-ProcessWindow $process) {
+    Write-Output ([string]$process.MainWindowTitle)
+    exit 0
+  }
+}
+
+throw '未找到已打开的飞书/Lark 标签页或窗口。请先在 Chrome/Edge/飞书窗口打开目标多维表格，并选中要粘贴的起始单元格'
+""")
+
+
+def _windows_send_key_sequence(sequence):
+  parts = []
+  for keys, delay_seconds in sequence:
+    key_text = str(keys or '')
+    if not key_text:
+      continue
+    delay_ms = max(0, int(float(delay_seconds or 0) * 1000))
+    parts.append(f'[System.Windows.Forms.SendKeys]::SendWait({_powershell_single_quoted(key_text)})')
+    if delay_ms:
+      parts.append(f'Start-Sleep -Milliseconds {delay_ms}')
+  if not parts:
+    return
+  script = '\n'.join([
+    "$ErrorActionPreference = 'Stop'",
+    'Add-Type -AssemblyName System.Windows.Forms',
+    *parts,
+  ])
+  _run_windows_powershell(script)
+
+
+def _feishu_paste_current_clipboard_and_move_windows(delay_seconds: float):
+  _windows_focus_feishu_window()
+  _windows_send_key_sequence([
+    ('^v', max(0.1, delay_seconds)),
+    ('{DOWN}', 0.08),
+  ])
+
+
+def _feishu_move_down_only_windows():
+  _windows_focus_feishu_window()
+  _windows_send_key_sequence([('{DOWN}', 0.08)])
+
+
+def _feishu_paste_current_clipboard_windows(delay_seconds: float):
+  _windows_focus_feishu_window()
+  _windows_send_key_sequence([('^v', max(0.1, delay_seconds))])
+
+
+def _feishu_move_horizontal_windows(steps: int, delay_seconds: float = 0.08):
+  count = abs(int(steps or 0))
+  if count <= 0:
+    return
+  key_text = '{RIGHT}' if steps > 0 else '{LEFT}'
+  _windows_focus_feishu_window()
+  _windows_send_key_sequence([(key_text, max(0.02, delay_seconds)) for _ in range(count)])
+
+
+def _unsupported_feishu_paste_platform_error():
+  raise RuntimeError('自动粘贴当前支持 macOS + Google Chrome，以及 Windows + Chrome/Edge/飞书窗口')
+
+
+def _focus_feishu_paste_target():
+  if sys.platform == 'darwin':
+    return focus_existing_feishu_tab()
+  if sys.platform == 'win32':
+    return _windows_focus_feishu_window()
+  _unsupported_feishu_paste_platform_error()
+
+
+def _copy_text_to_feishu_clipboard(text: str):
+  if sys.platform == 'darwin':
+    _copy_text_to_macos_clipboard(text)
+    return
+  if sys.platform == 'win32':
+    _copy_text_to_windows_clipboard(text)
+    return
+  _unsupported_feishu_paste_platform_error()
+
+
+def _copy_image_file_to_feishu_clipboard(image_path: str):
+  if sys.platform == 'darwin':
+    _copy_png_file_to_macos_clipboard(image_path)
+    return
+  if sys.platform == 'win32':
+    _copy_image_file_to_windows_clipboard(image_path)
+    return
+  _unsupported_feishu_paste_platform_error()
+
+
+def _feishu_paste_current_clipboard_platform(delay_seconds: float):
+  if sys.platform == 'darwin':
+    _feishu_paste_current_clipboard(delay_seconds)
+    return
+  if sys.platform == 'win32':
+    _feishu_paste_current_clipboard_windows(delay_seconds)
+    return
+  _unsupported_feishu_paste_platform_error()
+
+
+def _feishu_paste_current_clipboard_and_move_platform(delay_seconds: float):
+  if sys.platform == 'darwin':
+    _feishu_paste_current_clipboard_and_move(delay_seconds)
+    return
+  if sys.platform == 'win32':
+    _feishu_paste_current_clipboard_and_move_windows(delay_seconds)
+    return
+  _unsupported_feishu_paste_platform_error()
+
+
+def _feishu_move_down_only_platform():
+  if sys.platform == 'darwin':
+    _feishu_move_down_only()
+    return
+  if sys.platform == 'win32':
+    _feishu_move_down_only_windows()
+    return
+  _unsupported_feishu_paste_platform_error()
+
+
+def _feishu_move_horizontal_platform(steps: int, delay_seconds: float = 0.08):
+  if sys.platform == 'darwin':
+    _feishu_move_horizontal(steps, delay_seconds=delay_seconds)
+    return
+  if sys.platform == 'win32':
+    _feishu_move_horizontal_windows(steps, delay_seconds=delay_seconds)
+    return
+  _unsupported_feishu_paste_platform_error()
+
+
 def _feishu_text_column(rows, key: str):
   values = []
   for row in rows:
@@ -2051,20 +2488,18 @@ def _feishu_text_column(rows, key: str):
 
 def _feishu_paste_text_column(rows, key: str, label: str, delay_seconds: float):
   text = _feishu_text_column(rows, key)
-  _copy_text_to_macos_clipboard(text)
-  _feishu_paste_current_clipboard(delay_seconds)
+  _copy_text_to_feishu_clipboard(text)
+  _feishu_paste_current_clipboard_platform(delay_seconds)
   return {'label': label, 'key': key, 'rows': len(rows), 'chars': len(text)}
 
 
 def paste_feishu_screenshots(rows, task_url: str, delay_ms: int = 850):
-  if sys.platform != 'darwin':
-    raise RuntimeError('自动粘贴截图当前只支持 macOS + Google Chrome')
   if not isinstance(rows, list) or not rows:
     raise RuntimeError('rows 不能为空')
   if len(rows) > 300:
     raise RuntimeError('一次最多粘贴 300 行')
   print(f'[feishu-paste] start rows={len(rows)} delay_ms={delay_ms}', flush=True)
-  focused_tab = focus_existing_feishu_tab()
+  focused_tab = _focus_feishu_paste_target()
   time.sleep(0.8)
   delay_seconds = max(0.25, min(3.0, int(delay_ms or 850) / 1000.0))
   pasted = 0
@@ -2073,7 +2508,7 @@ def paste_feishu_screenshots(rows, task_url: str, delay_ms: int = 850):
   for index, row in enumerate(rows, start=1):
     if not isinstance(row, dict):
       empty += 1
-      _feishu_move_down_only()
+      _feishu_move_down_only_platform()
       continue
     data_url = str(row.get('dataUrl') or row.get('data_url') or '').strip()
     image_paths = row.get('imagePaths') or row.get('image_paths') or []
@@ -2093,11 +2528,11 @@ def paste_feishu_screenshots(rows, task_url: str, delay_ms: int = 850):
       image_path = _save_feishu_paste_image(data_url, index)
     if not image_path:
       empty += 1
-      _feishu_move_down_only()
+      _feishu_move_down_only_platform()
       events.append({'index': index, 'order': order, 'indexInOrder': index_in_order, 'action': 'move-empty'})
       continue
-    _copy_png_file_to_macos_clipboard(image_path)
-    _feishu_paste_current_clipboard_and_move(delay_seconds)
+    _copy_image_file_to_feishu_clipboard(image_path)
+    _feishu_paste_current_clipboard_and_move_platform(delay_seconds)
     pasted += 1
     events.append({
       'index': index,
@@ -2120,15 +2555,13 @@ def paste_feishu_screenshots(rows, task_url: str, delay_ms: int = 850):
 
 
 def paste_feishu_batch_sessions(rows, delay_ms: int = 1200):
-  if sys.platform != 'darwin':
-    raise RuntimeError('自动粘贴主要列当前只支持 macOS + Google Chrome')
   if not isinstance(rows, list) or not rows:
     raise RuntimeError('rows 不能为空')
   if len(rows) > 300:
     raise RuntimeError('一次最多粘贴 300 行')
 
   print(f'[feishu-batch-paste] start rows={len(rows)} delay_ms={delay_ms}', flush=True)
-  focused_tab = focus_existing_feishu_tab()
+  focused_tab = _focus_feishu_paste_target()
   time.sleep(0.8)
   delay_seconds = max(0.35, min(3.0, int(delay_ms or 1200) / 1000.0))
   events = []
@@ -2138,13 +2571,13 @@ def paste_feishu_batch_sessions(rows, delay_ms: int = 1200):
   # -> 截图(-1)。截图最后逐行粘贴，因为图片粘贴会向下移动光标。
   # Trae Session ID 暂不纳入总按钮。
   events.append(_feishu_paste_text_column(rows, 'conversation', 'User Prompt', delay_seconds))
-  _feishu_move_horizontal(6)
+  _feishu_move_horizontal_platform(6)
   events.append(_feishu_paste_text_column(rows, 'dissatisfactionReason', '不满意原因', delay_seconds))
-  _feishu_move_horizontal(2)
+  _feishu_move_horizontal_platform(2)
   events.append(_feishu_paste_text_column(rows, 'order', '分支/文件夹', delay_seconds))
-  _feishu_move_horizontal(2)
+  _feishu_move_horizontal_platform(2)
   events.append(_feishu_paste_text_column(rows, 'logTrace', '日志轨迹', delay_seconds))
-  _feishu_move_horizontal(-1)
+  _feishu_move_horizontal_platform(-1)
 
   screenshot_result = paste_feishu_screenshots(rows, '', delay_ms=max(1200, int(delay_ms or 1200)))
   result = {
@@ -6305,12 +6738,15 @@ def extract_trae_session_rounds(order_token: str, include_trace: bool = True, de
 class Handler(SimpleHTTPRequestHandler):
   def _docs_data_path(self, request_path: str):
     if request_path == '/data':
-      return DOCS_DATA_DIR
+      return DATA_DIR if os.path.isdir(DATA_DIR) else DOCS_DATA_DIR
     relative = str(request_path[len('/data'):]).lstrip('/')
     normalized = os.path.normpath(relative)
     if normalized in ('', '.'):
-      return DOCS_DATA_DIR
+      return DATA_DIR if os.path.isdir(DATA_DIR) else DOCS_DATA_DIR
     parts = [part for part in normalized.split(os.sep) if part not in ('', '.', '..')]
+    local_path = os.path.join(DATA_DIR, *parts)
+    if os.path.exists(local_path):
+      return local_path
     return os.path.join(DOCS_DATA_DIR, *parts)
 
   def _send_static_file(self, path: str):
@@ -6370,6 +6806,10 @@ class Handler(SimpleHTTPRequestHandler):
 
     if parsed.path == '/api/workbench-config':
       self._json(200, {'ok': True, **workbench_defaults()})
+      return
+
+    if parsed.path == '/api/prompt-assets':
+      self._json(200, {'ok': True, 'assets': prompt_asset_statuses()})
       return
 
     if parsed.path == '/api/prompt-state':
@@ -6515,10 +6955,21 @@ class Handler(SimpleHTTPRequestHandler):
         old_folder = os.path.join(scene_dir, str(old_order)) if old_order else ''
         new_folder = os.path.join(scene_dir, str(order_token))
 
-        if str(old_order) != str(order_token) and old_folder and os.path.isdir(old_folder) and not os.path.exists(new_folder):
-          os.rename(old_folder, new_folder)
-        else:
-          os.makedirs(new_folder, exist_ok=True)
+        if str(old_order) != str(order_token):
+          if not old_folder or not os.path.isdir(old_folder):
+            self._json(404, {'ok': False, 'error': f'当前项目文件夹不存在：{old_folder or old_order}'})
+            return
+          if os.path.exists(new_folder):
+            self._json(409, {'ok': False, 'error': f'目标序号文件夹已存在：{new_folder}'})
+            return
+          try:
+            os.rename(old_folder, new_folder)
+          except OSError as err:
+            self._json(409, {'ok': False, 'error': f'项目文件夹重命名失败，请先关闭占用该目录的 Trae/终端：{err}'})
+            return
+        elif not os.path.isdir(new_folder):
+          self._json(404, {'ok': False, 'error': f'项目文件夹不存在：{new_folder}'})
+          return
 
         if str(order_token) == str(default_order):
           state['orders'].pop(prompt_id, None)
@@ -6699,7 +7150,8 @@ def main():
 
   os.chdir(ROOT_DIR)
   migrate_legacy_scene_dirs()
-  ensure_all_prompt_folders()
+  if os.environ.get('WORKBENCH_SYNC_FOLDERS_ON_START') == '1':
+    ensure_all_prompt_folders()
   server = ThreadingHTTPServer((host, port), Handler)
   print(f'Workbench API+UI server started at http://{host}:{port}/index.html')
   try:
