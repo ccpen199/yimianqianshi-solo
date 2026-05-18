@@ -1,0 +1,213 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model EvaluationSet {
+  id          String               @id @default(cuid())
+  name        String
+  description String?
+  businessScenario String?
+  isFrozen    Boolean              @default(false)
+  frozenAt    DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  questions   EvaluationQuestion[]
+  dimensions  EvaluationDimension[]
+  versions    EvaluationSetVersion[]
+  tasks       ModelTask[]
+}
+
+model EvaluationQuestion {
+  id               String        @id @default(cuid())
+  evaluationSetId  String
+  title            String
+  content          String
+  inputData        String?
+  referenceAnswer  String?
+  difficulty       String        @default("medium")
+  orderIndex       Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  evaluationSet    EvaluationSet @relation(fields: [evaluationSetId], references: [id], onDelete: Cascade)
+  taskSamples      TaskSample[]
+  scores           SampleScore[]
+}
+
+model EvaluationDimension {
+  id              String        @id @default(cuid())
+  evaluationSetId String
+  name            String
+  description     String?
+  weight          Float         @default(1.0)
+  maxScore        Float         @default(100.0)
+  orderIndex      Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  evaluationSet   EvaluationSet @relation(fields: [evaluationSetId], references: [id], onDelete: Cascade)
+  scores          SampleScore[]
+}
+
+model EvaluationSetVersion {
+  id              String        @id @default(cuid())
+  evaluationSetId String
+  version         String
+  description     String?
+  snapshot        String
+  createdAt       DateTime      @default(now())
+  evaluationSet   EvaluationSet @relation(fields: [evaluationSetId], references: [id], onDelete: Cascade)
+}
+
+model ModelTask {
+  id               String            @id @default(cuid())
+  name             String
+  modelName        String
+  modelVersion     String
+  promptVersion    String?
+  parameters       String?
+  concurrencyLimit Int               @default(1)
+  status           String            @default("pending")
+  progress         Int               @default(0)
+  totalSamples     Int               @default(0)
+  completedSamples Int               @default(0)
+  failedSamples    Int               @default(0)
+  startedAt        DateTime?
+  completedAt      DateTime?
+  failedReason     String?
+  evaluationSetId  String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  evaluationSet    EvaluationSet     @relation(fields: [evaluationSetId], references: [id], onDelete: Cascade)
+  samples          TaskSample[]
+  tokenConsumptions TokenConsumption[]
+  reports          EvaluationReport[]
+}
+
+model TaskSample {
+  id                  String         @id @default(cuid())
+  taskId              String
+  questionId          String
+  modelOutput         String?
+  status              String         @default("pending")
+  latencyMs           Int?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  failedReason        String?
+  retryCount          Int            @default(0)
+  lastRetryAt         DateTime?
+  inputTokenCount     Int            @default(0)
+  outputTokenCount    Int            @default(0)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  task                ModelTask      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  question            EvaluationQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  scores              SampleScore[]
+  reviews             ManualReview[]
+}
+
+model SampleScore {
+  id                  String         @id @default(cuid())
+  sampleId            String
+  questionId          String
+  dimensionId         String?
+  scoreType           String
+  score               Float
+  feedback            String?
+  scoredAt            DateTime       @default(now())
+  createdAt           DateTime       @default(now())
+  sample              TaskSample     @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+  question            EvaluationQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  dimension           EvaluationDimension? @relation(fields: [dimensionId], references: [id], onDelete: SetNull)
+  reviews             ManualReview[]
+}
+
+model ManualReview {
+  id                  String         @id @default(cuid())
+  sampleId            String
+  scoreId             String?
+  reviewerId          String
+  reviewerName        String
+  originalScore       Float?
+  newScore            Float
+  reason              String
+  status              String         @default("pending")
+  reviewedAt          DateTime       @default(now())
+  createdAt           DateTime       @default(now())
+  sample              TaskSample     @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+  score               SampleScore?   @relation(fields: [scoreId], references: [id], onDelete: SetNull)
+}
+
+model ScoringRule {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  ruleConfig  String
+  isActive    Boolean  @default(true)
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model EvaluationReport {
+  id                  String         @id @default(cuid())
+  taskId              String
+  name                String
+  accuracy            Float?
+  stability           Float?
+  avgLatencyMs        Float?
+  totalTokenCost      Float?
+  totalInputTokens    Int            @default(0)
+  totalOutputTokens   Int            @default(0)
+  lowScoreSamples     Int            @default(0)
+  totalSamples        Int            @default(0)
+  reportData          String?
+  status              String         @default("draft")
+  isPublished         Boolean        @default(false)
+  publishedAt         DateTime?
+  publishedBy         String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  task                ModelTask      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  conclusions         ReportConclusion[]
+}
+
+model ReportConclusion {
+  id          String           @id @default(cuid())
+  reportId    String
+  title       String
+  content     String
+  author      String
+  isFrozen    Boolean          @default(false)
+  frozenAt    DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  report      EvaluationReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+}
+
+model CostStatistics {
+  id               String   @id @default(cuid())
+  date             DateTime @unique
+  totalTasks       Int      @default(0)
+  totalInputTokens Int      @default(0)
+  totalOutputTokens Int     @default(0)
+  totalCost        Float    @default(0)
+  modelBreakdown   String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model TokenConsumption {
+  id               String    @id @default(cuid())
+  taskId           String
+  modelName        String
+  inputTokens      Int       @default(0)
+  outputTokens     Int       @default(0)
+  cost             Float     @default(0)
+  tokenPricePerK   Float     @default(0.015)
+  consumedAt       DateTime  @default(now())
+  task             ModelTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
