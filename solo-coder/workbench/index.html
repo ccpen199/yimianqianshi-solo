@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PromptHub</title>
-  <link rel="stylesheet" href="./styles.css?v=59" />
+  <link rel="stylesheet" href="./styles.css?v=61" />
 </head>
 <body>
   <main class="page">
@@ -91,21 +91,35 @@
             </div>
           </div>
 
+          <details id="batchGroupPicker" class="batch-group-picker">
+            <summary>
+              <span>选择组</span>
+              <small id="batchGroupPickerSummary">未选组</small>
+            </summary>
+            <div class="batch-group-picker-actions">
+              <button id="batchSelectAllGroups" type="button">全选</button>
+              <button id="batchClearSelectedGroups" type="button">清空</button>
+              <button id="batchAddSelectedGroupsToAutoBatch" type="button" class="batch-group-picker-apply-button">加入刷新队列</button>
+            </div>
+            <div id="batchGroupPickerList" class="batch-group-picker-list"></div>
+            <div id="batchGroupPickerStatus" class="batch-group-picker-status"></div>
+          </details>
+
           <div class="batch-trae-actions primary-actions">
             <button id="batchOpenTrae" type="button">开启 Trae</button>
             <button id="batchCloseTrae" type="button">关闭项目</button>
           </div>
           <div class="batch-auto-card">
             <div class="batch-auto-head">
-              <span>自动检测</span>
+              <span>批组刷新</span>
               <label class="batch-auto-threshold">
                 <span>目标轮次</span>
                 <input id="autoBatchMinRows" type="number" min="1" max="99" step="1" value="5" />
               </label>
             </div>
             <div class="batch-trae-actions batch-auto-actions">
-              <button id="toggleAutoBatchMissingSessions" type="button" class="batch-auto-refresh-button">自动检测关</button>
-              <button id="watchCurrentBatchGroup" type="button" class="batch-auto-watch-button">纳入当前组</button>
+              <button id="toggleAutoBatchMissingSessions" type="button" class="batch-auto-refresh-button">批组刷新</button>
+              <button id="watchCurrentBatchGroup" type="button" class="batch-auto-watch-button">当前组入队</button>
             </div>
             <div id="autoBatchWatchedGroups" class="batch-auto-status"></div>
           </div>
@@ -198,6 +212,6 @@
       </table>
     </div>
   </dialog>
-  <script src="./app.js?v=104"></script>
+  <script src="./app.js?v=108"></script>
 </body>
 </html>

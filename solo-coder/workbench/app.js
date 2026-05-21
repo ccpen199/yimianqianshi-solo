@@ -34,6 +34,12 @@ const batchTraeStatus = document.getElementById('batchTraeStatus');
 const openBatchSessionsButton = document.getElementById('openBatchSessions');
 const batchProjectList = document.getElementById('batchProjectList');
 const batchGroupSelect = document.getElementById('batchGroupSelect');
+const batchGroupPickerStatus = document.getElementById('batchGroupPickerStatus');
+const batchGroupPickerSummary = document.getElementById('batchGroupPickerSummary');
+const batchGroupPickerList = document.getElementById('batchGroupPickerList');
+const batchSelectAllGroupsButton = document.getElementById('batchSelectAllGroups');
+const batchClearSelectedGroupsButton = document.getElementById('batchClearSelectedGroups');
+const batchAddSelectedGroupsButton = document.getElementById('batchAddSelectedGroupsToAutoBatch');
 const batchGroupNameInput = document.getElementById('batchGroupName');
 const addToBatchGroupButton = document.getElementById('addToBatchGroup');
 const saveBatchGroupButton = document.getElementById('saveBatchGroup');
@@ -73,6 +79,7 @@ let selectedParts = { background: '', features: '', delivery: '' };
 let selectedBatchOrders = new Set();
 let batchGroups = {};
 let activeBatchGroup = '';
+let selectedBatchGroupNames = new Set(loadStoredStringList('batchGroupSelection'));
 let currentSessionRows = [];
 let sessionOrderList = [];
 let activeSessionOrder = '';
@@ -90,8 +97,7 @@ let batchScreenshotCopyIndex = 0;
 let promptPreviewVisible = localStorage.getItem('promptPreviewVisible') !== 'false';
 let batchMissingRefreshInProgress = false;
 let batchPasteInProgress = false;
-let autoBatchMissingEnabled = localStorage.getItem('autoBatchMissingSessions') === 'true';
-let autoBatchMissingTimer = null;
+let autoBatchMissingEnabled = false;
 let autoBatchWatchedGroups = new Set(loadStoredStringList('autoBatchWatchedGroups'));
 let llmAnnotationModels = [];
 let selectedLlmAnnotationModelId = localStorage.getItem('llmAnnotationModelId') || '';
@@ -304,6 +310,22 @@ function persistAutoBatchWatchedGroups() {
   saveStoredStringList('autoBatchWatchedGroups', autoBatchWatchedGroups);
 }
 
+function persistSelectedBatchGroups() {
+  saveStoredStringList('batchGroupSelection', selectedBatchGroupNames);
+}
+
+function pruneSelectedBatchGroups() {
+  const validNames = new Set(Object.keys(batchGroups || {}));
+  let changed = false;
+  for (const name of Array.from(selectedBatchGroupNames)) {
+    if (!validNames.has(name)) {
+      selectedBatchGroupNames.delete(name);
+      changed = true;
+    }
+  }
+  if (changed) persistSelectedBatchGroups();
+}
+
 function pruneAutoBatchWatchedGroups() {
   const validNames = new Set(Object.keys(batchGroups || {}));
   let changed = false;
@@ -325,21 +347,178 @@ function updateWatchCurrentBatchGroupButton() {
   if (!watchCurrentBatchGroupButton) return;
   const groupName = currentBatchGroupName();
   const watched = groupName && autoBatchWatchedGroups.has(groupName);
-  watchCurrentBatchGroupButton.textContent = watched ? '取消当前组' : '纳入当前组';
+  watchCurrentBatchGroupButton.textContent = watched ? '取消当前组入队' : '当前组入队';
   watchCurrentBatchGroupButton.classList.toggle('is-on', Boolean(watched));
   watchCurrentBatchGroupButton.disabled = !groupName;
+}
+
+function updateBatchGroupPickerSummary() {
+  if (!batchGroupPickerSummary) return;
+  const selectedCount = selectedBatchGroupNames.size;
+  const watchedCount = autoBatchWatchedGroups.size;
+  if (!Object.keys(batchGroups || {}).length) {
+    batchGroupPickerSummary.textContent = '暂无组';
+    return;
+  }
+  batchGroupPickerSummary.textContent = selectedCount
+    ? `已选 ${selectedCount} 组 · 队列 ${watchedCount} 组`
+    : `未选组 · 队列 ${watchedCount} 组`;
+}
+
+function setBatchGroupPickerStatus(text, isError = false) {
+  if (!batchGroupPickerStatus) return;
+  batchGroupPickerStatus.textContent = text || '';
+  batchGroupPickerStatus.classList.toggle('error', Boolean(isError));
+}
+
+function syncBatchGroupPickerButtons() {
+  const hasSelection = selectedBatchGroupNames.size > 0;
+  if (batchSelectAllGroupsButton) batchSelectAllGroupsButton.disabled = !Object.keys(batchGroups || {}).length;
+  if (batchClearSelectedGroupsButton) batchClearSelectedGroupsButton.disabled = !hasSelection;
+  if (batchAddSelectedGroupsButton) batchAddSelectedGroupsButton.disabled = !hasSelection;
+}
+
+function renderBatchGroupPicker() {
+  if (!batchGroupPickerList) return;
+  pruneSelectedBatchGroups();
+  const names = Object.keys(batchGroups || {}).sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }));
+  batchGroupPickerList.innerHTML = '';
+  if (!names.length) {
+    batchGroupPickerList.innerHTML = '<div class="batch-group-picker-empty">暂无组</div>';
+    updateBatchGroupPickerSummary();
+    syncBatchGroupPickerButtons();
+    setBatchGroupPickerStatus('');
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const name of names) {
+    const label = document.createElement('label');
+    label.className = 'batch-group-picker-item';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = name;
+    checkbox.checked = selectedBatchGroupNames.has(name);
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked) selectedBatchGroupNames.add(name);
+      else selectedBatchGroupNames.delete(name);
+      persistSelectedBatchGroups();
+      updateBatchGroupPickerSummary();
+      syncBatchGroupPickerButtons();
+      setBatchGroupPickerStatus(selectedBatchGroupNames.size ? `已选 ${selectedBatchGroupNames.size} 组` : '');
+    });
+    const text = document.createElement('span');
+    text.textContent = `${name} (${normalizeBatchOrders(batchGroups[name]).length})`;
+    if (autoBatchWatchedGroups.has(name)) {
+      text.appendChild(document.createTextNode(' · 队列'));
+    }
+    label.append(checkbox, text);
+    fragment.appendChild(label);
+  }
+  batchGroupPickerList.appendChild(fragment);
+  updateBatchGroupPickerSummary();
+  syncBatchGroupPickerButtons();
+  setBatchGroupPickerStatus(selectedBatchGroupNames.size ? `已选 ${selectedBatchGroupNames.size} 组` : '');
+}
+
+function setSelectedBatchGroups(names) {
+  selectedBatchGroupNames = new Set(
+    Array.from(names || [])
+      .map((name) => String(name || '').trim())
+      .filter((name) => name && Object.prototype.hasOwnProperty.call(batchGroups || {}, name)),
+  );
+  persistSelectedBatchGroups();
+  renderBatchGroupPicker();
+}
+
+function selectAllBatchGroups() {
+  const names = Object.keys(batchGroups || {});
+  setSelectedBatchGroups(names);
+}
+
+function clearSelectedBatchGroups() {
+  selectedBatchGroupNames.clear();
+  persistSelectedBatchGroups();
+  renderBatchGroupPicker();
+}
+
+function selectedValidBatchGroupNames() {
+  return Array.from(selectedBatchGroupNames)
+    .map((name) => String(name || '').trim())
+    .filter((name) => Object.prototype.hasOwnProperty.call(batchGroups || {}, name));
+}
+
+function sortBatchGroupNames(names) {
+  return Array.from(names || [])
+    .map((name) => String(name || '').trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }));
+}
+
+function autoBatchQueueGroupNames() {
+  const selectedGroupNames = sortBatchGroupNames(selectedValidBatchGroupNames());
+  if (selectedGroupNames.length) {
+    const selectedNames = selectedGroupNames
+      .filter((name) => normalizeBatchOrders(batchGroups[name] || []).length > 0);
+    return { names: selectedNames, source: 'selected' };
+  }
+  const watchedNames = sortBatchGroupNames(autoBatchWatchedGroups)
+    .filter((name) => normalizeBatchOrders(batchGroups[name] || []).length > 0);
+  return { names: watchedNames, source: 'watched' };
+}
+
+function addBatchGroupsToAutoBatch(groupNames) {
+  const names = Array.from(groupNames || [])
+    .map((name) => String(name || '').trim())
+    .filter((name) => Object.prototype.hasOwnProperty.call(batchGroups || {}, name));
+  let added = 0;
+  for (const name of names) {
+    if (!autoBatchWatchedGroups.has(name)) {
+      autoBatchWatchedGroups.add(name);
+      added += 1;
+    }
+  }
+  if (names.length) persistAutoBatchWatchedGroups();
+  return { names, added };
+}
+
+async function addSelectedBatchGroupsToAutoBatch() {
+  const { names, added } = addBatchGroupsToAutoBatch(selectedValidBatchGroupNames());
+  if (!names.length) {
+    setBatchGroupPickerStatus('请先勾选要加入刷新队列的组', true);
+    return;
+  }
+  renderBatchGroups();
+  renderBatchGroupPicker();
+  renderAutoBatchWatchedGroups();
+  setBatchGroupPickerStatus(
+    added
+      ? `已加入刷新队列：${names.join('，')}`
+      : `所选组都已在刷新队列中：${names.join('，')}`,
+  );
 }
 
 function renderAutoBatchWatchedGroups() {
   pruneAutoBatchWatchedGroups();
   updateWatchCurrentBatchGroupButton();
-  const names = Array.from(autoBatchWatchedGroups).sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }));
+  updateBatchGroupPickerSummary();
+  const queued = autoBatchQueueGroupNames();
+  if (queued.source === 'selected') {
+    if (!queued.names.length) {
+      setAutoBatchStatus('已选组没有项目，不能排队刷新未达标项目', true);
+      return;
+    }
+    const summary = queued.names.map((name) => `${name}(${normalizeBatchOrders(batchGroups[name] || []).length})`).join('，');
+    setAutoBatchStatus(`批组队列：已选 ${queued.names.length} 组，按顺序刷新未达标项目：${summary}`);
+    return;
+  }
+  const names = sortBatchGroupNames(autoBatchWatchedGroups);
   if (!names.length) {
-    setAutoBatchStatus(autoBatchMissingEnabled ? '自动检测已开，但还没有纳入任何组' : '未开启自动检测；先把已开始的组纳入检测');
+    setAutoBatchStatus('勾选组后点击“批组刷新”，会按组排队刷新未达标项目');
     return;
   }
   const summary = names.map((name) => `${name}(${normalizeBatchOrders(batchGroups[name] || []).length})`).join('，');
-  setAutoBatchStatus(`检测组：${summary}`);
+  setAutoBatchStatus(`刷新队列：${summary}`);
 }
 
 function selectedLlmAnnotationModel() {
@@ -455,6 +634,7 @@ async function runCurrentGroupDissatisfactionAnnotation() {
 
 function renderBatchGroups() {
   if (!batchGroupSelect) return;
+  pruneSelectedBatchGroups();
   pruneAutoBatchWatchedGroups();
   const previous = activeBatchGroup || batchGroupSelect.value;
   batchGroupSelect.innerHTML = '';
@@ -477,6 +657,7 @@ function renderBatchGroups() {
     batchGroupSelect.value = names[0];
     activeBatchGroup = names[0];
   }
+  renderBatchGroupPicker();
   renderAutoBatchWatchedGroups();
 }
 
@@ -552,6 +733,7 @@ async function deleteActiveBatchGroup() {
   autoBatchWatchedGroups.delete(groupName);
   persistAutoBatchWatchedGroups();
   activeBatchGroup = '';
+  pruneSelectedBatchGroups();
   renderBatchGroups();
   if (Object.keys(batchGroups).length) {
     loadBatchGroup(Object.keys(batchGroups).sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }))[0]);
@@ -590,12 +772,12 @@ async function toggleCurrentBatchGroupWatch() {
     autoBatchWatchedGroups.delete(groupName);
     persistAutoBatchWatchedGroups();
     renderBatchGroups();
-    setAutoBatchStatus(`已取消检测：${groupName}`);
+    setAutoBatchStatus(`已从刷新队列移除：${groupName}`);
     return;
   }
   const orders = normalizeBatchOrders(parseBatchOrders());
   if (!orders.length) {
-    setAutoBatchStatus('当前组没有项目，不能纳入自动检测', true);
+    setAutoBatchStatus('当前组没有项目，不能加入刷新队列', true);
     return;
   }
   if (!batchGroups[groupName] || normalizeBatchOrders(batchGroups[groupName]).join(',') !== orders.join(',')) {
@@ -604,8 +786,7 @@ async function toggleCurrentBatchGroupWatch() {
   autoBatchWatchedGroups.add(groupName);
   persistAutoBatchWatchedGroups();
   renderBatchGroups();
-  setAutoBatchStatus(`已纳入自动检测：${groupName}`);
-  scheduleAutoBatchMissingCheck(autoBatchMissingEnabled ? 1000 : 0);
+  setAutoBatchStatus(`已加入刷新队列：${groupName}`);
 }
 
 function syncBatchInputFromSelection() {
@@ -1408,7 +1589,6 @@ async function pasteBatchScreenshotsToFeishu() {
   } finally {
     batchPasteInProgress = false;
     pasteBatchScreenshotsToFeishuButton.disabled = false;
-    scheduleAutoBatchMissingCheck(autoBatchMissingEnabled ? 3000 : 0);
   }
 }
 
@@ -1448,7 +1628,6 @@ async function pasteBatchAllToFeishu() {
   } finally {
     batchPasteInProgress = false;
     pasteBatchAllToFeishuButton.disabled = false;
-    scheduleAutoBatchMissingCheck(autoBatchMissingEnabled ? 3000 : 0);
   }
 }
 
@@ -2155,6 +2334,7 @@ async function refreshMissingSessionOrder(order, threshold, options = {}) {
   const startedAt = Date.now();
   const maxWaitMs = 60000;
   let lastPayload = null;
+  let refreshStarted = false;
   const report = (text) => {
     if (typeof options.onProgress === 'function') options.onProgress(targetOrder, text);
     else setBatchSessionRefreshStatus(text);
@@ -2166,15 +2346,20 @@ async function refreshMissingSessionOrder(order, threshold, options = {}) {
       const response = await fetchWithTimeout('/api/refresh-trae-session-rounds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order: targetOrder, force: true, discover: true }),
+        body: JSON.stringify({
+          order: targetOrder,
+          force: !refreshStarted,
+          discover: !refreshStarted,
+        }),
       }, 0);
+      refreshStarted = true;
       const payload = await response.json();
       if (!payload.ok) throw new Error(payload.busy ? '刷新繁忙，请稍后再点' : (payload.error || '刷新失败'));
       lastPayload = payload;
       const rowCount = sessionPayloadRowCount(payload);
       if (payload.refreshPending) {
         const expectedText = payload.expectedRows ? `，预计 ${payload.expectedRows}` : '';
-        report(`后台轻量拉取中：${targetOrder} 当前 ${rowCount}/${threshold}${expectedText}`);
+        report(`后台深扫中：${targetOrder} 当前 ${rowCount}/${threshold}${expectedText}`);
         await sleep(2500);
         continue;
       }
@@ -2182,9 +2367,9 @@ async function refreshMissingSessionOrder(order, threshold, options = {}) {
         setSessionRefreshButtonState(targetOrder, 'success');
         return { payload, rowCount, complete: true };
       }
-      if (payload.deepScan) {
+      if (payload.deepScan || payload.refreshNoNewRows || payload.refreshNoLogTraceChanges) {
         setSessionRefreshButtonState(targetOrder, rowCount > 0 ? 'success' : 'empty');
-        return { payload, rowCount, complete: true };
+        return { payload, rowCount, complete: false };
       }
       report(`继续发现轮次：${targetOrder} 当前 ${rowCount}/${threshold}`);
       await sleep(700);
@@ -2226,15 +2411,15 @@ async function refreshBatchMissingSessions(options = {}) {
   if (autoBatchMissingSessionsButton) autoBatchMissingSessionsButton.disabled = true;
   const progress = new Map(missingOrders.map((order) => [order, '等待']));
   const summarizeProgress = () => {
-    const finished = Array.from(progress.values()).filter((value) => value.startsWith('完成') || value.startsWith('失败')).length;
+    const finished = Array.from(progress.values()).filter((value) => value.startsWith('完成') || value.startsWith('未达标') || value.startsWith('失败')).length;
     const running = missingOrders
       .filter((order) => {
         const value = progress.get(order) || '';
-        return value && !value.startsWith('等待') && !value.startsWith('完成') && !value.startsWith('失败');
+        return value && !value.startsWith('等待') && !value.startsWith('完成') && !value.startsWith('未达标') && !value.startsWith('失败');
       })
       .slice(0, 3);
     const runningText = running.length ? `；进行中：${running.join(', ')}` : '';
-    setBatchSessionRefreshStatus(`${options.auto ? '自动检测' : '并行刷新'} ${finished}/${missingOrders.length}${runningText}`);
+    setBatchSessionRefreshStatus(`${options.auto ? '批组刷新' : '并行刷新'} ${finished}/${missingOrders.length}${runningText}`);
   };
   setBatchSessionRefreshStatus(`待刷新 ${missingOrders.length} 项，并行上限 3：${missingOrders.join(', ')}`);
   try {
@@ -2249,7 +2434,7 @@ async function refreshBatchMissingSessions(options = {}) {
             summarizeProgress();
           },
         });
-        progress.set(order, `完成 ${result.rowCount}/${threshold}`);
+        progress.set(order, `${result.complete ? '完成' : '未达标'} ${result.rowCount}/${threshold}`);
         summarizeProgress();
         return result;
       } catch (error) {
@@ -2279,99 +2464,128 @@ async function refreshBatchMissingSessions(options = {}) {
   return true;
 }
 
-function updateAutoBatchMissingButton() {
+function updateAutoBatchMissingButton(renderStatus = true) {
   if (!autoBatchMissingSessionsButton) return;
-  autoBatchMissingSessionsButton.textContent = autoBatchMissingEnabled ? '自动检测开' : '自动检测关';
-  autoBatchMissingSessionsButton.classList.toggle('is-on', autoBatchMissingEnabled);
-  autoBatchMissingSessionsButton.setAttribute('aria-pressed', autoBatchMissingEnabled ? 'true' : 'false');
-  renderAutoBatchWatchedGroups();
-}
-
-function scheduleAutoBatchMissingCheck(delayMs = 30000) {
-  if (autoBatchMissingTimer) {
-    window.clearTimeout(autoBatchMissingTimer);
-    autoBatchMissingTimer = null;
-  }
-  if (!autoBatchMissingEnabled) return;
-  autoBatchMissingTimer = window.setTimeout(runAutoBatchMissingCheck, delayMs);
+  autoBatchMissingSessionsButton.textContent = batchMissingRefreshInProgress ? '批组刷新中' : '批组刷新';
+  autoBatchMissingSessionsButton.classList.toggle('is-on', batchMissingRefreshInProgress);
+  autoBatchMissingSessionsButton.setAttribute('aria-pressed', 'false');
+  if (renderStatus) renderAutoBatchWatchedGroups();
 }
 
 async function runAutoBatchMissingCheck() {
-  autoBatchMissingTimer = null;
-  if (!autoBatchMissingEnabled) return;
+  autoBatchMissingEnabled = true;
   let startedRefresh = false;
   try {
     if (batchPasteInProgress) {
-      setAutoBatchStatus('自动检测暂停：正在执行一键粘贴');
+      setAutoBatchStatus('批组刷新暂缓：正在执行一键粘贴');
       return;
     }
     if (batchMissingRefreshInProgress) return;
-    const watchedGroups = Array.from(autoBatchWatchedGroups)
-      .filter((name) => normalizeBatchOrders(batchGroups[name] || []).length > 0)
-      .sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }));
-    if (!watchedGroups.length) {
-      setAutoBatchStatus('自动检测已开，但还没有纳入任何组');
+    const queuedGroups = autoBatchQueueGroupNames();
+    if (!queuedGroups.names.length) {
+      setAutoBatchStatus(
+        queuedGroups.source === 'selected'
+          ? '所选组没有项目，不能排队刷新未达标项目'
+          : '请先在“选择组”里勾选要批组刷新的组',
+        true,
+      );
       return;
     }
     const threshold = autoBatchThreshold();
     if (autoBatchMinRowsInput) autoBatchMinRowsInput.value = String(threshold);
-    const orders = normalizeBatchOrders(watchedGroups.flatMap((name) => batchGroups[name] || []));
-    if (!orders.length) {
-      setAutoBatchStatus('自动检测暂停：检测组里没有项目', true);
-      return;
-    }
     batchMissingRefreshInProgress = true;
     startedRefresh = true;
+    updateAutoBatchMissingButton(false);
     if (refreshBatchMissingSessionsButton) refreshBatchMissingSessionsButton.disabled = true;
     if (autoBatchMissingSessionsButton) autoBatchMissingSessionsButton.disabled = true;
-    setAutoBatchStatus(`自动检测 ${watchedGroups.length} 组，读取 ${orders.length} 个项目...`);
+    setAutoBatchStatus(`批组刷新已启动：${queuedGroups.names.length} 组，按组顺序刷新未达标项目`);
 
-    const rowsByOrder = new Map();
-    await runWithConcurrency(orders, 6, async (order) => {
-      const rows = await fetchSessionRowsForOrder(order);
-      rowsByOrder.set(order, rows);
-      return rows;
-    });
+    let totalOrders = 0;
+    let totalMissing = 0;
+    const stillMissing = [];
+    const failedOrders = [];
+    for (const [groupIndex, groupName] of queuedGroups.names.entries()) {
+      if (!autoBatchMissingEnabled) {
+        setAutoBatchStatus(`批组刷新已停止：完成到第 ${groupIndex}/${queuedGroups.names.length} 组`);
+        return;
+      }
+      const orders = normalizeBatchOrders(batchGroups[groupName] || []);
+      if (!orders.length) continue;
+      totalOrders += orders.length;
+      setAutoBatchStatus(`批组刷新 ${groupIndex + 1}/${queuedGroups.names.length}：${groupName}，读取 ${orders.length} 个项目`);
 
-    const missingOrders = orders.filter((order) => sessionRowsValidCount(rowsByOrder.get(order) || []) < threshold);
-    if (!missingOrders.length) {
-      setAutoBatchStatus(`自动检测通过：${watchedGroups.length} 组全部达到 ${threshold} 轮`);
-      return;
+      const rowsByOrder = new Map();
+      await runWithConcurrency(orders, 6, async (order) => {
+        const rows = await fetchSessionRowsForOrder(order);
+        rowsByOrder.set(order, rows);
+        return rows;
+      });
+
+      const missingOrders = orders.filter((order) => sessionRowsValidCount(rowsByOrder.get(order) || []) < threshold);
+      if (!missingOrders.length) {
+        setAutoBatchStatus(`批组刷新 ${groupIndex + 1}/${queuedGroups.names.length}：${groupName} 已达标`);
+        continue;
+      }
+      totalMissing += missingOrders.length;
+      const progress = new Map(missingOrders.map((order) => [order, '等待']));
+      const summarize = () => {
+        const finished = Array.from(progress.values()).filter((value) => value.startsWith('完成') || value.startsWith('未达标') || value.startsWith('失败')).length;
+        const running = missingOrders
+          .filter((order) => {
+            const value = progress.get(order) || '';
+            return value && !value.startsWith('等待') && !value.startsWith('完成') && !value.startsWith('未达标') && !value.startsWith('失败');
+          })
+          .slice(0, 3);
+        const runningText = running.length ? `；进行中：${running.join(', ')}` : '';
+        setAutoBatchStatus(`批组刷新 ${groupIndex + 1}/${queuedGroups.names.length}：${groupName}，刷新未达标 ${finished}/${missingOrders.length}${runningText}`);
+      };
+
+      await runWithConcurrency(missingOrders, 3, async (order) => {
+        if (!autoBatchMissingEnabled) return null;
+        progress.set(order, `启动 ${sessionRowsValidCount(rowsByOrder.get(order) || [])}/${threshold}`);
+        summarize();
+        try {
+          const result = await refreshMissingSessionOrder(order, threshold, {
+            onProgress: (_, text) => {
+              progress.set(order, text);
+              summarize();
+            },
+          });
+          progress.set(order, `${result.complete ? '完成' : '未达标'} ${result.rowCount}/${threshold}`);
+          summarize();
+          return result;
+        } catch (error) {
+          failedOrders.push(order);
+          progress.set(order, `失败 ${error.message || error}`);
+          summarize();
+          return null;
+        }
+      });
+
+      const finalRowsByOrder = new Map();
+      await runWithConcurrency(orders, 6, async (order) => {
+        const rows = await fetchSessionRowsForOrder(order);
+        finalRowsByOrder.set(order, rows);
+        return rows;
+      });
+      const groupStillMissing = orders.filter((order) => sessionRowsValidCount(finalRowsByOrder.get(order) || []) < threshold);
+      stillMissing.push(...groupStillMissing);
+      if (batchSessionModal?.open && currentBatchSessionOrders.some((order) => orders.includes(order))) {
+        const results = await fetchBatchRowsForOrders(currentBatchSessionGroupName || currentBatchGroupName(), currentBatchSessionOrders);
+        renderBatchSessionRows({
+          groupName: currentBatchSessionGroupName || currentBatchGroupName(),
+          orders: currentBatchSessionOrders,
+          rows: results,
+        });
+      }
     }
 
-    const progress = new Map(missingOrders.map((order) => [order, '等待']));
-    const summarize = () => {
-      const finished = Array.from(progress.values()).filter((value) => value.startsWith('完成') || value.startsWith('失败')).length;
-      const running = missingOrders
-        .filter((order) => {
-          const value = progress.get(order) || '';
-          return value && !value.startsWith('等待') && !value.startsWith('完成') && !value.startsWith('失败');
-        })
-        .slice(0, 4);
-      setAutoBatchStatus(`自动拉取 ${finished}/${missingOrders.length}${running.length ? `；进行中：${running.join(', ')}` : ''}`);
-    };
-
-    await runWithConcurrency(missingOrders, 3, async (order) => {
-      progress.set(order, `启动 ${sessionRowsValidCount(rowsByOrder.get(order) || [])}/${threshold}`);
-      summarize();
-      try {
-        const result = await refreshMissingSessionOrder(order, threshold, {
-          onProgress: (_, text) => {
-            progress.set(order, text);
-            summarize();
-          },
-        });
-        progress.set(order, `完成 ${result.rowCount}/${threshold}`);
-        summarize();
-        return result;
-      } catch (error) {
-        progress.set(order, `失败 ${error.message || error}`);
-        summarize();
-        return null;
-      }
-    });
-
-    setAutoBatchStatus(`自动检测完成：本轮处理 ${missingOrders.length} 个未达标项目`);
+    setAutoBatchStatus(
+      stillMissing.length
+        ? `批组刷新完成：本轮刷新未达标 ${totalMissing} 项，仍未达标 ${stillMissing.length}/${totalOrders}：${stillMissing.slice(0, 8).join(', ')}${stillMissing.length > 8 ? '...' : ''}`
+        : `批组刷新完成：${queuedGroups.names.length} 组全部达到 ${threshold} 轮${failedOrders.length ? `，失败 ${failedOrders.length} 项` : ''}`,
+      stillMissing.length > 0 || failedOrders.length > 0,
+    );
     if (batchSessionModal?.open && currentBatchSessionOrders.length) {
       const results = await fetchBatchRowsForOrders(currentBatchSessionGroupName || currentBatchGroupName(), currentBatchSessionOrders);
       renderBatchSessionRows({
@@ -2381,12 +2595,13 @@ async function runAutoBatchMissingCheck() {
       });
     }
   } finally {
+    autoBatchMissingEnabled = false;
     if (startedRefresh) {
       batchMissingRefreshInProgress = false;
       if (refreshBatchMissingSessionsButton) refreshBatchMissingSessionsButton.disabled = false;
       if (autoBatchMissingSessionsButton) autoBatchMissingSessionsButton.disabled = false;
     }
-    scheduleAutoBatchMissingCheck();
+    updateAutoBatchMissingButton(false);
   }
 }
 
@@ -2801,6 +3016,24 @@ function bindBatchTraeControls() {
   if (batchGroupSelect) {
     batchGroupSelect.addEventListener('change', () => loadBatchGroup(batchGroupSelect.value));
   }
+  if (batchSelectAllGroupsButton) {
+    batchSelectAllGroupsButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      selectAllBatchGroups();
+    });
+  }
+  if (batchClearSelectedGroupsButton) {
+    batchClearSelectedGroupsButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      clearSelectedBatchGroups();
+    });
+  }
+  if (batchAddSelectedGroupsButton) {
+    batchAddSelectedGroupsButton.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      await addSelectedBatchGroupsToAutoBatch();
+    });
+  }
   if (addToBatchGroupButton) {
     addToBatchGroupButton.addEventListener('click', async () => {
       try {
@@ -3117,14 +3350,13 @@ if (refreshBatchMissingSessionsButton) {
 
 if (autoBatchMissingSessionsButton) {
   updateAutoBatchMissingButton();
-  scheduleAutoBatchMissingCheck(5000);
-  autoBatchMissingSessionsButton.addEventListener('click', (event) => {
+  autoBatchMissingSessionsButton.addEventListener('click', async (event) => {
     event.stopPropagation();
-    autoBatchMissingEnabled = !autoBatchMissingEnabled;
-    localStorage.setItem('autoBatchMissingSessions', autoBatchMissingEnabled ? 'true' : 'false');
-    updateAutoBatchMissingButton();
-    setAutoBatchStatus(autoBatchMissingEnabled ? '自动检测已开启' : '自动检测已关闭');
-    scheduleAutoBatchMissingCheck(autoBatchMissingEnabled ? 1000 : 0);
+    if (batchMissingRefreshInProgress) {
+      setAutoBatchStatus('批组刷新正在进行中');
+      return;
+    }
+    await runAutoBatchMissingCheck();
   });
 }
 
@@ -3134,7 +3366,7 @@ if (watchCurrentBatchGroupButton) {
     try {
       await toggleCurrentBatchGroupWatch();
     } catch (error) {
-      setAutoBatchStatus(`检测组设置失败：${error.message || error}`, true);
+      setAutoBatchStatus(`刷新队列设置失败：${error.message || error}`, true);
     }
   });
 }
@@ -3148,8 +3380,7 @@ if (autoBatchMinRowsInput) {
     const threshold = autoBatchThreshold();
     autoBatchMinRowsInput.value = String(threshold);
     localStorage.setItem('autoBatchMinRows', String(threshold));
-    setAutoBatchStatus(`自动检测目标已设为 ${threshold} 轮`);
-    scheduleAutoBatchMissingCheck(autoBatchMissingEnabled ? 1000 : 0);
+    setAutoBatchStatus(`批组刷新目标已设为 ${threshold} 轮`);
   });
 }
 
