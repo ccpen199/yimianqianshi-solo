@@ -2,7 +2,7 @@
 
 更新时间：2026-05-05
 
-本文只记录不同文档、不同修复阶段之间的方案差异和冲突。稳定共识看 `trae_session_common_rules_20260504.md`。
+本文只记录不同文档、不同修复阶段之间的方案差异和冲突。当前唯一实现口径看 `../current_workbench_column_rules_20260517.md`；稳定共识看 `trae_session_common_rules_20260504.md`。
 
 ## 时间线
 
@@ -10,9 +10,9 @@
 |---|---|---|---|
 | 2026-04-29 18:26:47 | `trae_session_extraction.json` | 扫描 Trae workspaceStorage，记录 workspace、session、input_history、ChatStore 是否存在 | 基础盘点方案，不负责生成完整 composite |
 | 2026-05-03 13:28:14 | `trae_session_extraction_report.md` | 报告 workspace 覆盖情况和输入历史数量 | 证明数据来源存在，但不能证明每轮都有 trace |
-| 2026-05-03 15:14:30 | `trae_session_chain.md` | 使用 `trace_rawSessionId.responseMessageId.chatMessageId` 作为目标格式 | 更接近当前实操中 `xm-20768` 这类真实 composite |
-| 2026-05-03 20:57:03 | `trae_session_refresh_rules_20260503.md` | 强调以 `create message` 为主，提出 `trace_rawSessionId.userMessageId.userMessageId` | 解决污染和时间错位，但与 responseMessageId 方案存在冲突 |
-| 2026-05-04 | 当前排错补充 | 对旧日志做精准 `create message` 搜索，并保留真实 response/task id | 当前实际采用：create message 定主链路，第二段可用真实 response/task id |
+| 2026-05-03 15:14:30 | `trae_session_chain.md` 历史版 | 曾使用 `trace_rawSessionId.responseMessageId.chatMessageId` 作为目标格式 | 已废弃，字段顺序会导致 user/task 反置 |
+| 2026-05-03 20:57:03 | `trae_session_refresh_rules_20260503.md` 历史版 | 强调以 `create message` 为主，提出 `trace_rawSessionId.userMessageId.userMessageId` | 仍作为保底方案，但不是最终格式 |
+| 2026-05-04/2026-05-17 | 当前排错补充 | 对旧日志做精准 `create message` 搜索，并保留真实 response/task id | 当前实际采用：`create message` 定主链路，格式为 `userMessageId.taskMessageId` |
 | 2026-05-04 20:55 | 方案 E | 手动刷新同步精准拉取并覆盖缓存 | 当前推荐落地方案：刷新必须重新拉取，不能只显示旧缓存 |
 | 2026-05-05 | 方案 F | 显式 `rg` 路径 + `full/precise` 双通道刷新取更多行 + 行数保护 | 当前代码实际方案；解决 `launchctl` 环境漏轮次、`xm-20789` 刷新 2/3 条不一致 |
 
@@ -61,7 +61,7 @@
 
 - 修改时间：2026-05-03 15:14:30
 
-目标格式：
+历史目标格式：
 
 ```text
 .{userId}:{traceId}_{rawSessionId}.{responseMessageId}.{chatMessageId}:Trae CN.T(YYYY/M/D HH:MM:SS)
@@ -96,7 +96,7 @@
 
 当前判断：
 
-可采用，但必须加限制：第二段只能用同 session、同轮、真实日志里的 response/task id；时间仍以 create message 为准。
+该方案已废弃。它把 response/task id 放在用户消息 id 前面，容易生成 `task.user` 顺序。当前格式固定为 `userMessageId.taskMessageId`。
 
 ## 方案 C：userMessageId.userMessageId 纯 create-message 方案
 
@@ -153,7 +153,7 @@
 
 当前判断：
 
-该方案适合作为保底方案。找不到真实 response/task id 时，可以退回 `userMessageId.userMessageId`；但不能覆盖已确认的真实 `responseMessageId.chatMessageId`。
+该方案适合作为保底方案。找不到真实 response/task id 时，可以退回 `userMessageId.userMessageId`；但不能覆盖已确认的真实 `userMessageId.taskMessageId`。
 
 ## 方案 D：2026-05-04 当前实操方案
 
@@ -171,10 +171,10 @@
 - `traceId`
 - `Trae CN.T(...)` 时间
 
-2. 第二段优先使用真实 response/task id，但必须满足：
+2. 第四段优先使用真实 response/task id，但必须满足：
 
 - 来自同一个 `rawSessionId`。
-- 与该轮 `chatMessageId` 同轮或时间接近。
+- 与该轮 `userMessageId` 同轮或时间接近。
 - 出现在 renderer/tool/file_summary/block 等真实日志中。
 - 不能用别的轮次 id。
 
@@ -217,6 +217,7 @@
 触发场景：
 
 - 用户点击右侧或操作列的 `↻` 刷新按钮。
+- 前端请求必须显式发送 `force=true, discover=true`，让后端走 deep scan 重拉链路。
 
 核心规则：
 
@@ -229,22 +230,23 @@ rg 'create message, chat_session_id:\s*<sessionId>, message_id:' logs
 ```
 
 4. 每条 create message 生成一条候选轮次。
-5. `input_history` 只提供会话文本，按时间顺序和 create message 对齐。
+5. `input_history` 主要提供会话文本，按时间顺序和 create message 对齐；附件/截图时间只能作弱对齐参考，不能单独决定轮次。
 6. 同一 trace 的 `reportFrontResponse status=Failed`、`errCode/code=3003`、`TASK Failed` 或 `TASK Cancelled/Canceled` 只用于按需排查发送后失败或中断；会话行仍以 `create message + traceId` 为准保留。撤回/未发送的判断标准是缺少同轮 `create message/traceId`，不是会话文本里出现报错内容。
 7. 第二段优先用同 session、同轮、时间接近的 response/task id；找不到则退回 user message id。
 8. 拉到真实 rows 后覆盖缓存。
 9. 如果精准拉取结果为空，而旧缓存有真实 rows，保留旧缓存，不用空结果覆盖。
+10. 如果队列里有同序号的已完成旧任务，新手动刷新不能直接返回旧任务结果；必须清掉旧 future，并按本次 `force/discover` 参数启动新的重拉任务。
 
 目标格式：
 
 ```text
-.{userId}:{traceId}_{rawSessionId}.{responseOrTaskMessageId}.{chatMessageId}:Trae CN.T(createMessageTime)
+.{userId}:{traceId}_{rawSessionId}.{userMessageId}.{taskMessageId}:Trae CN.T(createMessageTime)
 ```
 
 保底格式：
 
 ```text
-.{userId}:{traceId}_{rawSessionId}.{chatMessageId}.{chatMessageId}:Trae CN.T(createMessageTime)
+.{userId}:{traceId}_{rawSessionId}.{userMessageId}.{userMessageId}:Trae CN.T(createMessageTime)
 ```
 
 为什么要从方案 D 调整到方案 E：
@@ -253,6 +255,7 @@ rg 'create message, chat_session_id:\s*<sessionId>, message_id:' logs
 - 如果旧缓存是空，用户会看到“暂无会话输入记录”，误以为刷新失败。
 - 手动刷新在用户语义上就是“重新拉取并覆盖缓存”，不是“先展示旧缓存，后台慢慢补”。
 - `xm-20791` 的截图证明：后台正在拉取时，弹窗仍显示旧空缓存，体验和判断都不对。
+- `may-4837` 的复测证明：`force=true, discover=true` 能从旧 1 条缓存深扫重建为 6 条；如果先返回已完成的旧 `identityOnlyRefresh` future，会让用户误以为深扫已执行但行数没变。
 
 方案 E 的取舍：
 
@@ -298,14 +301,14 @@ rg 'create message, chat_session_id:\s*<sessionId>, message_id:' logs
 - `full`：`extract_trae_session_rounds(... allow_full_scan=True)`
 - `precise`：`extract_trae_session_rounds_precise(...)`
 
-3. 两条路径都成功时，先取行数更多的一方作为刷新结果；如果行数相同，则比较 composite 质量，优先保留第二段为真实 response/task message id 的结果，而不是 `chatMessageId.chatMessageId` 保底结果。
+3. 两条路径都成功时，先取行数更多的一方作为刷新结果；如果行数相同，则比较 composite 质量，优先保留第四段为真实 response/task message id 的结果，而不是 `userMessageId.userMessageId` 保底结果。
 4. 如果新结果行数少于已有缓存行数，不允许覆盖旧缓存。
 5. 如果新结果是 0 行，而旧缓存已有真实 rows，也不允许用 0 行覆盖。
 6. 缓存保护只防止“真实 response/task message id 被保底结果降级”，不能阻止旧保底缓存升级为真实 response/task message id。
 7. `Trae CN.T(...)` 时间统一收敛到：
 
 ```text
-create message 日志时间 > chatMessageId ObjectId 时间 > task/response ObjectId 时间
+create message 日志时间 > userMessageId ObjectId 时间 > task/response ObjectId 时间
 ```
 
 不再允许用刷新时刻兜底写时间。
@@ -320,25 +323,26 @@ create message 日志时间 > chatMessageId ObjectId 时间 > task/response Obje
 
 `may-979` / `may-980` 的补充结论：
 
-- 这两个样本中 `full` 路径能找到 create message、trace 和 chat message，但第二段会退回 `chatMessageId.chatMessageId` 保底格式。
+- 这两个样本中 `full` 路径能找到 create message、trace 和 user message，但第四段会退回 `userMessageId.userMessageId` 保底格式。
 - `precise` 路径能从同 trace、同 session、同轮日志中找到真实 task/response message id。
 - 因为 `full` 与 `precise` 都只有 1 条，旧的“只看行数”选择规则会继续保留保底格式，导致前端 Session 列看起来仍然失败。
-- 当前代码已改为“行数优先、质量次之”：同条数时，`responseOrTaskMessageId.chatMessageId` 胜过 `chatMessageId.chatMessageId`。
+- 当前代码已改为“行数优先、质量次之”：同条数时，`userMessageId.taskMessageId` 胜过 `userMessageId.userMessageId`。
 - 旧缓存若是保底格式，后续刷新允许被真实 task/response id 覆盖；旧缓存若已经是真实 task/response id，后续刷新不能用保底格式覆盖。
 
 ## 核心分歧：第二段到底是什么
 
 | 方案 | 第二段 | 优点 | 风险 |
 |---|---|---|---|
-| `responseMessageId.chatMessageId` | 响应/任务/前端消息 id | 更贴近真实 Trae UI 链路 | 找错会错配 |
-| `userMessageId.userMessageId` | 用户 create message id | 稳、简单、不易污染 | 会丢失真实 response/task id |
-| 当前折中 | 有真实 response/task id 就用，否则退回 userMessageId | 兼容真实样本和保底规则 | 需要更严格的校验 |
+| `responseMessageId.chatMessageId` | 响应/任务 id 在前、用户消息 id 在后 | 历史上贴近某些 UI 链路 | 已废弃，容易反置字段 |
+| `userMessageId.userMessageId` | 用户 create message id 重复两段 | 稳、简单、不易污染 | 会丢失真实 response/task id |
+| 当前折中 | `userMessageId.taskMessageId`，找不到 task 时退回 `userMessageId.userMessageId` | 兼容真实样本和保底规则 | 需要严格校验同轮 task |
 
 最终取舍：
 
 - 时间和 trace 必须以 `create message` 为准。
-- 第二段可以是 response/task id，但必须是真实同轮数据。
-- 找不到第二段时，才退回 userMessageId。
+- 第三段必须是 `userMessageId`。
+- 第四段可以是 response/task id，但必须是真实同轮数据。
+- 找不到第四段时，才退回 `userMessageId`。
 - 已有真实 composite 不能被退化结果覆盖。
 
 ## 核心分歧：时间来源
@@ -407,13 +411,13 @@ rg 'create message, chat_session_id:\s*<sessionId>, message_id:' logs
 推荐采用“方案 F：显式 `rg` 路径 + 双通道刷新取更多行 + 行数保护”。底层仍是“create-message 主链路 + response/task id 受控补齐”：
 
 ```text
-.{userId}:{traceId}_{rawSessionId}.{responseOrTaskMessageId}.{chatMessageId}:Trae CN.T(createMessageTime)
+.{userId}:{traceId}_{rawSessionId}.{userMessageId}.{taskMessageId}:Trae CN.T(createMessageTime)
 ```
 
 保底：
 
 ```text
-.{userId}:{traceId}_{rawSessionId}.{chatMessageId}.{chatMessageId}:Trae CN.T(createMessageTime)
+.{userId}:{traceId}_{rawSessionId}.{userMessageId}.{userMessageId}:Trae CN.T(createMessageTime)
 ```
 
 硬规则：

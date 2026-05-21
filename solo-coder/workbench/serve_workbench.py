@@ -6704,10 +6704,13 @@ def queued_refresh_trae_session_cache(order_token: str, force: bool = False, dis
       future = None
     if future is not None and future.done():
       TRAE_REFRESH_TASKS.pop(order, None)
-      completed_future = future
-    elif future is not None and not future.done():
+      if force:
+        future = None
+      else:
+        completed_future = future
+    if completed_future is None and future is not None and not future.done():
       queued = True
-    else:
+    elif completed_future is None:
       if force:
         cached_payload = read_json(_session_cache_path(order), None)
         cached_rows = (cached_payload or {}).get('rows') if isinstance(cached_payload, dict) else []

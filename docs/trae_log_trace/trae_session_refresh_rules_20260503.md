@@ -1,5 +1,8 @@
 # Trae 会话刷新规则复盘
 
+> 历史复盘文档。当前唯一实现口径见 [current_workbench_column_rules_20260517.md](./current_workbench_column_rules_20260517.md)。
+> 本文中早期提出的 `userMessageId.userMessageId` 只作为保底方案，不再是当前最终格式。
+
 更新时间：2026-05-03
 
 本文记录 `xm-12232` 到 `xm-12244` 这轮排错后确定下来的 Trae 会话刷新规则。以后再出现 `missing_trace`、sessionId 缩短、时间错位、刷新后只剩一条、前端显示空行时，先按本文判断，不要重新发明提取逻辑。
@@ -12,16 +15,18 @@
 2. sessionId 复合结构固定为：
 
 ```text
-.{userId}:{traceId}_{rawSessionId}.{userMessageId}.{userMessageId}:Trae CN.T(YYYY/M/D HH:MM:SS)
+.{userId}:{traceId}_{rawSessionId}.{userMessageId}.{taskMessageId}:Trae CN.T(YYYY/M/D HH:MM:SS)
 ```
 
 3. 时间取用户消息创建时间，也就是 `create message` 对应时间。
-4. 后续 tool、plan、block、renderer 日志只能补 `traceId`，不能覆盖用户消息的 `messageId` 和时间。
+4. 后续 tool、plan、block、renderer 日志只能补 `traceId` 或同轮 `taskMessageId`，不能覆盖用户消息 id 和时间。
 5. 没有真实 32 位 `trace_id` 的轮次不能写入表格行。
 6. 不能生成 `missing_trace`、`missing_session`、`missing_chat`。
 7. 不能复用别的轮次 trace，也不能生成重复 composite sessionId。
 8. 新刷新结果为空时，不能覆盖旧的有效缓存。
-9. `input_history` 只提供会话文本；它可能重复、可能残缺，不能反过来决定 trace 或 messageId。
+9. `input_history` 主要提供会话文本；它可能重复、可能残缺，附件/截图时间只能作弱对齐参考，不能反过来决定 trace 或 messageId。
+10. 前端单项 `↻` 手动刷新应发送 `force=true, discover=true`，直接触发 deep scan 重拉；已有缓存不能把手动刷新降级成只修 Session 身份列。
+11. 队列里已完成的旧任务不能吞掉新的手动刷新请求；新的 `force=true` 请求应清掉旧 future 并创建本次重拉任务。
 
 如果规则之间冲突，按上面的顺序取舍。尤其是第 1-4 条优先级最高。
 
@@ -53,7 +58,7 @@
 最终保留逻辑：
 
 - 优先 `create message`。
-- `sessionId` 结构用 `trace_sessionId.userMessageId.userMessageId`。
+- `sessionId` 结构用 `trace_sessionId.userMessageId.taskMessageId`；找不到真实 task/response id 时才退回 `userMessageId.userMessageId`。
 - 时间用用户消息创建时间。
 - 后续 tool/task 行只补 trace，不覆盖时间。
 - 不生成 `missing_trace`。
@@ -89,37 +94,16 @@
 - `used_composites` 会跳过重复 composite。
 - `effective_input_items` 会跳过连续重复且无媒体的输入，降低重复 input_history 对对齐的影响。
 
-仍不完全符合的风险点：
-
-- 复合 ID 生成处仍使用 `taskMessageId`：
-
-```python
-task_message_id = meta.get('taskMessageId') or fallback_chat_message_id
-time_text = (
-  _object_id_time_text(task_message_id)
-  or meta.get('time')
-  or ...
-)
-composite = f".{trace_user}:{trace_id}_{fallback_session_id}.{task_message_id}.{fallback_chat_message_id}:{app_name}.T({time_text})"
-```
-
-这与“`userMessageId.userMessageId` + create message 时间”的前置规则存在冲突。如果 `taskMessageId` 被后续 tool/block 日志改成响应消息或任务消息，程序仍可能生成：
-
-```text
-trace_sessionId.taskMessageId.userMessageId
-```
-
-并且时间可能来自 `taskMessageId` 的 ObjectId 内嵌时间，而不是用户 `create message` 时间。
-
-因此，当前程序是“多数保护规则已具备，但复合 ID 生成优先级仍有遗留风险”。后续修复应优先把 composite 生成固定为：
+当前程序已采用最新折中规则：
 
 ```python
 user_message_id = chat_message_id
-time_text = meta.get('time') or _object_id_time_text(user_message_id)
-composite = f".{trace_user}:{trace_id}_{session_id}.{user_message_id}.{user_message_id}:{app_name}.T({time_text})"
+task_message_id = real_task_or_response_id or user_message_id
+time_text = meta.get('time') or _object_id_time_text(user_message_id) or _object_id_time_text(task_message_id)
+composite = f".{trace_user}:{trace_id}_{session_id}.{user_message_id}.{task_message_id}:Trae CN.T({time_text})"
 ```
 
-并确保 tool/block 只补 `traceId`，不改 `user_message_id` 和 `time_text`。
+也就是说，`create message` 决定用户消息 id、trace 和时间；同轮真实 response/task id 只补第四段。找不到真实 response/task id 时才使用 `userMessageId.userMessageId` 保底。
 
 ## `xm-12233` 到 `xm-12235` 为什么为空
 
@@ -201,10 +185,12 @@ PY
 
 只改一处核心规则，避免再引入映射错位：
 
-- composite 生成时禁用 `taskMessageId` 作为第二段。
-- 第二段和第三段都使用用户 `chat_message_id`。
+后续修复必须保持当前核心规则：
+
+- composite 第三段固定为用户 `chat_message_id`。
+- composite 第四段优先同轮真实 `taskMessageId`，找不到才退回用户 `chat_message_id`。
 - 时间优先 `meta['time']`，也就是 `create message` 时间。
-- tool/block/renderer 日志只允许补 `traceId`，不得覆盖 `sessionId`、`chatMessageId`、`time`。
+- tool/block/renderer 日志只允许补 `traceId` 或同轮 task 信息，不得覆盖 `sessionId`、`chatMessageId`、`time`。
 
 修改后必须重新验证：
 

@@ -2065,7 +2065,7 @@ async function refreshSessionCache(order, button, options = {}) {
     const response = await fetchWithTimeout('/api/refresh-trae-session-rounds', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order: targetOrder, force: !isPoll }),
+      body: JSON.stringify({ order: targetOrder, force: !isPoll, discover: !isPoll }),
     }, 0);
     const payload = await response.json();
     if (!payload.ok) throw new Error(payload.busy ? '刷新繁忙，请稍后再点' : (payload.error || '刷新失败'));
@@ -2166,7 +2166,7 @@ async function refreshMissingSessionOrder(order, threshold, options = {}) {
       const response = await fetchWithTimeout('/api/refresh-trae-session-rounds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order: targetOrder, force: true, discover: false }),
+        body: JSON.stringify({ order: targetOrder, force: true, discover: true }),
       }, 0);
       const payload = await response.json();
       if (!payload.ok) throw new Error(payload.busy ? '刷新繁忙，请稍后再点' : (payload.error || '刷新失败'));
